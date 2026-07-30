@@ -65,6 +65,7 @@ import { navStore } from './subnav'
 import { getRgbaFromVar } from './shared/colors'
 import { CallToAction } from './shared/CallToAction'
 import Button from './shared/Button'
+import { t } from './i18n'
 
 const Navigation: Component = () => {
   let parent: any
@@ -239,10 +240,10 @@ const Navigation: Component = () => {
           <Show when={state.config.policies}>
             <div class="text-500 flex w-full justify-center gap-4 text-xs">
               <div>
-                <A href="/terms-of-service">Term of Service</A>
+                <A href="/terms-of-service">{t('termsOfService')}</A>
               </div>
               <div>
-                <A href="/privacy-policy">Privacy Policy</A>
+                <A href="/privacy-policy">{t('privacyPolicy')}</A>
               </div>
             </div>
           </Show>
@@ -294,7 +295,7 @@ const UserNavigation: Component = () => {
         <Show when={guidance()}>
           <Item href="/saga" ariaLabel="Sagas Preview">
             <Wand2 aria-hidden="true" />
-            Sagas Preview
+            {t('sagasPreview')}
           </Item>
         </Show>
 
@@ -302,7 +303,7 @@ const UserNavigation: Component = () => {
         <MultiItem>
           <Item href="/presets" ariaLabel="Presets">
             <Sliders aria-hidden="true" />
-            <span aria-hidden="true">Presets</span>
+            <span aria-hidden="true">{t('presets')}</span>
           </Item>
           <EndItem>
             <A class="icon-button" href="/presets/new" role="button" aria-label="Add a new preset">
@@ -318,20 +319,20 @@ const UserNavigation: Component = () => {
         <Show when={user.user?.admin}>
           <Item href="/admin/metrics" ariaLabel="Manage">
             <Activity aria-hidden="true" />
-            <span aria-hidden="true">Manage</span>
+            <span aria-hidden="true">{t('manage')}</span>
           </Item>
           <SubMenu>
             <SubItem href="/admin/configuration" parent="/" ariaLabel="Configuration">
-              Configuration
+              {t('configuration')}
             </SubItem>
             <SubItem href="/admin/users" parent="/" ariaLabel="Users">
-              Users
+              {t('users')}
             </SubItem>
             <SubItem href="/admin/subscriptions" parent="/" ariaLabel="Subscriptions">
-              Subscriptions
+              {t('subscriptions')}
             </SubItem>
             <SubItem href="/admin/announcements" parent="/" ariaLabel="Announcements">
-              Announcements
+              {t('announcements')}
             </SubItem>
           </SubMenu>
         </Show>
@@ -365,7 +366,7 @@ const GuestNavigation: Component = () => {
             onClick={() => soundEmitter.emit('menu-item-clicked', 'login')}
             class="tour-register"
           >
-            <LogIn /> Login
+            <LogIn /> {t('login')}
           </Item>
         </Show>
 
@@ -391,7 +392,7 @@ const GuestNavigation: Component = () => {
               ariaLabel="Presets"
               onClick={() => soundEmitter.emit('menu-item-clicked', 'presets')}
             >
-              <Sliders /> Presets
+              <Sliders /> {t('presets')}
             </Item>
             <EndItem>
               <A
@@ -667,7 +668,7 @@ const Library: Component<{}> = (props) => {
         onClick={() => soundEmitter.emit('menu-item-clicked', 'library')}
       >
         <Book aria-hidden="true" />
-        <span aria-hidden="true"> Library </span>
+        <span aria-hidden="true"> {t('library')} </span>
       </Item>
     </div>
   )
@@ -679,7 +680,7 @@ const Sounds: Component<{}> = (props) => {
   return (
     <MultiItem>
       <Item href="/sounds" onClick={() => soundEmitter.emit('menu-item-clicked', 'sounds')}>
-        <Speaker /> Sounds
+        <Speaker /> {t('sounds')}
       </Item>
       <EndItem>
         <a class="icon-button" onClick={() => audioStore.toggleMuteTrack('master')}>
@@ -705,7 +706,7 @@ const CharacterLink = () => {
         class="tour-character"
       >
         <WizardIcon aria-hidden="true" />
-        <span aria-hidden="true"> Characters </span>
+        <span aria-hidden="true"> {t('characters')} </span>
       </Item>
       <EndItem>
         <A class="icon-button" href="/editor" role="button" aria-label="Add a new character">
@@ -725,7 +726,7 @@ const ChatLink = () => {
         onClick={() => soundEmitter.emit('menu-item-clicked', 'chats')}
       >
         <MessageCircle fill="var(--bg-100)" aria-hidden="true" />
-        <span aria-hidden="true"> Chats </span>
+        <span aria-hidden="true"> {t('chats')} </span>
       </Item>
       <EndItem>
         <A class="icon-button" href="/chats/create" role="button" aria-label="Create a new chat">
@@ -785,7 +786,7 @@ export const UserProfile = () => {
               if (menu.showMenu) pageStore.closeMenu()
             }}
           >
-            Persona
+            {t('persona')}
             {/* <VenetianMask aria-hidden="true" /> */}
           </Button>
         </div>
@@ -870,7 +871,7 @@ export const SubCTA: Component<{
     <Show when={settings.config.patreon}>
       <CallToAction theme="hl" targets={['guests', 'users']} width={props.width || 'fit'}>
         <div class="flex cursor-pointer justify-center text-center text-sm" onClick={openSubPage}>
-          <Show when={props.children} fallback={<>Subscribe for higher quality chats and no ads</>}>
+          <Show when={props.children} fallback={<>{t('subscribe')}</>}>
             {props.children}
           </Show>
         </div>

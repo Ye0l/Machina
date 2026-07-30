@@ -3,6 +3,8 @@ import Tabs, { useTabs } from '/web/shared/Tabs'
 import { MessageUISettings } from './ui/MessageUISettings'
 import { ChatUISettings } from './ui/ChatUISettings'
 import { ThemeUISettings } from './ui/ThemeUISettings'
+import Select from '/web/shared/Select'
+import { LOCALE_OPTIONS, locale, setLocale } from '/web/i18n'
 
 const TABS = {
   Theme: 'Theme',
@@ -15,6 +17,14 @@ const UISettings: Component<{}> = () => {
 
   return (
     <>
+      <Select
+        fieldName="language"
+        label="Language"
+        items={LOCALE_OPTIONS}
+        value={locale()}
+        onChange={(item) => setLocale(item.value)}
+      />
+
       <Tabs tabs={tabs.tabs()} select={tabs.select} selected={tabs.selected} />
 
       <div classList={{ hidden: tabs.current() !== TABS.Theme }}>
