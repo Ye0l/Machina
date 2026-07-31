@@ -13,6 +13,7 @@
   import { chats } from '/app/lib/chats.svelte'
   import { session } from '/app/lib/session.svelte'
   import { i18n } from '/app/lib/i18n.svelte'
+  import { isRouterClick, router, routes } from '/app/lib/router.svelte'
   import { uiSettings } from '/app/lib/ui-settings.svelte'
   import { FONT_FACES } from '/common/types/ui'
   import CharacterAvatar from '/app/shared/CharacterAvatar.svelte'
@@ -27,8 +28,6 @@
     '3xl': 80,
     max3xl: 96,
   }
-
-  let { onBack }: { onBack: () => void } = $props()
 
   const detail = $derived(chats.detail!)
   const ui = $derived(uiSettings.settings)
@@ -118,12 +117,20 @@
       !window.confirm(i18n.t('Delete "{name}"? This cannot be undone.', { name: detail.chat.name }))
     )
       return
-    await chats.deleteChat()
+    // The deleted id must not stay in the address bar, so leave the route on success.
+    if (await chats.deleteChat()) router.replace(routes.characters())
   }
 
   const startFreshChat = async () => {
     if (!detail.character || chats.generating) return
-    await chats.startNewChat(detail.character)
+    const chatId = await chats.startNewChat(detail.character)
+    if (chatId) router.go(routes.chat(chatId))
+  }
+
+  const backToCharacters = (event: MouseEvent) => {
+    if (!isRouterClick(event)) return
+    event.preventDefault()
+    router.go(routes.characters())
   }
 </script>
 
@@ -135,14 +142,14 @@
   <header
     class="flex min-h-16 shrink-0 flex-wrap items-center gap-2 border-b border-neutral-800/80 px-3 py-2 sm:flex-nowrap sm:gap-3 sm:px-5"
   >
-    <button
+    <a
       class="icon-button"
-      type="button"
+      href={routes.characters()}
       aria-label={i18n.t('Back to characters')}
-      onclick={onBack}
+      onclick={backToCharacters}
     >
       <ArrowLeft size={19} />
-    </button>
+    </a>
     <CharacterAvatar
       name={detail.character?.name ?? detail.chat.name}
       avatar={detail.character?.avatar}

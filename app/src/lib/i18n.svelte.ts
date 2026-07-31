@@ -64,6 +64,7 @@ const korean: Record<string, string> = {
   characters: '캐릭터',
   Loading: '불러오는 중',
   'Loading characters': '캐릭터를 불러오는 중...',
+  'Loading chat': '채팅을 불러오는 중...',
   'Create your first character and define how they speak.': '첫 캐릭터를 만들고 말투를 설정하세요.',
   'No characters match “{query}”.': '“{query}”와 일치하는 캐릭터가 없습니다.',
   'Edit {name}': '{name} 편집',

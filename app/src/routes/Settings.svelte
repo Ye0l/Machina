@@ -51,10 +51,21 @@
   } from '/common/types/ui'
   import type { ModelFormat } from '/common/presets/templates'
   import { BUILTIN_FORMATS } from '/common/presets/templates'
+  import type { SettingsTab } from '/app/lib/router.svelte'
 
-  type Tab = 'general' | 'providers' | 'presets' | 'display'
+  // The visible tab is owned by the route (`/settings/:tab`) so it survives a reload and
+  // can be linked to directly.
+  let {
+    tab = 'general',
+    onTabChange,
+  }: { tab?: SettingsTab; onTabChange: (tab: SettingsTab) => void } = $props()
 
-  let tab = $state<Tab>('general')
+  /** Drops transient feedback on any tab change, including browser back/forward. */
+  $effect(() => {
+    tab
+    settings.clearError()
+    displayMessage = ''
+  })
 
   const providers = $derived(session.user?.providers ?? [])
   const presets = $derived(session.presets)
@@ -569,10 +580,7 @@
         class:tab-active={tab === 'general'}
         role="tab"
         aria-selected={tab === 'general'}
-        onclick={() => {
-          tab = 'general'
-          settings.clearError()
-        }}
+        onclick={() => onTabChange('general')}
       >
         <Globe2 size={16} />
         {i18n.t('General')}
@@ -582,10 +590,7 @@
         class:tab-active={tab === 'providers'}
         role="tab"
         aria-selected={tab === 'providers'}
-        onclick={() => {
-          tab = 'providers'
-          settings.clearError()
-        }}
+        onclick={() => onTabChange('providers')}
       >
         <Server size={16} />
         {i18n.t('Providers')}
@@ -595,10 +600,7 @@
         class:tab-active={tab === 'presets'}
         role="tab"
         aria-selected={tab === 'presets'}
-        onclick={() => {
-          tab = 'presets'
-          settings.clearError()
-        }}
+        onclick={() => onTabChange('presets')}
       >
         <SlidersHorizontal size={16} />
         {i18n.t('Presets')}
@@ -608,11 +610,7 @@
         class:tab-active={tab === 'display'}
         role="tab"
         aria-selected={tab === 'display'}
-        onclick={() => {
-          tab = 'display'
-          settings.clearError()
-          displayMessage = ''
-        }}
+        onclick={() => onTabChange('display')}
       >
         <Monitor size={16} />
         {i18n.t('Display')}

@@ -2,12 +2,26 @@
   import { MessageCircle, Pencil, Plus, Search, Users } from '@lucide/svelte'
   import { chats } from '/app/lib/chats.svelte'
   import { i18n } from '/app/lib/i18n.svelte'
+  import { isRouterClick, router, routes } from '/app/lib/router.svelte'
+  import type { CharacterSummary } from '/app/lib/contracts'
   import CharacterAvatar from '/app/shared/CharacterAvatar.svelte'
 
-  let { onCreate, onEdit }: { onCreate: () => void; onEdit: (characterId: string) => void } =
-    $props()
-
   let query = $state('')
+
+  const link = (path: string) => (event: MouseEvent) => {
+    if (!isRouterClick(event)) return
+    event.preventDefault()
+    router.go(path)
+  }
+
+  /**
+   * The chat id is only known after the server resolves or creates the chat, so this stays
+   * a button rather than an anchor. Navigation is what opens the chat.
+   */
+  const openCharacter = async (character: CharacterSummary) => {
+    const chatId = await chats.resolveChatFor(character)
+    if (chatId) router.go(routes.chat(chatId))
+  }
   const filteredCharacters = $derived(
     chats.characters.filter((character) => {
       const search = query.trim().toLowerCase()
@@ -19,8 +33,6 @@
         .includes(search)
     })
   )
-
-  chats.loadCharacters()
 </script>
 
 <div class="flex h-full min-h-0 flex-col overflow-y-auto">
@@ -37,10 +49,14 @@
           {i18n.t('Create a character, shape their prompt, and start chatting.')}
         </p>
       </div>
-      <button class="button-primary self-start sm:self-auto" type="button" onclick={onCreate}>
+      <a
+        class="button-primary self-start sm:self-auto"
+        href={routes.newCharacter()}
+        onclick={link(routes.newCharacter())}
+      >
         <Plus size={17} />
         {i18n.t('New character')}
-      </button>
+      </a>
     </header>
 
     <div class="mt-5 flex items-center gap-3">
@@ -87,10 +103,14 @@
         <p class="mt-1 max-w-sm text-sm text-neutral-500">
           {i18n.t('Create your first character and define how they speak.')}
         </p>
-        <button class="button-secondary mt-5" type="button" onclick={onCreate}>
+        <a
+          class="button-secondary mt-5"
+          href={routes.newCharacter()}
+          onclick={link(routes.newCharacter())}
+        >
           <Plus size={17} />
           {i18n.t('Create character')}
-        </button>
+        </a>
       </div>
     {:else if !filteredCharacters.length}
       <p class="mt-12 text-center text-sm text-neutral-500">
@@ -125,21 +145,21 @@
               {/if}
             </div>
             <div class="flex shrink-0 items-center gap-1">
-              <button
+              <a
                 class="icon-button"
-                type="button"
+                href={routes.character(character._id)}
                 aria-label={i18n.t('Edit {name}', { name: character.name })}
                 title={i18n.t('Edit character')}
-                onclick={() => onEdit(character._id)}
+                onclick={link(routes.character(character._id))}
               >
                 <Pencil size={17} />
-              </button>
+              </a>
               <button
                 class="icon-button text-violet-300 hover:bg-violet-500/10 hover:text-violet-200"
                 type="button"
                 aria-label={i18n.t('Chat with {name}', { name: character.name })}
                 title={i18n.t('Open chat')}
-                onclick={() => chats.openCharacter(character)}
+                onclick={() => openCharacter(character)}
               >
                 <MessageCircle size={18} />
               </button>

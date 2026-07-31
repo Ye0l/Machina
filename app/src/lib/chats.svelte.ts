@@ -57,9 +57,17 @@ class Chats {
   error = $state('')
   loaded = $state(false)
 
-  async loadCharacters(force = false) {
-    if ((this.loaded && !force) || this.loading) return
+  /**
+   * Dedicated in-flight guard for the list load. `loading` cannot serve this purpose: it is
+   * shared with `openChat`, so a chat deep link (which opens a chat before the shell
+   * mounts) would otherwise suppress the character and chat list entirely.
+   */
+  private listing = false
 
+  async loadCharacters(force = false) {
+    if ((this.loaded && !force) || this.listing) return
+
+    this.listing = true
     this.loading = true
     this.error = ''
     try {
@@ -73,6 +81,7 @@ class Chats {
     } catch (ex) {
       this.error = ex instanceof Error ? ex.message : 'Failed to load characters'
     } finally {
+      this.listing = false
       this.loading = false
     }
   }
@@ -128,13 +137,18 @@ class Chats {
     }
   }
 
-  /** Reuses the most recent chat for a character, creating one only when none exists. */
-  async openCharacter(character: CharacterSummary) {
+  /**
+   * Reuses the most recent chat for a character, creating one only when none exists.
+   *
+   * Returns the chat id rather than opening it: the caller navigates to `/chat/:id` and the
+   * route is what loads the chat, so the URL stays the single source of truth.
+   */
+  async resolveChatFor(character: CharacterSummary): Promise<string | undefined> {
     const existing = this.chats
       .filter((chat) => chat.characterId === character._id)
       .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))[0]
 
-    if (existing) return this.openChat(existing._id)
+    if (existing) return existing._id
 
     this.loading = true
     this.error = ''
@@ -145,7 +159,7 @@ class Chats {
         mode: null,
       })
       this.chats = [created, ...this.chats]
-      return this.openChat(created._id)
+      return created._id
     } catch (ex) {
       this.error = ex instanceof Error ? ex.message : 'Failed to create chat'
     } finally {
@@ -396,27 +410,34 @@ class Chats {
     }
   }
 
-  /** Deletes the open chat (`DELETE /chat/:id`) and returns to the chat list. */
+  /**
+   * Deletes the open chat (`DELETE /chat/:id`). Returns true when the caller should leave
+   * the chat route; the deleted id must not stay in the address bar.
+   */
   async deleteChat() {
     const detail = this.detail
-    if (!detail) return
+    if (!detail) return false
     const chatId = detail.chat._id
     this.error = ''
     try {
       await api.del<DeleteChatResponse>(`/chat/${chatId}`)
       this.chats = this.chats.filter((c) => c._id !== chatId)
       this.close()
+      return true
     } catch (ex) {
       this.error = ex instanceof Error ? ex.message : 'Failed to delete chat'
+      return false
     }
   }
 
   /**
-   * Always creates a fresh chat for a character (`POST /chat`), unlike `openCharacter`
+   * Always creates a fresh chat for a character (`POST /chat`), unlike `resolveChatFor`
    * which reuses an existing one. The server auto-inserts the greeting, using the
    * character's `alternateGreetings` as the initial swipe set.
+   *
+   * Returns the new chat id for the caller to navigate to.
    */
-  async startNewChat(character: CharacterSummary) {
+  async startNewChat(character: CharacterSummary): Promise<string | undefined> {
     this.loading = true
     this.error = ''
     try {
@@ -426,7 +447,7 @@ class Chats {
         mode: null,
       })
       this.chats = [created, ...this.chats]
-      return this.openChat(created._id)
+      return created._id
     } catch (ex) {
       this.error = ex instanceof Error ? ex.message : 'Failed to create chat'
     } finally {
