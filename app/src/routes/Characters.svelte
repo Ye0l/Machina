@@ -1,45 +1,126 @@
 <script lang="ts">
+  import { MessageCircle, Pencil, Plus, Search, Users } from '@lucide/svelte'
   import { chats } from '/app/lib/chats.svelte'
-  import { session } from '/app/lib/session.svelte'
+  import CharacterAvatar from '/app/shared/CharacterAvatar.svelte'
+
+  let { onCreate, onEdit }: { onCreate: () => void; onEdit: (characterId: string) => void } =
+    $props()
+
+  let query = $state('')
+  const filteredCharacters = $derived(
+    chats.characters.filter((character) => {
+      const search = query.trim().toLowerCase()
+      if (!search) return true
+      return `${character.name} ${character.description ?? ''}`.toLowerCase().includes(search)
+    })
+  )
 
   chats.loadCharacters()
 </script>
 
-<div class="mx-auto flex h-full w-full max-w-3xl flex-col gap-4 p-4">
-  <header class="flex items-center justify-between">
-    <h1 class="text-xl font-semibold">Characters</h1>
-    <button class="text-sm text-neutral-400 underline" onclick={() => session.logout()}>
-      Sign out
-    </button>
-  </header>
+<div class="flex h-full min-h-0 flex-col overflow-y-auto">
+  <div class="mx-auto w-full max-w-6xl px-4 py-5 lg:px-8 sm:px-6 sm:py-7">
+    <header
+      class="flex flex-col gap-4 border-b border-neutral-800/80 pb-5 sm:flex-row sm:items-end sm:justify-between"
+    >
+      <div>
+        <p class="mb-1 text-xs font-semibold uppercase tracking-[0.16em] text-violet-400">
+          Library
+        </p>
+        <h1 class="text-2xl font-semibold tracking-tight text-white">Characters</h1>
+        <p class="mt-1 text-sm text-neutral-500">
+          Create a character, shape their prompt, and start chatting.
+        </p>
+      </div>
+      <button class="button-primary self-start sm:self-auto" type="button" onclick={onCreate}>
+        <Plus size={17} />
+        New character
+      </button>
+    </header>
 
-  {#if chats.error}
-    <p class="rounded bg-red-950 px-3 py-2 text-sm text-red-300">{chats.error}</p>
-  {/if}
+    <div class="mt-5 flex items-center gap-3">
+      <label class="relative block w-full max-w-md">
+        <span class="sr-only">Search characters</span>
+        <Search
+          class="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-neutral-500"
+          size={17}
+        />
+        <input class="field h-10 pl-9" placeholder="Search characters" bind:value={query} />
+      </label>
+      <span class="hidden text-sm tabular-nums text-neutral-500 sm:inline">
+        {filteredCharacters.length}
+        {filteredCharacters.length === 1 ? 'character' : 'characters'}
+      </span>
+    </div>
 
-  {#if chats.loading && !chats.characters.length}
-    <p class="text-sm text-neutral-400">Loading...</p>
-  {:else if !chats.characters.length}
-    <p class="text-sm text-neutral-400">No characters yet.</p>
-  {:else}
-    <ul class="flex flex-col gap-2">
-      {#each chats.characters as character (character._id)}
-        <li>
-          <button
-            class="flex w-full items-center gap-3 rounded border border-neutral-800 bg-background-lighter px-3 py-2 text-left hover:border-neutral-600"
-            onclick={() => chats.openCharacter(character)}
+    {#if chats.error}
+      <div class="error-banner mt-4" role="alert">{chats.error}</div>
+    {/if}
+
+    {#if chats.loading && !chats.characters.length}
+      <div class="mt-12 flex items-center justify-center gap-2 text-sm text-neutral-500">
+        <span
+          class="h-4 w-4 animate-spin rounded-full border-2 border-neutral-700 border-t-violet-400"
+          ><span class="sr-only">Loading</span></span
+        >
+        Loading characters
+      </div>
+    {:else if !chats.characters.length}
+      <div
+        class="mt-12 flex flex-col items-center border-y border-neutral-800/80 py-12 text-center"
+      >
+        <span
+          class="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-neutral-900 text-neutral-500"
+        >
+          <Users size={22} />
+        </span>
+        <h2 class="font-medium text-neutral-200">No characters yet</h2>
+        <p class="mt-1 max-w-sm text-sm text-neutral-500">
+          Create your first character and define how they speak.
+        </p>
+        <button class="button-secondary mt-5" type="button" onclick={onCreate}>
+          <Plus size={17} />
+          Create character
+        </button>
+      </div>
+    {:else if !filteredCharacters.length}
+      <p class="mt-12 text-center text-sm text-neutral-500">No characters match “{query}”.</p>
+    {:else}
+      <ul class="mt-5 grid grid-cols-1 gap-3 lg:grid-cols-2">
+        {#each filteredCharacters as character (character._id)}
+          <li
+            class="group flex min-w-0 items-center gap-3 rounded-xl border border-neutral-800 bg-[#10141c] p-3 transition hover:border-neutral-700 hover:bg-[#131822]"
           >
-            <span class="flex-1">
-              <span class="block font-medium">{character.name}</span>
-              {#if character.description}
-                <span class="block truncate text-xs text-neutral-400">
-                  {character.description}
-                </span>
-              {/if}
-            </span>
-          </button>
-        </li>
-      {/each}
-    </ul>
-  {/if}
+            <CharacterAvatar name={character.name} avatar={character.avatar} size="lg" />
+            <div class="min-w-0 flex-1">
+              <h2 class="truncate font-medium text-neutral-100">{character.name}</h2>
+              <p class="mt-1 truncate text-sm text-neutral-500">
+                {character.description || 'No description yet'}
+              </p>
+            </div>
+            <div class="flex shrink-0 items-center gap-1">
+              <button
+                class="icon-button"
+                type="button"
+                aria-label={`Edit ${character.name}`}
+                title="Edit character"
+                onclick={() => onEdit(character._id)}
+              >
+                <Pencil size={17} />
+              </button>
+              <button
+                class="icon-button text-violet-300 hover:bg-violet-500/10 hover:text-violet-200"
+                type="button"
+                aria-label={`Chat with ${character.name}`}
+                title="Open chat"
+                onclick={() => chats.openCharacter(character)}
+              >
+                <MessageCircle size={18} />
+              </button>
+            </div>
+          </li>
+        {/each}
+      </ul>
+    {/if}
+  </div>
 </div>

@@ -1,6 +1,6 @@
 const path = require('path')
 
-// Absolute so the globs match regardless of CWD: `npm run build` runs from the repo root.
+// Absolute so the globs match regardless of CWD: `pnpm run build` runs from the repo root.
 const here = (glob) => path.join(__dirname, glob)
 
 /** @type {import('tailwindcss').Config} */

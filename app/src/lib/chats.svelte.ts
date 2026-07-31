@@ -6,6 +6,17 @@ import { sendMessage } from './generate'
 import { session } from './session.svelte'
 import { subscribe } from './socket'
 
+export type CharacterDraft = {
+  name: string
+  description: string
+  persona: AppSchema.Persona
+  scenario: string
+  greeting: string
+  sampleChat: string
+  systemPrompt: string
+  postHistoryInstructions: string
+}
+
 /**
  * Character / chat / message state for the core path.
  *
@@ -26,9 +37,13 @@ class Chats {
 
   loading = $state(false)
   error = $state('')
+  loaded = $state(false)
 
-  async loadCharacters() {
+  async loadCharacters(force = false) {
+    if ((this.loaded && !force) || this.loading) return
+
     this.loading = true
+    this.error = ''
     try {
       const [chars, chats] = await Promise.all([
         api.get<{ characters: CharacterSummary[] }>('/character'),
@@ -36,11 +51,47 @@ class Chats {
       ])
       this.characters = chars.characters ?? []
       this.chats = chats.chats ?? []
+      this.loaded = true
     } catch (ex) {
       this.error = ex instanceof Error ? ex.message : 'Failed to load characters'
     } finally {
       this.loading = false
     }
+  }
+
+  async getCharacter(characterId: string) {
+    return api.get<AppSchema.Character>(`/character/${characterId}`)
+  }
+
+  async saveCharacter(characterId: string | null, draft: CharacterDraft) {
+    const body = {
+      name: draft.name.trim(),
+      description: draft.description.trim(),
+      persona: draft.persona,
+      scenario: draft.scenario,
+      greeting: draft.greeting,
+      sampleChat: draft.sampleChat,
+      systemPrompt: draft.systemPrompt,
+      postHistoryInstructions: draft.postHistoryInstructions,
+    }
+
+    const character = characterId
+      ? await api.post<AppSchema.Character>(`/character/${characterId}/update`, body)
+      : await api.post<AppSchema.Character>('/character', {
+          ...body,
+          persona: JSON.stringify(body.persona),
+        })
+
+    const index = this.characters.findIndex((item) => item._id === character._id)
+    if (index === -1) {
+      this.characters = [character, ...this.characters]
+    } else {
+      this.characters = this.characters.map((item) =>
+        item._id === character._id ? character : item
+      )
+    }
+
+    return character
   }
 
   async openChat(chatId: string) {
@@ -65,13 +116,21 @@ class Chats {
 
     if (existing) return this.openChat(existing._id)
 
-    const created = await api.post<ChatSummary>('/chat', {
-      characterId: character._id,
-      name: character.name,
-      mode: null,
-    })
-    this.chats = [created, ...this.chats]
-    return this.openChat(created._id)
+    this.loading = true
+    this.error = ''
+    try {
+      const created = await api.post<ChatSummary>('/chat', {
+        characterId: character._id,
+        name: character.name,
+        mode: null,
+      })
+      this.chats = [created, ...this.chats]
+      return this.openChat(created._id)
+    } catch (ex) {
+      this.error = ex instanceof Error ? ex.message : 'Failed to create chat'
+    } finally {
+      this.loading = false
+    }
   }
 
   /**
@@ -131,6 +190,7 @@ class Chats {
     this.chats = []
     this.partial = ''
     this.generating = false
+    this.loaded = false
     this.error = ''
   }
 }

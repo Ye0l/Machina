@@ -46,7 +46,7 @@ function preferCommonSources(): Plugin {
 }
 
 export default defineConfig({
-  // Vite's `root` defaults to the CWD, not the config location, so `npm run build` from
+  // Vite's `root` defaults to the CWD, not the config location, so `pnpm run build` from
   // the repo root would otherwise look for `<repo>/index.html`.
   root: repo('.'),
   plugins: [preferCommonSources(), svelte()],

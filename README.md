@@ -1,170 +1,96 @@
 # Agnaistic
 
-> AI Roleplay Chat with Personalized Characters using your favorite AI services.
+AI roleplay chat with personalized characters and multiple AI providers.
 
-[Live Version](https://agnai.chat) | [Discord](https://discord.agnai.chat)
+This fork is based on [Agnaistic](https://github.com/agnaistic/agnai), which in turn was based on the early work of [Galatea-UI](https://github.com/PygmalionAI/galatea-ui).
 
-Visit the live version at [Agnai.chat](https://agnai.chat).
+## Requirements
 
-Based on the early work of [Galatea-UI by PygmalionAI](https://github.com/PygmalionAI/galatea-ui).
+- [Node.js](https://nodejs.org/) `^20.19.0` or `>=22.12.0`
+- [Corepack](https://nodejs.org/api/corepack.html), used to select the pnpm version pinned in `package.json`
+- [MongoDB](https://www.mongodb.com/docs/manual/installation/)
+- Redis only for distributed or multi-instance deployments
+- Docker Compose or Podman Compose if you want the repository to run MongoDB and Redis
+- Python 3.10+ only for the optional pipeline service
 
----
-
-## Quick Start
-
-**Important!** _MongoDB is required. Redis is optional and only used for multi-instance deployments._
-
-Agnaistic is published as an NPM package and can be installed globally:
+## Setup
 
 ```sh
-# Install or update:
-npm install agnai -g
-agnai
+git clone https://github.com/Ye0l/agnai.git
+cd agnai
 
-# View launch options:
-agnai help
+corepack enable
+pnpm install --frozen-lockfile
 
-# Run with the Pipeline features
-agnai --pipeline
+# Start MongoDB and Redis with Docker Compose or Podman Compose.
+pnpm run up
 
-
+# Build the frontend and server once, then start development watchers.
+pnpm run build:all
+pnpm start
 ```
 
-When using the NPM package, your images and JSON files will be stored in: `HOME_FOLDER/.agnai`.  
-Examples:<br>
-Linux: `/home/sceuick/.agnai/`<br>
-Mac: `/Users/sceuick/.agnai`<br>
-Windows: `C:\Users\sceuick\.agnai`.
+The API and built application are available at <http://localhost:3001>. The Vite development frontend with hot reload is available at <http://localhost:1234>.
+
+Run `pnpm install --frozen-lockfile` again after pulling changes to `package.json` or `pnpm-lock.yaml`.
+
+## Commands
+
+| Command                 | Purpose                                                                    |
+| ----------------------- | -------------------------------------------------------------------------- |
+| `pnpm start`            | Run the Vite frontend, API server, and server TypeScript watcher           |
+| `pnpm run start:web`    | Run the Vite frontend and server TypeScript watcher without the API server |
+| `pnpm run start:debug`  | Run development services with debug logging and the Node inspector         |
+| `pnpm run start:public` | Run development services and expose port 3001 through LocalTunnel          |
+| `pnpm run start:all`    | Run development services plus the optional Python pipeline                 |
+| `pnpm run build`        | Build the Svelte frontend into `dist/`                                     |
+| `pnpm run build:server` | Compile the server and shared TypeScript                                   |
+| `pnpm run build:all`    | Build both frontend and server                                             |
+| `pnpm run selfhost`     | Build everything and start the server with `SELF_HOST=1`                   |
+| `pnpm run model`        | Install and run the optional Python pipeline                               |
+| `pnpm run up`           | Start MongoDB and Redis with Docker Compose or Podman Compose              |
+| `pnpm run legacy:web`   | Run the legacy SolidJS/Parcel frontend                                     |
+| `pnpm run legacy:build` | Build the legacy SolidJS/Parcel frontend                                   |
+
+`pnpm start` launches the Node.js server with `--inspect`. Attach a debugger with the default VS Code launch task or through `chrome://inspect`.
 
 ## Features
 
-- **Group Conversations**: Multiple users with multiple bots
-- **Multiple AI services**: Support for Kobold, Novel, AI Horde, Goose, OpenAI, Claude, Replicate, OpenRouter, Mancer
-- Multiple persona schema formats: W++, Square bracket format (SBF), Boostyle, Plain text
-- Multi-tenancy:
-  - User authentication
-  - User settings: Which AI service to use and their own settings
-  - User generation presets
+- Group conversations with multiple users and characters
+- Multiple AI providers, including Kobold, NovelAI, AI Horde, OpenAI, Claude, Replicate, and OpenRouter
+- Multiple persona schema formats
+- User authentication, settings, and generation presets
 - Subscriptions
-- Memory/Lore books
-- Generate characters with AI
-- Image generation using third-party services
-- **Optional pipeline features**
-  - Long-term memory
-  - Wikipedia Article and PDF embedding
+- Memory and lore books
+- AI-assisted character and image generation
+- Optional long-term memory, Wikipedia, and PDF pipeline features
 
-## Running Manually
+## Self-hosting settings
 
-3. Install [Node.js](https://nodejs.org/en/download/)
-4. Install [MongoDB](https://www.mongodb.com/docs/manual/installation/)
-   - Redis is optional. Without it the server runs in non-distributed mode.
-   - `npm run up` starts both with Docker (see `docker-compose.yml`).
-5. Download the project: `git clone https://github.com/agnaistic/agnai` or [download it](https://github.com/agnaistic/agnai/archive/refs/heads/dev.zip)
-6. From inside the cloned/unpacked folder in your terminal/console:
-   - `npm run deps`
-     - **Do this every time you update AgnAI, just in case.**
-     - This will install the dependencies using `pnpm v8`
-   - `npm run build:all`
-   - Build and run the project in watch mode:
-     - Mac/Linux: `npm run start`
-     - Windows: `npm run start:win`
-   - Build and run the project with Local Tunnel:
-     - Mac/Linux: `npm run start:public`
-     - Windows: `npm run start:public:win`
+MongoDB is required. Without Redis, the server runs in non-distributed mode.
 
-## Self-Hosting Settings
+Create `settings.json` in the repository root to apply application-wide settings. See [`template.settings.json`](./template.settings.json) for the available values. Restart the server after changing this file.
 
-To try and cater for the small tweaks and tuning that people need for their specific needs at an application level we have `settings.json`.  
-You can create a file called `settings.json` at the root level to apply some changes across the entire application.  
-If you have a specific need for your application, this is the place to ask to have it catered for.
+Use this file for deployment-specific behavior, such as adding response end tokens or applying a default memory book.
 
-I will try and find a balance between catering to these requests and not having them get out of control in the codebase.
+## Development
 
-Examples of requests that are suited for this:
+The main stack is:
 
-- I want a "default memory book" applied to all users.
-- I want to use a different set of end tokens than the ones provided.
+- MongoDB for persistence
+- Redis for distributed WebSocket messaging
+- Svelte 5 and Vite for the current frontend
+- SolidJS and Parcel for the temporary legacy frontend
+- Tailwind CSS for styling
+- Express for the API server
+- pnpm for dependency management
+- Poetry for the optional Python pipeline
 
-### settings.json
+Before submitting changes, run:
 
-You can copy or look at `template.settings.json` for an example of all of the available settings. You will need to restart Agnai for changes to take effect.
-
-Currently supported custom settings:
-
-- `baseEndTokens`: Add extra response end tokens to the base set.
-
-## For Developers
-
-### Recommended Development Tooling
-
-I'd highly recommend using [VSCode](https://code.visualstudio.com/) with the following extensions:
-
-- `Prettier - Code formatter`: For auto-formatting
-- `Tailwind CSS Intellisense`: For auto-completion and intellisense with Tailwind CSS classes
-- And adding `"editor.formatOnSave": true` to your VSCode `settings.json` to auto-format with Prettier
-
-When using `pnpm start`, the Node.JS server is run using `--inspect`. This means you can use various [Inspector Clients](https://nodejs.org/en/docs/guides/debugging-getting-started/#inspector-clients) for debugging.
-
-### Tech Stack
-
-The important parts of the stack are:
-
-- [MongoDB](https://www.mongodb.com/docs/manual/installation/) for persistence
-- [Redis](https://redis.io) for distributed messaging for websockets.
-- [SolidJS](https://www.solidjs.com/) for interactivity
-- [TailwindCSS](https://tailwindcss.com/) for styling
-- [pnpm](https://pnpm.io/) for dependency management
-
-### Starting
-
-```bash
-# Install dependencies - Always run this after pulling changes
-> npm run deps
-
-# Run MongoDB using Docker
-> npm run up
-
-# Start the frontend, backend, and python service
-# Mac/Linux
-> npm start
-
-# Windows
-> npm run start:win
-
-# Install and run Pipeline API
-# If required, this will update the dependencies before running the API
-> npm run model # Install poetry into a virtual environment
-
-# Run everything with a single command:
-> npm run start:all # Linux and OSX
-> npm run start:all:win # Windows
+```sh
+pnpm run format:fix
+pnpm run check
 ```
 
-At this point, you should be able to access http://localhost:3001 in your browser to see the UI.
-
-You can also try to access the frontend with hot reloading at http://localhost:1234
-
-### Recommended Developer Tooling
-
-- Redux Dev Tools
-  - The front-end application state is wired up to the "Redux Dev Tools" Chrome extension.
-- NodeJS debugger
-  - The `pnpm start` script launches the NodeJS API using the `--inspect` flag
-  - Attach using the default launch task in VSCode (`F5`)
-  - Or go to the url `chrome://inspect` to use the debugger
-- Python dependency management using `Poetry` - https://python-poetry.org/docs/cli
-  - `.model/bin/poetry [...args]`
-
-### Format and Type Checking
-
-The project uses ESLint for linting, Prettier for enforcing code style and TypeScript to check for type errors. When opening a PR, please make sure you're not introducing any new errors in any of these checks by running:
-
-```bash
-# auto-fixes any style problems
-$ pnpm run format:fix
-
-# runs the TypeScript compiler so any type errors will be shown
-$ pnpm run typecheck
-```
-
-This project is tested with BrowserStack.
+`pnpm run check` runs formatting validation, TypeScript/Svelte checks, and the test suite. Individual checks are also available through `pnpm run format`, `pnpm run typecheck`, and `pnpm test`.
