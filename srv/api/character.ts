@@ -365,8 +365,9 @@ function parseAndValidateVoice(json?: string) {
   return obj as unknown as AppSchema.Character['voice']
 }
 
-router.post('/image', generateAppImage)
 router.use(loggedIn)
+
+router.post('/image', generateAppImage)
 
 router.get('/', getCharacters)
 router.post('/multiple', getDetailCharacters)

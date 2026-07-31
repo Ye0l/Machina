@@ -10,7 +10,6 @@ import {
   swapMessage,
 } from './edit'
 import { getAllChats, getCharacterChats, getChatDetail } from './get'
-import { guestGenerateMsg } from './guest-msg'
 import { getImageModelList, getSdModelList } from './image'
 import { createInvite, acceptInvite, rejectInvite, getInvites, uninviteMember } from './invite'
 import { generateMessageV2, getMessages, createMessage } from './message'
@@ -23,9 +22,13 @@ import { embedText } from './embedding'
 
 const router = Router()
 
+// API-key authenticated: must stay outside the cookie/JWT `loggedIn` guard
+router.post('/completion', apiKeyUsage, inferenceApi)
+
+router.use(loggedIn)
+
 router.post('/inference', inference)
 router.post('/inference-stream', inferenceStream)
-router.post('/completion', apiKeyUsage, inferenceApi)
 router.post('/guidance', guidance)
 router.post('/reguidance', guidance)
 router.post('/sd-models', getSdModelList)
@@ -33,10 +36,8 @@ router.post('/image-models', getImageModelList)
 router.post('/embed-texts', embedText)
 router.post('/:id/send', createMessage)
 router.post('/:id/generate', generateMessageV2)
-router.post('/:id/guest-message', guestGenerateMsg)
 router.post('/:id/image', generateAppImage)
 router.post('/:id/voice', textToSpeech)
-router.use(loggedIn)
 router.get('/', getAllChats)
 router.post('/:id/restart', restartChat)
 router.get('/invites', getInvites)

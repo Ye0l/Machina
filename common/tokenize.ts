@@ -1,14 +1,40 @@
-import { AsyncEncoder } from './types'
-import { EncoderType } from '/srv/tokenize'
-// @ts-ignore
-import { embedApi } from '/web/store/embeddings'
+import type { AsyncEncoder, EncoderType } from './types'
 import type * as HF from '@huggingface/transformers'
 
+/**
+ * `common/` deliberately ships no tokenizer of its own.
+ *
+ * Token counts drive prompt trimming, so a silent approximation would quietly corrupt
+ * prompt assembly. The host application MUST register a real encoder during boot.
+ *
+ * Web: `web/store/embeddings/encoder.ts` (worker-backed).
+ */
+let registered: AsyncEncoder | undefined
+
+function active(): AsyncEncoder {
+  if (!registered) {
+    throw new Error('No tokenizer registered: call setDefaultEncoder() during application startup')
+  }
+  return registered
+}
+
+/**
+ * Stable handle that delegates to whatever is registered at call time.
+ *
+ * `prepareTokenizer` stores this object as a placeholder while a model loads, so it must
+ * never be replaced by reference -- only the delegate behind it changes.
+ */
 const DEFAULT_ENCODER: AsyncEncoder = {
-  name: 'default',
-  encode: embedApi.encode,
-  decode: embedApi.decode,
-  count: (text: string) => embedApi.encode(text).then((res: number[]) => res.length),
+  get name() {
+    return registered?.name ?? 'unregistered'
+  },
+  encode: (text) => active().encode(text),
+  decode: (tokens) => active().decode(tokens),
+  count: (text) => active().count(text),
+}
+
+export function setDefaultEncoder(encoder: AsyncEncoder) {
+  registered = encoder
 }
 
 const encoderModels: { [encoder in EncoderType]?: string } = {

@@ -1,6 +1,6 @@
 require('module-alias/register')
 import { expect } from 'chai'
-import { extractSystemPromptFromLegacyGaslight } from '../web/pages/Chat/update-gaslight'
+import { extractSystemPromptFromLegacyGaslight } from '../common/update-gaslight'
 import { reset } from './util'
 
 describe('extractSystemPrompt', () => {

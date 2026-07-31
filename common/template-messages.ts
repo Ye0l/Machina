@@ -3,7 +3,7 @@ import { assemblePrompt } from './prompt'
 import { CompletionItem } from './requests/openai'
 import { AppSchema, TokenCounter } from './types'
 import { findLast } from './util'
-import { GenerateRequestV2 } from '/srv/adapter/type'
+import { GenerateRequestV2 } from './types/inference'
 
 export async function toChatMessages(req: GenerateRequestV2, counter: TokenCounter) {
   const assembled = await assemblePrompt(req, counter, true)

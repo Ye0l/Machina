@@ -3,7 +3,7 @@ import { handleOAI } from './openai'
 import { getLocalPayload } from './payloads'
 import { PayloadOpts } from './types'
 import { emit } from './util'
-import { GenerateRequestV2 } from '/srv/adapter/type'
+import { GenerateRequestV2 } from '../types/inference'
 
 export async function handleLocalRequest(
   body: GenerateRequestV2,

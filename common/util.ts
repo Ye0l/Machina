@@ -2,7 +2,7 @@ import { getSchemaAliases, parseVariableName, StructureEntities } from './guidan
 import { Admin } from './types'
 import { FeatureAccess, UserType } from './types/admin'
 import type { AppSchema } from './types/schema'
-import type { GenerateRequestV2 } from '/srv/adapter/type'
+import type { GenerateRequestV2 } from './types/inference'
 
 export const PING_INTERVAL_MS = 30000
 

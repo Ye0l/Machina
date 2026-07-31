@@ -3,7 +3,7 @@ import { AppSchema } from './types/schema'
 import { defaultPresets } from './default-preset'
 import { SD_SAMPLER } from './image'
 import { toArray } from './util'
-import type { AppLog } from '../srv/middleware'
+import type { AppLog } from './logger'
 import { v4 } from 'uuid'
 
 export const HORDE_SEED = v4()

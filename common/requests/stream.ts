@@ -2,7 +2,7 @@ import { ThirdPartyFormat } from '../adapters'
 import type { AppLog } from '../logger'
 import { round } from '../util'
 import { getChoiceProp, getNextThoughts, getNextTokens } from './util'
-import type { CompletionGenerator } from '/srv/adapter/type'
+import type { CompletionGenerator } from '../types/inference'
 
 export type ServerSentEvent = {
   id?: string

@@ -7,7 +7,7 @@ import { AIAdapter, getAdapter } from '../common/adapters'
 import { resolve } from 'path'
 import * as nai from 'nai-js-tokenizer'
 import { logger } from './middleware'
-import { AppSchema, Encoder, TokenCounter, Tokenizer } from '/common/types'
+import { AppSchema, Encoder, EncoderType, TokenCounter, Tokenizer } from '/common/types'
 import { GenerateRequestV2 } from './adapter/type'
 import { OPENAI_MODELS } from '/common/presets/openai'
 import { NOVEL_MODELS } from '/common/presets/novel'
@@ -58,19 +58,7 @@ const main: Encoder = {
   count: (value: string) => oaiEncoder.encode(value).length,
 }
 
-export type EncoderType =
-  | 'novel'
-  | 'novel-modern'
-  | 'llama'
-  | 'llama3'
-  | 'claude'
-  | 'turbo'
-  | 'mistral'
-  | 'yi'
-  | 'cohere'
-  | 'qwen2'
-  | 'qwen3'
-  | 'gemma'
+export type { EncoderType }
 
 const TURBO_MODELS = new Set<string>([
   OPENAI_MODELS.Turbo,

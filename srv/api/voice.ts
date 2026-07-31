@@ -1,5 +1,6 @@
 import { Router } from 'express'
 import { handle } from './wrap'
+import { loggedIn } from './auth'
 import { getVoicesList, generateTextToSpeech, getModelsList } from '../voice'
 import { store } from '../db'
 import { TTSService } from '../../common/types/texttospeech-schema'
@@ -29,6 +30,8 @@ const getModels = handle(async ({ body, userId, socketId, log, params }) => {
   const guestId = userId ? undefined : socketId
   return getModelsList({ ttsService: ttsService, user }, log, guestId)
 })
+
+router.use(loggedIn)
 
 router.post('/tts', textToSpeech)
 router.post('/:id/voices', getVoices)

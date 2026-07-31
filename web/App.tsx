@@ -4,8 +4,8 @@ import './app.css'
 import './dots.css'
 import '@melloware/coloris/dist/coloris.css'
 import './store'
-import { Component, createMemo, Show, lazy, onMount, Switch, Match } from 'solid-js'
-import { Route, Router, useLocation } from '@solidjs/router'
+import { Component, createEffect, createMemo, Show, lazy, onMount, Switch, Match } from 'solid-js'
+import { Route, Router, useLocation, useNavigate } from '@solidjs/router'
 import NavBar from './shared/NavBar'
 import Notifications from './Toasts'
 import CharacterRoutes from './pages/Character'
@@ -116,15 +116,16 @@ const App: Component = () => {
           <Route path="/admin/tiers/:id" component={lazy(() => import('./pages/Admin/Tiers'))} />
         </Show>
       </Show>
-      <Show when={cfg.config.canAuth}>
-        <Route path={['/login', '/login/remember']} component={LoginPage} />
-        <Route path="/recovery" component={ResetPasswordPage} />
-      </Show>
+      <Route path={['/login', '/login/remember']} component={LoginPage} />
+      <Route path="/recovery" component={ResetPasswordPage} />
       <Route path="/faq" component={FAQ} />
       <Route path="*" component={HomePage} />
     </Router>
   )
 }
+
+/** Reachable without a session. Everything else redirects to `/login`. */
+const PUBLIC_ROUTES = ['/login', '/recovery', '/terms-of-service', '/privacy-policy']
 
 const Layout: Component<{ children?: any }> = (props) => {
   const page = pageStore((s) => ({
@@ -132,14 +133,31 @@ const Layout: Component<{ children?: any }> = (props) => {
     confirm: s.confirm,
     showImpersonate: s.showImpersonate,
   }))
-  const state = userStore((s) => ({ ui: s.ui, banned: s.banned }))
+  const state = userStore((s) => ({ ui: s.ui, banned: s.banned, loggedIn: s.loggedIn }))
   const cfg = settingStore((s) => ({
     init: s.init,
     initLoading: s.initLoading,
   }))
 
   const location = useLocation()
+  const navigate = useNavigate()
   const pane = usePaneManager()
+
+  // Guest access is disabled: every page outside PUBLIC_ROUTES requires a session.
+  // Match on path boundaries so that `/login-anything` is not treated as public.
+  const isPublicPath = createMemo(() => {
+    const path = location.pathname
+    return PUBLIC_ROUTES.some((route) => path === route || path.startsWith(`${route}/`))
+  })
+
+  // The redirect below only runs after the first render, so gate the shell on the same
+  // condition: without this the guest navigation and home page flash for one frame.
+  const blocked = createMemo(() => !state.loggedIn && !isPublicPath())
+
+  createEffect(() => {
+    if (!blocked()) return
+    navigate('/login', { replace: true })
+  })
 
   const maxW = createMemo((): string => {
     if (pane.showing()) return 'max-w-full'
@@ -162,133 +180,138 @@ const Layout: Component<{ children?: any }> = (props) => {
   const bgStyles = useCharacterBg('layout')
 
   return (
-    <ContextProvider>
-      <style>{css}</style>
-      <div class="scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-[var(--hl-900)] app flex flex-col justify-between">
-        <NavBar />
-        <div class="flex w-full grow flex-row overflow-y-hidden">
-          <Navigation />
+    <Show when={!blocked()} fallback={<div class="app flex h-screen w-full" />}>
+      <ContextProvider>
+        <style>{css}</style>
+        <div class="scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-[var(--hl-900)] app flex flex-col justify-between">
+          <NavBar />
+          <div class="flex w-full grow flex-row overflow-y-hidden">
+            {/* The signed-out sidebar only offers guest entry points, so hide it entirely. */}
+            <Show when={state.loggedIn}>
+              <Navigation />
+            </Show>
 
-          <main
-            id="main-content"
-            class="w-full overflow-y-auto overflow-x-hidden"
-            classList={{
-              'sm:ml-[320px]': page.showMenu,
-              'sm:ml-0': !page.showMenu,
-            }}
-            data-background
-            style={{ ...bgStyles(), 'scrollbar-gutter': 'stable' }}
-          >
-            <div
-              class={`mx-auto h-full min-h-full ${isChat() ? maxW() : 'max-w-8xl'}`}
+            <main
+              id="main-content"
+              class="w-full overflow-y-auto overflow-x-hidden"
               classList={{
-                'content-background': !isChat(),
+                'sm:ml-[320px]': state.loggedIn && page.showMenu,
+                'sm:ml-0': !state.loggedIn || !page.showMenu,
               }}
+              data-background
+              style={{ ...bgStyles(), 'scrollbar-gutter': 'stable' }}
             >
-              <Switch>
-                <Match when={cfg.init}>
-                  {props.children}
-                  <Maintenance />
-                </Match>
-
-                <Match when={!!state.banned}>
-                  <div class="flex h-[80vh] flex-col items-center justify-center gap-2"></div>
-                </Match>
-
-                <Match when={cfg.initLoading}>
-                  <div class="flex h-[80vh] flex-col items-center justify-center gap-2">
-                    <div>
-                      Login issues? Try{' '}
-                      <a class="link" onClick={() => userStore.logout()}>
-                        Logging out
-                      </a>{' '}
-                      then log back in.
-                    </div>
-
-                    <Show when={api.getFallbackApiUrl()}>
-                      <div>
-                        Page loading issues? Try{' '}
-                        <a
-                          class="link"
-                          href={`https://agnai.chat?api_url=${api.getFallbackApiUrl()}`}
-                        >
-                          clicking here
-                        </a>
-                      </div>
-                    </Show>
-
-                    <Loading />
-                  </div>
-                </Match>
-
-                <Match when>
-                  <div class="flex flex-col items-center gap-2">
-                    <div>Agnaistic failed to load</div>
-                    <div>
-                      <Button onClick={reload}>Try Again</Button>
-                    </div>
-                  </div>
-                </Match>
-              </Switch>
-            </div>
-          </main>
-        </div>
-      </div>
-      <Notifications />
-      <ImpersonateModal
-        show={page.showImpersonate}
-        close={() => pageStore.toggleImpersonate(false)}
-      />
-      <InfoModal />
-      <ProfileModal />
-      <BannedModal />
-      <GlobalFileInput />
-      <ImageModal />
-      <ImageSettingsModal />
-      <SettingsModal />
-      <div
-        class="absolute bottom-0 left-0 right-0 top-0 z-10 h-[100vh] w-full bg-black bg-opacity-20 sm:hidden"
-        classList={{ hidden: !page.showMenu }}
-        onClick={() => pageStore.closeMenu()}
-      ></div>
-      <Show when={!!page.confirm}>
-        <Modal
-          show={true}
-          title={page.confirm?.title || 'Confirm'}
-          close={() => pageStore.closeConfirm(false)}
-          footer={
-            <>
-              <For each={page.confirm?.actions || []}>
-                {(btn) => (
-                  <Button
-                    schema={btn.schema}
-                    onClick={() => {
-                      btn.onClick()
-                      pageStore.closeConfirm(true)
-                    }}
-                  >
-                    {btn.text}
-                  </Button>
-                )}
-              </For>
-
-              <Show
-                when={page.confirm?.onConfirm}
-                fallback={<Button onClick={() => pageStore.closeConfirm(false)}>Close</Button>}
+              <div
+                class={`mx-auto h-full min-h-full ${isChat() ? maxW() : 'max-w-8xl'}`}
+                classList={{
+                  'content-background': !isChat(),
+                }}
               >
-                <Button onClick={() => pageStore.closeConfirm(false)}>Cancel</Button>
+                <Switch>
+                  <Match when={cfg.init}>
+                    {props.children}
+                    <Maintenance />
+                  </Match>
 
-                <Button schema="green" onClick={() => pageStore.closeConfirm(true)}>
-                  Confirm
-                </Button>
-              </Show>
-            </>
-          }
-        >
-          {page.confirm?.message}
-        </Modal>
-      </Show>
-    </ContextProvider>
+                  <Match when={!!state.banned}>
+                    <div class="flex h-[80vh] flex-col items-center justify-center gap-2"></div>
+                  </Match>
+
+                  <Match when={cfg.initLoading}>
+                    <div class="flex h-[80vh] flex-col items-center justify-center gap-2">
+                      <div>
+                        Login issues? Try{' '}
+                        <a class="link" onClick={() => userStore.logout()}>
+                          Logging out
+                        </a>{' '}
+                        then log back in.
+                      </div>
+
+                      <Show when={api.getFallbackApiUrl()}>
+                        <div>
+                          Page loading issues? Try{' '}
+                          <a
+                            class="link"
+                            href={`https://agnai.chat?api_url=${api.getFallbackApiUrl()}`}
+                          >
+                            clicking here
+                          </a>
+                        </div>
+                      </Show>
+
+                      <Loading />
+                    </div>
+                  </Match>
+
+                  <Match when>
+                    <div class="flex flex-col items-center gap-2">
+                      <div>Agnaistic failed to load</div>
+                      <div>
+                        <Button onClick={reload}>Try Again</Button>
+                      </div>
+                    </div>
+                  </Match>
+                </Switch>
+              </div>
+            </main>
+          </div>
+        </div>
+        <Notifications />
+        <ImpersonateModal
+          show={page.showImpersonate}
+          close={() => pageStore.toggleImpersonate(false)}
+        />
+        <InfoModal />
+        <ProfileModal />
+        <BannedModal />
+        <GlobalFileInput />
+        <ImageModal />
+        <ImageSettingsModal />
+        <SettingsModal />
+        <div
+          class="absolute bottom-0 left-0 right-0 top-0 z-10 h-[100vh] w-full bg-black bg-opacity-20 sm:hidden"
+          classList={{ hidden: !page.showMenu }}
+          onClick={() => pageStore.closeMenu()}
+        ></div>
+        <Show when={!!page.confirm}>
+          <Modal
+            show={true}
+            title={page.confirm?.title || 'Confirm'}
+            close={() => pageStore.closeConfirm(false)}
+            footer={
+              <>
+                <For each={page.confirm?.actions || []}>
+                  {(btn) => (
+                    <Button
+                      schema={btn.schema}
+                      onClick={() => {
+                        btn.onClick()
+                        pageStore.closeConfirm(true)
+                      }}
+                    >
+                      {btn.text}
+                    </Button>
+                  )}
+                </For>
+
+                <Show
+                  when={page.confirm?.onConfirm}
+                  fallback={<Button onClick={() => pageStore.closeConfirm(false)}>Close</Button>}
+                >
+                  <Button onClick={() => pageStore.closeConfirm(false)}>Cancel</Button>
+
+                  <Button schema="green" onClick={() => pageStore.closeConfirm(true)}>
+                    Confirm
+                  </Button>
+                </Show>
+              </>
+            }
+          >
+            {page.confirm?.message}
+          </Modal>
+        </Show>
+      </ContextProvider>
+    </Show>
   )
 }
 

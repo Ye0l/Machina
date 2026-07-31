@@ -34,8 +34,6 @@ It is important to remember this all happens in your browser.
 
 ### Why is it important to remember this occurs in the browser?
 
-_Note: This does not apply to anonymous/guest users. Guest users always have the entire chat history available for prompt building._
-
 If you configure your memory depth above \`100\`, the keywords may not trigger as you expect them to.
 When you initially load your chat, you will be sent a maximum of 100 messages from the server. You can continue to scroll up to retrieve more messages.
 

@@ -1,139 +1,34 @@
-import type { JsonField, PromptLine, PromptPlaceholders } from '../../common/prompt'
+import type { PromptLine, PromptPlaceholders } from '../../common/prompt'
 import { AppSchema } from '../../common/types/schema'
 import { AppLog } from '../middleware'
-import { SubscriptionPreset } from './agnaistic'
-import { ThirdPartyFormat } from '/common/adapters'
-import { StructureEntities } from '/common/guidance/json-schema'
 import { PresetConnection } from '/common/providers'
-import { Memory, TokenCounter } from '/common/types'
+import { TokenCounter } from '/common/types'
+import type {
+  GenerateRequestV2,
+  RequestAttachments,
+  SubscriptionPreset,
+} from '/common/types/inference'
 
-export type MsgAttachment = { type: 'image'; image: string }
-export type RequestAttachments = { [messageId: string]: MsgAttachment[] }
-export type HistoryLine = {
-  _id: string
-  msg: string
-  role: 'user' | 'model'
-  json: Record<string, string>
-}
-
-export type ChatRole = 'user' | 'assistant' | 'system'
-
-export type Completion<T = Inference> = {
-  id: string
-  created: number
-  model: string
-  object: string
-  choices: CompletionContent<T>
-  error?: { message: string }
-}
-
-export type CompletionTick =
-  | { token: string }
-  | { tokens: string; gens?: string[] }
-  | { tokens: string }
-  | { thoughts: string }
-  | void
-
-export type CompletionGenerator<T = Completion> = (opts: {
-  userId: string
-  url: string
-  headers: Record<string, string | string[] | number>
-  body: any
-  service: string
-  signal: AbortController
-  log: AppLog | undefined
-  format?: ThirdPartyFormat | 'openrouter' | 'raw'
-}) => AsyncGenerator<
-  { error?: string; tokens?: string; token?: string; index?: any; thoughts?: string } | T,
-  T | undefined
->
-
-export type CompletionItem<T extends string = ChatRole> = {
-  role: T
-  content: string
-  name?: string
-}
-
-export type CompletionContent<T> = Array<
-  { finish_reason: string; index: number } & ({ text: string } | T)
->
-export type Inference = { message: { content: string; role: ChatRole } }
-export type AsyncDelta = { delta: Partial<Inference['message']> }
-
-export type GenerateRequestV2 = {
-  requestId: string
-  v?: number
-  kind:
-    | 'send'
-    | 'send-event:world'
-    | 'send-event:character'
-    | 'send-event:hidden'
-    | 'send-event:ooc'
-    | 'send-noreply'
-    | 'ooc'
-    | 'retry'
-    | 'continue'
-    | 'self'
-    | 'summary'
-    | 'request'
-    | 'plain'
-    | 'chat-query'
-
-  /** For chat-adjacent tasks such as captioning, summarizing, etc */
-  systemPrompt?: string
-
-  chat: AppSchema.Chat
-  char: AppSchema.Character
-  replyAs: AppSchema.Character
-  user: AppSchema.User
-  members: AppSchema.Profile[]
-  sender: AppSchema.Profile
-
-  parts: PromptPlaceholders
-
-  history?: HistoryLine[]
-
-  linesCount?: number
-  text?: string
-  settings?: Partial<AppSchema.GenSettings>
-  replacing?: AppSchema.ChatMessage
-  continuing?: AppSchema.ChatMessage
-  characters: Record<string, AppSchema.Character>
-  impersonate?: AppSchema.Character
-  book?: AppSchema.MemoryBook
-  resolvedScenario?: string
-
-  jsonSchema?: { fields: JsonField[]; entities: StructureEntities }
-  jsonValues?: Record<string, any>
-
-  /** Base64 attachments */
-  attachments?: RequestAttachments
-  indexes?: { [messageId: string]: number }
-  hasAttachments?: boolean
-
-  /** Chat Tree  */
-  parent?: string
-
-  /** Date ISO string */
-  lastMessage?: string
-
-  chatEmbeds?: Array<Memory.UserEmbed<{ name: string }>>
-  userEmbeds?: Memory.UserEmbed[]
-
-  /**
-   * For 'local requests'
-   * If the response is generated on the client, we pass the generated response here
-   * then pass the whole payload to the same endpoint, but skip the generation to re-use the same message creation logic
-   */
-  response?: string
-  eventStream?: boolean
-  subscription?: SubscriptionPreset
-
-  /** Deprecated fields */
-  lines: string[] /** Deprecated */
-  imageData?: string /** Deprecated */
-  reschemaPrompt?: string /** Deprecated */
-}
+/**
+ * Shared inference DTOs now live in `common/types/inference.ts` so that the shared prompt
+ * layer and the frontend do not have to resolve into `srv/`. Re-exported here to keep the
+ * server's existing import sites working.
+ */
+export type {
+  AsyncDelta,
+  ChatRole,
+  Completion,
+  CompletionContent,
+  CompletionGenerator,
+  CompletionItem,
+  CompletionTick,
+  GenerateRequestV2,
+  HistoryLine,
+  Inference,
+  MsgAttachment,
+  RequestAttachments,
+  SubscriptionPreset,
+} from '/common/types/inference'
 
 export type GenerateOptions = {
   senderId: string

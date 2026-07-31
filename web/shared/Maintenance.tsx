@@ -16,9 +16,6 @@ const Maintenance: Component = () => {
     <Modal show={show()} close={() => setShow(false)} title="Maintenance Mode">
       <div class="flex flex-col gap-4">
         <div>Agnaistic is currently down for maintenance</div>
-
-        <div>You can continue to use the site as a guest.</div>
-
         <div>Reason: {state.init?.config.maintenance || state.config?.maintenanceMessage}</div>
       </div>
     </Modal>

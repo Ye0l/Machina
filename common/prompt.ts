@@ -1,4 +1,4 @@
-import type { GenerateRequestV2, HistoryLine } from '../srv/adapter/type'
+import type { GenerateRequestV2, HistoryLine } from './types/inference'
 import type { AppSchema, TokenCounter } from './types'
 import { AIAdapter, GOOGLE_LIMITS, MODE_SETTINGS } from './adapters'
 import { formatCharacter } from './characters'

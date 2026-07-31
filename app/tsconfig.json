@@ -1,0 +1,26 @@
+{
+  "extends": "@tsconfig/svelte/tsconfig.json",
+  "compilerOptions": {
+    "target": "ESNext",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "strict": true,
+    "noUnusedLocals": true,
+    "noEmit": true,
+    "sourceMap": true,
+    "skipLibCheck": true,
+    "allowSyntheticDefaultImports": true,
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+    // `common/` is shared with `srv/` and predates this project; it is written against the
+    // root tsconfig, which does not enforce type-only import syntax.
+    "verbatimModuleSyntax": false,
+    "types": ["svelte", "vite/client"],
+    "baseUrl": "..",
+    "paths": {
+      "/common/*": ["./common/*"],
+      "/app/*": ["./app/src/*"]
+    }
+  },
+  "include": ["src/**/*.ts", "src/**/*.svelte", "vite.config.ts", "../common/ambient.d.ts"]
+}

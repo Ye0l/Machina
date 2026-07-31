@@ -3,10 +3,10 @@ import { JsonField, toJsonSchema } from '/common/prompt'
 import { defaultPresets } from '/common/default-preset'
 import { ModelFormat } from '../presets/templates'
 import { AppSchema } from '../types'
-import type { SubscriptionPreset } from '/srv/adapter/agnaistic'
+import type { SubscriptionPreset } from '../types/inference'
 import { getPresetConnection } from '../providers'
 import { getJsonSchemaPayload } from '../guidance/json-schema'
-import { GenerateRequestV2 } from '/srv/adapter/type'
+import { GenerateRequestV2 } from '../types/inference'
 
 type MinOpts = {
   user: AppSchema.User

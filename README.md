@@ -12,7 +12,7 @@ Based on the early work of [Galatea-UI by PygmalionAI](https://github.com/Pygmal
 
 ## Quick Start
 
-**Important!** _MongoDB and Redis are optional! Agnaistic will run in "Guest Only" mode if MongoDB is not available._
+**Important!** _MongoDB is required. Redis is optional and only used for multi-instance deployments._
 
 Agnaistic is published as an NPM package and can be installed globally:
 
@@ -56,9 +56,9 @@ Windows: `C:\Users\sceuick\.agnai`.
 ## Running Manually
 
 3. Install [Node.js](https://nodejs.org/en/download/)
-4. Install [MongoDB](https://www.mongodb.com/docs/manual/installation/) **Optional**
-   - The database is optional. Agnaistic will run in `anonymous-only` mode if there is no database available.
-   - `Anonymous` users have their data saved to the browser's local storage. Your data will "persist", but not be shareable between devices or other browsers. Clearing your browser's application data/cookies will delete this data.
+4. Install [MongoDB](https://www.mongodb.com/docs/manual/installation/)
+   - Redis is optional. Without it the server runs in non-distributed mode.
+   - `npm run up` starts both with Docker (see `docker-compose.yml`).
 5. Download the project: `git clone https://github.com/agnaistic/agnai` or [download it](https://github.com/agnaistic/agnai/archive/refs/heads/dev.zip)
 6. From inside the cloned/unpacked folder in your terminal/console:
    - `npm run deps`
@@ -72,15 +72,6 @@ Windows: `C:\Users\sceuick\.agnai`.
      - Mac/Linux: `npm run start:public`
      - Windows: `npm run start:public:win`
 
-## Running with Docker
-
-1. Clone the project
-2. With MongoDB: `docker compose -p agnai -f self-host.docker-compose.yml up -d`
-3. Without MongoDB: `docker run -dt --restart=always -p 3001:3001 ghcr.io/agnaistic/agnaistic:latest`
-   - `-dt` Run the container detached
-   - `--restart=always` Restart at start up or if the server crashes
-   - `-p 3001:3001` Expose port 3001. Access the app at `http://localhost:3001`
-
 ## Self-Hosting Settings
 
 To try and cater for the small tweaks and tuning that people need for their specific needs at an application level we have `settings.json`.  
@@ -93,7 +84,6 @@ Examples of requests that are suited for this:
 
 - I want a "default memory book" applied to all users.
 - I want to use a different set of end tokens than the ones provided.
-- I want to disable anonymous access
 
 ### settings.json
 

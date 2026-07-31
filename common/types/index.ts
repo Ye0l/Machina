@@ -17,6 +17,21 @@ export type Encoder = {
   decode: (tokens: number[]) => string
 }
 
+/** Tokenizer families supported by both the server and the browser. */
+export type EncoderType =
+  | 'novel'
+  | 'novel-modern'
+  | 'llama'
+  | 'llama3'
+  | 'claude'
+  | 'turbo'
+  | 'mistral'
+  | 'yi'
+  | 'cohere'
+  | 'qwen2'
+  | 'qwen3'
+  | 'gemma'
+
 export type AsyncEncoder = {
   name?: string
   count: (text: string) => Promise<number>

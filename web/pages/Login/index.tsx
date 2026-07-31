@@ -54,25 +54,34 @@ const LoginPage: Component = () => {
               <Button size="pill" onClick={() => setRegister(true)}>
                 Register
               </Button>
-              &nbsp;or continue as a guest.
+              .
             </Show>
           </div>
         }
       />
-      <div class="w-full max-w-sm">
-        <Show when={register()}>
-          <RegisterForm isLoading={store.loading} />
-        </Show>
-        <Show when={!register()}>
-          <LoginForm isLoading={store.loading} />
-        </Show>
-        <Show when={loginError()}>
-          <Divider />
-          <Alert schema="error" title="Failed to log in.">
-            {loginError()}
+      <Show
+        when={cfg.config.canAuth}
+        fallback={
+          <Alert schema="error" title="Accounts unavailable">
+            The server cannot reach its account database right now. Please try again later.
           </Alert>
-        </Show>
-      </div>
+        }
+      >
+        <div class="w-full max-w-sm">
+          <Show when={register()}>
+            <RegisterForm isLoading={store.loading} />
+          </Show>
+          <Show when={!register()}>
+            <LoginForm isLoading={store.loading} />
+          </Show>
+          <Show when={loginError()}>
+            <Divider />
+            <Alert schema="error" title="Failed to log in.">
+              {loginError()}
+            </Alert>
+          </Show>
+        </div>
+      </Show>
 
       <Show when={cfg.config.policies}>
         <div class="mt-2">
@@ -87,20 +96,6 @@ const LoginPage: Component = () => {
           .
         </div>
       </Show>
-
-      <div class="mt-8 w-full gap-4">
-        <p class="flex justify-center text-xl text-[var(--hl-400)]">Why register?</p>
-        <div class="flex flex-col items-center">
-          <p>
-            You don't need to register to use Agnaistic. You can use it anonymously and no data will
-            be stored on any servers.
-          </p>
-          <p>
-            If you choose to register your data will be stored and accessible on any devices you
-            login with.
-          </p>
-        </div>
-      </div>
     </Page>
   )
 }

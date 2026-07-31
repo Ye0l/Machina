@@ -5,7 +5,7 @@ import { AppSchema, Memory, TokenCounter } from '/common/types'
 import peggy from 'peggy'
 import { elapsedSince } from './util'
 import { v4 } from 'uuid'
-import { ChatRole, GenerateRequestV2, HistoryLine } from '/srv/adapter/type'
+import { ChatRole, GenerateRequestV2, HistoryLine } from './types/inference'
 import { replaceTags } from './presets/templates'
 
 export type ParsedSection = 'pre_system' | 'system' | 'post_system' | 'history' | 'post'
