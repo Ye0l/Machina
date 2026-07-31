@@ -82,6 +82,8 @@ const korean: Record<string, string> = {
   'Next response': '다음 응답',
   'Resend last message': '마지막 메시지 다시 보내기',
   'Delete message': '메시지 삭제',
+  'Edit message': '메시지 편집',
+  'Ctrl+Enter to save, Esc to cancel': 'Ctrl+Enter로 저장, Esc로 취소',
   'Send a message to begin the conversation.': '메시지를 보내 대화를 시작하세요.',
   'Send message': '메시지 보내기',
   'Discard your unsaved character changes?': '저장하지 않은 캐릭터 변경사항을 버릴까요?',

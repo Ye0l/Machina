@@ -384,6 +384,31 @@ class Chats {
   }
 
   /**
+   * Edits a message's text (`PUT /chat/:messageId/message`). `:id` is the MESSAGE id here,
+   * matching `message-swap`. Applied optimistically and reverted if the server rejects it.
+   *
+   * The visible variant is what gets edited; `retries` is left untouched, so cycling back
+   * to another swipe still returns the original text of that swipe.
+   */
+  async editMessage(messageId: string, text: string) {
+    const original = this.messages.find((item) => item._id === messageId)
+    if (!original || original.msg === text) return true
+
+    this.setMessages(
+      this.messages.map((item) => (item._id === messageId ? { ...item, msg: text } : item))
+    )
+    this.error = ''
+    try {
+      await api.put(`/chat/${messageId}/message`, { message: text })
+      return true
+    } catch (ex) {
+      this.setMessages(this.messages.map((item) => (item._id === messageId ? original : item)))
+      this.error = ex instanceof Error ? ex.message : 'Failed to edit message'
+      return false
+    }
+  }
+
+  /**
    * Deletes a message and relinks survivors (`DELETE /chat/:chatId/messages-v2`). `:id` =
    * CHAT id. The server returns the re-parented survivors + new leaf; applied locally
    * rather than re-fetching the whole chat.

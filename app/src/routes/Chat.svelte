@@ -2,18 +2,22 @@
   import { tick } from 'svelte'
   import {
     ArrowLeft,
+    Check,
     ChevronLeft,
     ChevronRight,
+    Pencil,
     Plus,
     RotateCw,
     Send,
     Square,
     Trash2,
+    X,
   } from '@lucide/svelte'
   import { chats } from '/app/lib/chats.svelte'
   import { session } from '/app/lib/session.svelte'
   import { i18n } from '/app/lib/i18n.svelte'
   import { isRouterClick, router, routes } from '/app/lib/router.svelte'
+  import { renderMarkdown } from '/app/lib/markdown'
   import { uiSettings } from '/app/lib/ui-settings.svelte'
   import { FONT_FACES } from '/common/types/ui'
   import CharacterAvatar from '/app/shared/CharacterAvatar.svelte'
@@ -78,6 +82,53 @@
     text
       .replace(/\{\{user\}\}/gi, session.profile?.handle || session.user?.username || i18n.t('You'))
       .replace(/\{\{char\}\}/gi, detail.character?.name || detail.chat.name)
+
+  /** Placeholders are substituted before rendering, so what is shown matches the prompt. */
+  const renderBody = (text: string) => renderMarkdown(displayMessage(text))
+
+  /* ------------------------------------------------------------------- editing */
+
+  let editingId = $state<string | null>(null)
+  let editDraft = $state('')
+  let editSaving = $state(false)
+
+  /** Edits operate on the stored text, not the placeholder-substituted rendering. */
+  const startEdit = (messageId: string, text: string) => {
+    editingId = messageId
+    editDraft = text
+  }
+
+  const cancelEdit = () => {
+    editingId = null
+    editDraft = ''
+  }
+
+  const saveEdit = async () => {
+    const messageId = editingId
+    if (!messageId || editSaving) return
+
+    const text = editDraft.trim()
+    if (!text) return
+
+    editSaving = true
+    try {
+      if (await chats.editMessage(messageId, text)) cancelEdit()
+    } finally {
+      editSaving = false
+    }
+  }
+
+  const handleEditKeydown = (event: KeyboardEvent) => {
+    if (event.key === 'Escape') {
+      event.preventDefault()
+      cancelEdit()
+      return
+    }
+    if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) {
+      event.preventDefault()
+      saveEdit()
+    }
+  }
 
   const submit = (event: SubmitEvent) => {
     event.preventDefault()
@@ -236,16 +287,53 @@
           <span class:text-right={fromUser} class="mb-1 block text-xs text-neutral-500"
             >{authorOf(message)}</span
           >
-          <p
-            class:bg-violet-600={fromUser}
-            class:text-white={fromUser}
-            class="whitespace-pre-wrap rounded-2xl bg-[#151a23] px-4 py-3 leading-6 text-neutral-200 {fromUser
-              ? 'rounded-tr-md'
-              : 'rounded-tl-md'}"
-            style:opacity={msgOpacity}
-          >
-            {displayMessage(message.msg)}
-          </p>
+          {#if editingId === message._id}
+            <div
+              class="rounded-2xl bg-[#151a23] p-2 {fromUser ? 'rounded-tr-md' : 'rounded-tl-md'}"
+            >
+              <!-- prettier-ignore -->
+              <textarea
+                class="field max-h-72 min-h-24 w-full resize-y py-2 leading-6"
+                bind:value={editDraft}
+                onkeydown={handleEditKeydown}
+                aria-label={i18n.t('Edit message')}
+              ></textarea>
+              <div class="mt-2 flex items-center justify-end gap-2">
+                <span class="mr-auto pl-1 text-[11px] text-neutral-500">
+                  {i18n.t('Ctrl+Enter to save, Esc to cancel')}
+                </span>
+                <button
+                  class="button-secondary h-8 px-3 text-xs"
+                  type="button"
+                  onclick={cancelEdit}
+                >
+                  <X size={14} />
+                  {i18n.t('Cancel')}
+                </button>
+                <button
+                  class="button-primary h-8 px-3 text-xs"
+                  type="button"
+                  onclick={saveEdit}
+                  disabled={editSaving || !editDraft.trim()}
+                >
+                  <Check size={14} />
+                  {i18n.t('Save')}
+                </button>
+              </div>
+            </div>
+          {:else}
+            <div
+              class:bg-violet-600={fromUser}
+              class:text-white={fromUser}
+              class="rendered-markdown rounded-2xl bg-[#151a23] px-4 py-3 leading-6 text-neutral-200 {fromUser
+                ? 'rounded-tr-md'
+                : 'rounded-tl-md'}"
+              style:opacity={msgOpacity}
+            >
+              <!-- Sanitised in renderMarkdown via DOMPurify. -->
+              {@html renderBody(message.msg)}
+            </div>
+          {/if}
           <div class="mt-1 flex min-h-7 items-center gap-1" class:justify-end={fromUser}>
             {#if !fromUser && message.retries?.length}
               <button
@@ -285,6 +373,16 @@
               </button>
             {/if}
             <button
+              class="icon-button h-7 w-7"
+              type="button"
+              aria-label={i18n.t('Edit message')}
+              title={i18n.t('Edit message')}
+              disabled={chats.generating || editingId === message._id}
+              onclick={() => startEdit(message._id, message.msg)}
+            >
+              <Pencil size={14} />
+            </button>
+            <button
               class="icon-button h-7 w-7 text-neutral-600 hover:text-red-300"
               type="button"
               aria-label={i18n.t('Delete message')}
@@ -317,12 +415,13 @@
           <span class="mb-1 block text-xs text-neutral-500"
             >{detail.character?.name ?? i18n.t('Bot')}</span
           >
-          <p
-            class="whitespace-pre-wrap rounded-2xl rounded-tl-md bg-[#151a23] px-4 py-3 leading-6 text-neutral-200"
+          <div
+            class="rendered-markdown rounded-2xl rounded-tl-md bg-[#151a23] px-4 py-3 leading-6 text-neutral-200"
             style:opacity={msgOpacity}
           >
-            {chats.partial}<span class="animate-pulse text-violet-300">▌</span>
-          </p>
+            <!-- Sanitised in renderMarkdown; partial markup is closed off by the sanitiser. -->
+            {@html renderBody(chats.partial)}<span class="animate-pulse text-violet-300">▌</span>
+          </div>
         </div>
       </li>
     {/if}
