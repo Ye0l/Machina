@@ -15,6 +15,13 @@ class Session {
   profile = $state<AppSchema.Profile | undefined>()
   presets = $state<AppSchema.UserGenPreset[]>([])
 
+  /**
+   * `canAuth` reports whether the deployment has a database, and therefore accounts at all
+   * (`srv/api/settings.ts`). Registration is only offered when it does. Defaults to false so
+   * a failed config fetch does not advertise a sign-up that cannot work.
+   */
+  canAuth = $state(false)
+
   loading = $state(false)
   error = $state('')
 
@@ -30,6 +37,22 @@ class Session {
 
     try {
       const res = await api.post<LoginResponse>('/user/login', { username, password })
+      setToken(res.token)
+      authenticateSocket()
+      await this.init()
+    } catch (ex) {
+      this.error = ex instanceof ApiError ? ex.message : 'Could not reach the server'
+    } finally {
+      this.loading = false
+    }
+  }
+
+  async register(handle: string, username: string, password: string) {
+    this.loading = true
+    this.error = ''
+
+    try {
+      const res = await api.post<LoginResponse>('/user/register', { handle, username, password })
       setToken(res.token)
       authenticateSocket()
       await this.init()
@@ -68,6 +91,13 @@ export async function boot() {
   registerEncoder()
   connectSocket()
   session.bootError = ''
+
+  // Public endpoint, and only used to decide whether to offer registration, so a failure
+  // here must not block boot.
+  api
+    .get<{ canAuth?: boolean }>('/settings')
+    .then((config) => (session.canAuth = !!config.canAuth))
+    .catch(() => {})
 
   try {
     await session.init()

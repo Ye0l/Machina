@@ -56,6 +56,13 @@ const korean: Record<string, string> = {
   'You can enter a model id manually.': '모델 ID를 직접 입력할 수 있습니다.',
   'Model lookup failed.': '모델 검색에 실패했습니다.',
   'Signing in...': '로그인 중...',
+  'Create account': '계정 만들기',
+  'Creating account...': '계정을 만드는 중...',
+  'Display name': '표시 이름',
+  'Confirm password': '비밀번호 확인',
+  'Shown to characters as your name.': '캐릭터에게 표시되는 이름입니다.',
+  'Enter a display name.': '표시 이름을 입력하세요.',
+  'Passwords do not match.': '비밀번호가 일치하지 않습니다.',
   Library: '라이브러리',
   'Create a character, shape their prompt, and start chatting.':
     '캐릭터와 프롬프트를 만들고 채팅을 시작하세요.',
