@@ -16,7 +16,7 @@ import { generateMessageV2, getMessages, createMessage } from './message'
 import { deleteChat, deleteMessages, deleteMessagesV2 } from './remove'
 import { textToSpeech } from './texttospeech'
 import { addCharacter, upsertTempCharacter, removeCharacter } from './characters'
-import { guidance, inference, inferenceApi, inferenceStream } from './inference'
+import { cancelInference, guidance, inference, inferenceApi, inferenceStream } from './inference'
 import { generateAppImage } from '../image-api'
 import { embedText } from './embedding'
 
@@ -29,6 +29,7 @@ router.use(loggedIn)
 
 router.post('/inference', inference)
 router.post('/inference-stream', inferenceStream)
+router.post('/inference-cancel', cancelInference)
 router.post('/guidance', guidance)
 router.post('/reguidance', guidance)
 router.post('/sd-models', getSdModelList)

@@ -23,6 +23,7 @@ body {
 
 button,
 input,
+select,
 textarea {
   font: inherit;
 }
@@ -34,6 +35,33 @@ button {
 * {
   scrollbar-color: #353b48 transparent;
   scrollbar-width: thin;
+}
+
+@keyframes view-enter {
+  from {
+    opacity: 0;
+    transform: translateY(5px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.view-enter {
+  animation: view-enter 160ms ease-out both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }
 
 @layer components {

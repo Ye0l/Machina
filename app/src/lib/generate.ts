@@ -23,6 +23,25 @@ export type StreamHandlers = {
   onPartial: (text: string) => void
   onDone: (text: string) => void
   onError: (error: string) => void
+  /** Persisted user message, emitted before prompt assembly and inference begin. */
+  onUserMessage?: (message: AppSchema.ChatMessage) => void
+}
+
+export type SendControl = {
+  /** requestId of the in-flight stream; assigned by sendMessage / generateLastReply. */
+  requestId: string
+  /** Flipped by the caller to request an abort mid-stream. */
+  stopped: boolean
+}
+
+/**
+ * Aborts a running inference stream on the server
+ * (`srv/api/chat/inference.ts` `cancelInference`). The server aborts the underlying
+ * request, the stream resolves with whatever partial it had, and the caller decides
+ * whether to keep it.
+ */
+export async function cancelGeneration(requestId: string) {
+  return api.post<{ success: boolean; aborted: boolean }>('/chat/inference-cancel', { requestId })
 }
 
 const STREAM_TIMEOUT_MS = 120_000
@@ -35,11 +54,15 @@ export async function sendMessage(
   profile: AppSchema.Profile,
   preset: Partial<AppSchema.GenSettings> | undefined,
   text: string,
-  handlers: StreamHandlers
+  handlers: StreamHandlers,
+  control: SendControl
 ) {
   const { chat, characters } = detail
   const char = detail.character ?? characters.find((c) => c._id === chat.characterId)
   if (!char) throw new Error('Chat has no character')
+
+  // Assigned up front so `cancelGeneration` can target this stream before it starts.
+  control.requestId = newId()
 
   const parent = detail.messages.at(-1)?._id
 
@@ -48,6 +71,7 @@ export async function sendMessage(
     messageId: newId(),
     parent,
   })
+  handlers.onUserMessage?.(userMessage.message)
 
   const messages = [...detail.messages, userMessage.message]
 
@@ -77,10 +101,18 @@ export async function sendMessage(
     encoder
   )
 
-  const requestId = newId()
-  const reply = await stream(requestId, prompt.template.parsed, preset, user, chat._id, handlers)
+  const reply = await stream(
+    control.requestId,
+    prompt.template.parsed,
+    preset,
+    user,
+    chat._id,
+    handlers
+  )
 
-  if (!reply) return { userMessage: userMessage.message, botMessage: undefined }
+  // Aborted: keep the persisted user message but drop the partial reply so a reload shows
+  // a clean turn instead of a truncated bot message.
+  if (!reply || control.stopped) return { userMessage: userMessage.message, botMessage: undefined }
 
   const botMessage = await api.post<SendMessageResponse>(`/chat/${chat._id}/send`, {
     text: reply,
@@ -93,6 +125,66 @@ export async function sendMessage(
   } satisfies SendMessageBody)
 
   return { userMessage: userMessage.message, botMessage: botMessage.message }
+}
+
+/**
+ * Generates another reply to the user message at the end of `detail.messages`.
+ * Persistence is deliberately owned by `Chats.retry`: a failed-turn resend creates a
+ * bot message, while a reroll stores the text as another variant of the existing bubble.
+ */
+export async function generateLastReply(
+  detail: ChatDetailResponse,
+  user: AppSchema.User,
+  profile: AppSchema.Profile,
+  preset: Partial<AppSchema.GenSettings> | undefined,
+  handlers: StreamHandlers,
+  control: SendControl
+) {
+  const { chat, characters } = detail
+  const char = detail.character ?? characters.find((c) => c._id === chat.characterId)
+  if (!char) throw new Error('Chat has no character')
+
+  const messages = detail.messages
+  const parent = messages.at(-1)?._id
+  if (!parent) return undefined
+
+  control.requestId = newId()
+
+  if (preset?.tokenizer) await prepareTokenizer(preset.tokenizer)
+  const encoder = await getEncoder()
+
+  const prompt = await createPromptParts(
+    {
+      char,
+      chat,
+      user,
+      sender: profile,
+      members: detail.members,
+      replyAs: char,
+      characters: Object.fromEntries(characters.map((c) => [c._id, c])),
+      messages,
+      settings: preset,
+      lastMessage: messages.at(-1)?.createdAt ?? '',
+      chatEmbeds: [],
+      userEmbeds: [],
+      resolvedScenario: chat.scenario ?? char.scenario ?? '',
+      jsonValues: undefined,
+      kind: 'send',
+    },
+    encoder
+  )
+
+  const reply = await stream(
+    control.requestId,
+    prompt.template.parsed,
+    preset,
+    user,
+    chat._id,
+    handlers
+  )
+
+  if (!reply || control.stopped) return undefined
+  return reply
 }
 
 /**

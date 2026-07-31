@@ -26,6 +26,11 @@ export const KNOWN_PROVIDERS: Record<string, ProviderDefinition> = {
       { type: 'service', value: 'openrouter-completion' },
     ],
   },
+  vercel: {
+    name: 'Vercel AI Gateway',
+    url: 'https://ai-gateway.vercel.sh/v1',
+    formats: [{ type: 'format', value: 'openai-chatv2' }],
+  },
   gemini: {
     name: 'Google AI',
     url: 'https://generativelanguage.googleapis.com/v1beta/openai',

@@ -1,20 +1,25 @@
 <script lang="ts">
-  import { LogOut, MessageCircle, Plus, Sparkles, Users, X } from '@lucide/svelte'
+  import { LogOut, MessageCircle, Plus, Settings, Sparkles, Users, X } from '@lucide/svelte'
   import { chats } from '/app/lib/chats.svelte'
+  import { i18n } from '/app/lib/i18n.svelte'
   import { session } from '/app/lib/session.svelte'
 
   let {
     current,
     onClose,
     onShowCharacters,
+    onShowSettings,
     onNewCharacter,
     onOpenChat,
+    onLogout,
   }: {
-    current: 'characters' | 'editor' | 'chat'
+    current: 'characters' | 'editor' | 'chat' | 'settings'
     onClose: () => void
     onShowCharacters: () => void
+    onShowSettings: () => void
     onNewCharacter: () => void
     onOpenChat: (chatId: string) => void
+    onLogout: () => void
   } = $props()
 
   const recentChats = $derived(chats.chats.slice(0, 8))
@@ -27,9 +32,14 @@
     </span>
     <div class="min-w-0 flex-1">
       <p class="truncate text-sm font-semibold tracking-wide text-white">Agnai</p>
-      <p class="truncate text-xs text-neutral-500">Character workspace</p>
+      <p class="truncate text-xs text-neutral-500">{i18n.t('Character workspace')}</p>
     </div>
-    <button class="icon-button md:hidden" type="button" aria-label="Close menu" onclick={onClose}>
+    <button
+      class="icon-button md:hidden"
+      type="button"
+      aria-label={i18n.t('Close menu')}
+      onclick={onClose}
+    >
       <X size={19} />
     </button>
   </div>
@@ -37,7 +47,7 @@
   <div class="flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto px-3 py-4">
     <button class="button-primary w-full justify-center" type="button" onclick={onNewCharacter}>
       <Plus size={17} />
-      New character
+      {i18n.t('New character')}
     </button>
 
     <nav class="space-y-1" aria-label="Primary navigation">
@@ -48,14 +58,23 @@
         onclick={onShowCharacters}
       >
         <Users size={18} />
-        Characters
+        {i18n.t('Characters')}
+      </button>
+      <button
+        class:nav-active={current === 'settings'}
+        class="nav-item"
+        type="button"
+        onclick={onShowSettings}
+      >
+        <Settings size={18} />
+        {i18n.t('AI settings')}
       </button>
     </nav>
 
     <section class="min-h-0">
       <div class="mb-2 flex items-center justify-between px-2">
         <h2 class="text-[11px] font-semibold uppercase tracking-[0.14em] text-neutral-500">
-          Recent chats
+          {i18n.t('Recent chats')}
         </h2>
         <span class="text-xs tabular-nums text-neutral-600">{chats.chats.length}</span>
       </div>
@@ -72,7 +91,9 @@
             <span class="truncate">{chat.name}</span>
           </button>
         {:else}
-          <p class="px-2 py-3 text-xs leading-5 text-neutral-600">Your recent chats appear here.</p>
+          <p class="px-2 py-3 text-xs leading-5 text-neutral-600">
+            {i18n.t('Your recent chats appear here.')}
+          </p>
         {/each}
       </div>
     </section>
@@ -90,12 +111,7 @@
       </p>
       <p class="truncate text-xs text-neutral-500">@{session.user?.username}</p>
     </div>
-    <button
-      class="icon-button"
-      type="button"
-      aria-label="Sign out"
-      onclick={() => session.logout()}
-    >
+    <button class="icon-button" type="button" aria-label={i18n.t('Sign out')} onclick={onLogout}>
       <LogOut size={18} />
     </button>
   </div>

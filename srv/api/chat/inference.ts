@@ -17,6 +17,39 @@ import { getSubscriptionModelLimits, getUserSubscriptionTier } from '/common/uti
 import { renderMessagesToPrompt } from '/common/template-messages'
 import { optional } from '/common/valid/types'
 
+/**
+ * In-flight inference controllers, keyed by requestId. The socket-path
+ * `inference-stream` request is fire-and-forget (the HTTP call returns immediately
+ * and tokens stream over the WebSocket), so the client cannot abort it by closing
+ * the request. `cancelInference` lets a client abort a running stream by requestId,
+ * mirroring the SSE disconnect abort above.
+ */
+const inferenceControllers = new Map<string, { controller: AbortController; userId?: string }>()
+
+export function registerInference(requestId: string, controller: AbortController, userId?: string) {
+  inferenceControllers.set(requestId, { controller, userId })
+}
+
+export function removeInference(requestId: string) {
+  inferenceControllers.delete(requestId)
+}
+
+/** Aborts a running stream. Returns false if unknown or owned by another user. */
+export function abortInference(requestId: string, userId?: string) {
+  const entry = inferenceControllers.get(requestId)
+  if (!entry) return false
+  if (userId && entry.userId && entry.userId !== userId) return false
+  entry.controller.abort()
+  inferenceControllers.delete(requestId)
+  return true
+}
+
+export const cancelInference = wrap(async ({ userId, body }) => {
+  assertValid({ requestId: 'string?' }, body)
+  const aborted = body.requestId ? abortInference(body.requestId, userId) : false
+  return { success: true, aborted }
+})
+
 const validInference = {
   prompt: 'string',
   settings: 'any?',
@@ -160,6 +193,7 @@ export const inferenceStream = wrap(async (req, res) => {
   const lockId = body.chatId ? body.chatId : userId ? userId : socketId
 
   await obtainLock(lockId, 10)
+  registerInference(requestId, signal, userId)
 
   let promptSent = false
 
@@ -221,6 +255,8 @@ export const inferenceStream = wrap(async (req, res) => {
     } else {
       wrapped({ type: 'inference-error', partial, error: `${ex.message || ex}`, requestId })
     }
+  } finally {
+    removeInference(requestId)
   }
 
   wrapped({ type: 'inference', requestId, response })

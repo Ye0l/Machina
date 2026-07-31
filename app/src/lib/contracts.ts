@@ -24,7 +24,7 @@ export type InitResponse = {
 /** Projection returned by `GET /api/character` (srv/db/characters.ts getCharacters). */
 export type CharacterSummary = Pick<
   AppSchema.Character,
-  '_id' | 'name' | 'avatar' | 'description' | 'favorite' | 'updatedAt'
+  '_id' | 'name' | 'avatar' | 'description' | 'favorite' | 'updatedAt' | 'tags' | 'folder'
 >
 
 export type ChatSummary = Pick<
@@ -53,3 +53,11 @@ export type SendMessageBody = {
 }
 
 export type SendMessageResponse = { success: boolean; message: AppSchema.ChatMessage }
+
+/** `DELETE /api/chat/:chatId/messages-v2` returns tree relinking updates. */
+export type DeleteMessagesResponse = {
+  chat: Partial<AppSchema.Chat>
+  messages: Array<Pick<AppSchema.ChatMessage, '_id' | 'parent'>>
+}
+
+export type DeleteChatResponse = { success: boolean }

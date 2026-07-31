@@ -1,6 +1,7 @@
 <script lang="ts">
   import { MessageCircle, Pencil, Plus, Search, Users } from '@lucide/svelte'
   import { chats } from '/app/lib/chats.svelte'
+  import { i18n } from '/app/lib/i18n.svelte'
   import CharacterAvatar from '/app/shared/CharacterAvatar.svelte'
 
   let { onCreate, onEdit }: { onCreate: () => void; onEdit: (characterId: string) => void } =
@@ -11,7 +12,11 @@
     chats.characters.filter((character) => {
       const search = query.trim().toLowerCase()
       if (!search) return true
-      return `${character.name} ${character.description ?? ''}`.toLowerCase().includes(search)
+      return `${character.name} ${character.description ?? ''} ${character.folder ?? ''} ${(
+        character.tags ?? []
+      ).join(' ')}`
+        .toLowerCase()
+        .includes(search)
     })
   )
 
@@ -25,31 +30,35 @@
     >
       <div>
         <p class="mb-1 text-xs font-semibold uppercase tracking-[0.16em] text-violet-400">
-          Library
+          {i18n.t('Library')}
         </p>
-        <h1 class="text-2xl font-semibold tracking-tight text-white">Characters</h1>
+        <h1 class="text-2xl font-semibold tracking-tight text-white">{i18n.t('Characters')}</h1>
         <p class="mt-1 text-sm text-neutral-500">
-          Create a character, shape their prompt, and start chatting.
+          {i18n.t('Create a character, shape their prompt, and start chatting.')}
         </p>
       </div>
       <button class="button-primary self-start sm:self-auto" type="button" onclick={onCreate}>
         <Plus size={17} />
-        New character
+        {i18n.t('New character')}
       </button>
     </header>
 
     <div class="mt-5 flex items-center gap-3">
       <label class="relative block w-full max-w-md">
-        <span class="sr-only">Search characters</span>
+        <span class="sr-only">{i18n.t('Search characters')}</span>
         <Search
           class="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-neutral-500"
           size={17}
         />
-        <input class="field h-10 pl-9" placeholder="Search characters" bind:value={query} />
+        <input
+          class="field h-10 pl-9"
+          placeholder={i18n.t('Search characters')}
+          bind:value={query}
+        />
       </label>
       <span class="hidden text-sm tabular-nums text-neutral-500 sm:inline">
         {filteredCharacters.length}
-        {filteredCharacters.length === 1 ? 'character' : 'characters'}
+        {filteredCharacters.length === 1 ? i18n.t('character') : i18n.t('characters')}
       </span>
     </div>
 
@@ -61,9 +70,9 @@
       <div class="mt-12 flex items-center justify-center gap-2 text-sm text-neutral-500">
         <span
           class="h-4 w-4 animate-spin rounded-full border-2 border-neutral-700 border-t-violet-400"
-          ><span class="sr-only">Loading</span></span
+          ><span class="sr-only">{i18n.t('Loading')}</span></span
         >
-        Loading characters
+        {i18n.t('Loading characters')}
       </div>
     {:else if !chats.characters.length}
       <div
@@ -74,17 +83,19 @@
         >
           <Users size={22} />
         </span>
-        <h2 class="font-medium text-neutral-200">No characters yet</h2>
+        <h2 class="font-medium text-neutral-200">{i18n.t('No characters yet')}</h2>
         <p class="mt-1 max-w-sm text-sm text-neutral-500">
-          Create your first character and define how they speak.
+          {i18n.t('Create your first character and define how they speak.')}
         </p>
         <button class="button-secondary mt-5" type="button" onclick={onCreate}>
           <Plus size={17} />
-          Create character
+          {i18n.t('Create character')}
         </button>
       </div>
     {:else if !filteredCharacters.length}
-      <p class="mt-12 text-center text-sm text-neutral-500">No characters match “{query}”.</p>
+      <p class="mt-12 text-center text-sm text-neutral-500">
+        {i18n.t('No characters match “{query}”.', { query })}
+      </p>
     {:else}
       <ul class="mt-5 grid grid-cols-1 gap-3 lg:grid-cols-2">
         {#each filteredCharacters as character (character._id)}
@@ -95,15 +106,30 @@
             <div class="min-w-0 flex-1">
               <h2 class="truncate font-medium text-neutral-100">{character.name}</h2>
               <p class="mt-1 truncate text-sm text-neutral-500">
-                {character.description || 'No description yet'}
+                {character.description || i18n.t('No description yet')}
               </p>
+              {#if character.folder || character.tags?.length}
+                <div class="mt-2 flex min-w-0 flex-wrap gap-1.5">
+                  {#if character.folder}
+                    <span class="rounded bg-neutral-800 px-1.5 py-0.5 text-[11px] text-neutral-400"
+                      >{character.folder}</span
+                    >
+                  {/if}
+                  {#each character.tags?.slice(0, 3) ?? [] as tag}
+                    <span
+                      class="max-w-28 truncate rounded bg-violet-500/10 px-1.5 py-0.5 text-[11px] text-violet-300"
+                      >#{tag}</span
+                    >
+                  {/each}
+                </div>
+              {/if}
             </div>
             <div class="flex shrink-0 items-center gap-1">
               <button
                 class="icon-button"
                 type="button"
-                aria-label={`Edit ${character.name}`}
-                title="Edit character"
+                aria-label={i18n.t('Edit {name}', { name: character.name })}
+                title={i18n.t('Edit character')}
                 onclick={() => onEdit(character._id)}
               >
                 <Pencil size={17} />
@@ -111,8 +137,8 @@
               <button
                 class="icon-button text-violet-300 hover:bg-violet-500/10 hover:text-violet-200"
                 type="button"
-                aria-label={`Chat with ${character.name}`}
-                title="Open chat"
+                aria-label={i18n.t('Chat with {name}', { name: character.name })}
+                title={i18n.t('Open chat')}
                 onclick={() => chats.openCharacter(character)}
               >
                 <MessageCircle size={18} />
