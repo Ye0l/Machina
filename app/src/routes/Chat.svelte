@@ -14,6 +14,7 @@
     X,
   } from '@lucide/svelte'
   import { chats } from '/app/lib/chats.svelte'
+  import { books } from '/app/lib/books.svelte'
   import { session } from '/app/lib/session.svelte'
   import { i18n } from '/app/lib/i18n.svelte'
   import { isRouterClick, router, routes } from '/app/lib/router.svelte'
@@ -163,6 +164,14 @@
   const selectPreset = (event: Event) =>
     chats.setPreset((event.currentTarget as HTMLSelectElement).value)
 
+  /** Empty value detaches the book, which is why it is a real option and not a placeholder. */
+  const selectedBookId = $derived(
+    books.books.some((book) => book._id === detail.chat.memoryId) ? detail.chat.memoryId : ''
+  )
+
+  const selectBook = (event: Event) =>
+    chats.setMemoryBook((event.currentTarget as HTMLSelectElement).value)
+
   const deleteOpenChat = async () => {
     if (
       !window.confirm(i18n.t('Delete "{name}"? This cannot be undone.', { name: detail.chat.name }))
@@ -224,8 +233,23 @@
     >
       <Plus size={18} />
     </button>
+    {#if books.books.length}
+      <select
+        class="field order-last h-9 w-full max-w-none py-1 text-xs sm:order-none sm:ml-auto sm:w-auto sm:max-w-[10rem]"
+        value={selectedBookId}
+        onchange={selectBook}
+        aria-label={i18n.t('Memory book')}
+        disabled={chats.generating}
+      >
+        <option value="">{i18n.t('No memory book')}</option>
+        {#each books.books as book (book._id)}
+          <option value={book._id}>{book.name}</option>
+        {/each}
+      </select>
+    {/if}
     <select
-      class="field order-last h-9 w-full max-w-none py-1 text-xs sm:order-none sm:ml-auto sm:w-auto sm:max-w-[12rem]"
+      class="field order-last h-9 w-full max-w-none py-1 text-xs sm:order-none sm:w-auto sm:max-w-[12rem]"
+      class:sm:ml-auto={!books.books.length}
       value={selectedPresetId}
       onchange={selectPreset}
       aria-label={i18n.t('Chat preset')}

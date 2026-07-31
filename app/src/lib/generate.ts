@@ -55,7 +55,8 @@ export async function sendMessage(
   preset: Partial<AppSchema.GenSettings> | undefined,
   text: string,
   handlers: StreamHandlers,
-  control: SendControl
+  control: SendControl,
+  book?: AppSchema.MemoryBook
 ) {
   const { chat, characters } = detail
   const char = detail.character ?? characters.find((c) => c._id === chat.characterId)
@@ -96,6 +97,9 @@ export async function sendMessage(
       userEmbeds: [],
       resolvedScenario: chat.scenario ?? char.scenario ?? '',
       jsonValues: undefined,
+      // The chat's attached memory book. `common/prompt` also folds in the character's own
+      // `characterBook`, so only the chat-level one is supplied here.
+      book,
       kind: 'send',
     },
     encoder
@@ -138,7 +142,8 @@ export async function generateLastReply(
   profile: AppSchema.Profile,
   preset: Partial<AppSchema.GenSettings> | undefined,
   handlers: StreamHandlers,
-  control: SendControl
+  control: SendControl,
+  book?: AppSchema.MemoryBook
 ) {
   const { chat, characters } = detail
   const char = detail.character ?? characters.find((c) => c._id === chat.characterId)
@@ -169,6 +174,9 @@ export async function generateLastReply(
       userEmbeds: [],
       resolvedScenario: chat.scenario ?? char.scenario ?? '',
       jsonValues: undefined,
+      // The chat's attached memory book. `common/prompt` also folds in the character's own
+      // `characterBook`, so only the chat-level one is supplied here.
+      book,
       kind: 'send',
     },
     encoder

@@ -10,10 +10,13 @@
   let ready = $state(boot())
   let editorDirty = $state(false)
 
+  /** Routes that own an editor with unsaved-change protection. */
+  const isEditorRoute = (name: string) => name === 'character' || name === 'book'
+
   // Set once: App is the root component and is never torn down.
   router.guard = () => {
-    if (router.route.name !== 'character' || !editorDirty) return true
-    return window.confirm(i18n.t('Discard your unsaved character changes?'))
+    if (!isEditorRoute(router.route.name) || !editorDirty) return true
+    return window.confirm(i18n.t('Discard your unsaved changes?'))
   }
 
   /**
@@ -26,7 +29,7 @@
   $effect(() => {
     const route = router.route
 
-    if (route.name !== 'character') editorDirty = false
+    if (!isEditorRoute(route.name)) editorDirty = false
 
     if (route.name !== 'chat') {
       chats.close()
@@ -57,6 +60,11 @@
     editorDirty = false
     router.go(routes.characters())
   }
+
+  function savedBook() {
+    editorDirty = false
+    router.go(routes.books())
+  }
 </script>
 
 {#await ready}
@@ -75,6 +83,7 @@
     <AppShell
       onEditorDirtyChange={(dirty) => (editorDirty = dirty)}
       onCharacterSaved={savedCharacter}
+      onBookSaved={savedBook}
       onLogout={logout}
     />
   {/if}

@@ -2,10 +2,13 @@
   import { Menu } from '@lucide/svelte'
   import { fade, fly } from 'svelte/transition'
   import { chats } from '/app/lib/chats.svelte'
+  import { books } from '/app/lib/books.svelte'
   import { i18n } from '/app/lib/i18n.svelte'
   import { router, routes } from '/app/lib/router.svelte'
   import CharacterEditor from '/app/routes/CharacterEditor.svelte'
   import Characters from '/app/routes/Characters.svelte'
+  import Books from '/app/routes/Books.svelte'
+  import BookEditor from '/app/routes/BookEditor.svelte'
   import Settings from '/app/routes/Settings.svelte'
   import Chat from '/app/routes/Chat.svelte'
   import Sidebar from './Sidebar.svelte'
@@ -13,21 +16,27 @@
   let {
     onEditorDirtyChange,
     onCharacterSaved,
+    onBookSaved,
     onLogout,
   }: {
     onEditorDirtyChange: (dirty: boolean) => void
     onCharacterSaved: () => void
+    onBookSaved: () => void
     onLogout: () => void
   } = $props()
 
   // Loaded here rather than in Characters: any route can now be the entry point, and the
   // sidebar's recent chats must be present even when the library was never opened.
   chats.loadCharacters()
+  // Books back the chat's memory-book picker, so they are needed outside their own route.
+  books.load()
 
   let drawerOpen = $state(false)
   const route = $derived(router.route)
-  /** Sidebar highlight key; the editor is a state of the Characters section. */
-  const current = $derived(route.name === 'character' ? 'editor' : route.name)
+  /** Transition key; an editor is a state of its section, not a section of its own. */
+  const current = $derived(
+    route.name === 'character' ? 'characters' : route.name === 'book' ? 'books' : route.name
+  )
 
   function navigate(path: string) {
     drawerOpen = false
@@ -83,6 +92,17 @@
                 onDirtyChange={onEditorDirtyChange}
               />
             {/key}
+          {:else if route.name === 'book'}
+            {#key route.bookId}
+              <BookEditor
+                bookId={route.bookId}
+                onCancel={() => router.go(routes.books())}
+                onSaved={onBookSaved}
+                onDirtyChange={onEditorDirtyChange}
+              />
+            {/key}
+          {:else if route.name === 'books'}
+            <Books />
           {:else if route.name === 'settings'}
             <Settings tab={route.tab} onTabChange={(tab) => router.replace(routes.settings(tab))} />
           {:else}

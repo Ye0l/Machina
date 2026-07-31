@@ -15,6 +15,9 @@ export type Route =
   /** `characterId` is null for the create form, matching the editor's own prop. */
   | { name: 'character'; characterId: string | null }
   | { name: 'chat'; chatId: string }
+  | { name: 'books' }
+  /** `bookId` is null for the create form. */
+  | { name: 'book'; bookId: string | null }
   | { name: 'settings'; tab: SettingsTab }
 
 export type RouteName = Route['name']
@@ -27,6 +30,9 @@ export const routes = {
   newCharacter: () => '/character/new',
   character: (characterId: string) => `/character/${encodeURIComponent(characterId)}`,
   chat: (chatId: string) => `/chat/${encodeURIComponent(chatId)}`,
+  books: () => '/memory',
+  newBook: () => '/memory/new',
+  book: (bookId: string) => `/memory/${encodeURIComponent(bookId)}`,
   settings: (tab: SettingsTab = 'general') =>
     tab === 'general' ? '/settings' : `/settings/${tab}`,
 }
@@ -47,6 +53,10 @@ export function parse(pathname: string): Route {
     case 'chat':
       return tail ? { name: 'chat', chatId: decodeURIComponent(tail) } : { name: 'characters' }
 
+    case 'memory':
+      if (!tail) return { name: 'books' }
+      return { name: 'book', bookId: tail === 'new' ? null : decodeURIComponent(tail) }
+
     case 'settings':
       return { name: 'settings', tab: isSettingsTab(tail) ? tail : 'general' }
 
@@ -65,6 +75,10 @@ export function toPath(route: Route): string {
         : routes.character(route.characterId)
     case 'chat':
       return routes.chat(route.chatId)
+    case 'books':
+      return routes.books()
+    case 'book':
+      return route.bookId === null ? routes.newBook() : routes.book(route.bookId)
     case 'settings':
       return routes.settings(route.tab)
   }

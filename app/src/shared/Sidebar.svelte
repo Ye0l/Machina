@@ -1,5 +1,14 @@
 <script lang="ts">
-  import { LogOut, MessageCircle, Plus, Settings, Sparkles, Users, X } from '@lucide/svelte'
+  import {
+    BookOpen,
+    LogOut,
+    MessageCircle,
+    Plus,
+    Settings,
+    Sparkles,
+    Users,
+    X,
+  } from '@lucide/svelte'
   import { chats } from '/app/lib/chats.svelte'
   import { i18n } from '/app/lib/i18n.svelte'
   import { session } from '/app/lib/session.svelte'
@@ -17,6 +26,7 @@
 
   const route = $derived(router.route)
   const inLibrary = $derived(route.name === 'characters' || route.name === 'character')
+  const inBooks = $derived(route.name === 'books' || route.name === 'book')
   const openChatId = $derived(route.name === 'chat' ? route.chatId : undefined)
   const recentChats = $derived(chats.chats.slice(0, 8))
 
@@ -70,6 +80,16 @@
       >
         <Users size={18} />
         {i18n.t('Characters')}
+      </a>
+      <a
+        class:nav-active={inBooks}
+        class="nav-item"
+        href={routes.books()}
+        aria-current={inBooks ? 'page' : undefined}
+        onclick={link(routes.books())}
+      >
+        <BookOpen size={18} />
+        {i18n.t('Memory books')}
       </a>
       <a
         class:nav-active={route.name === 'settings'}

@@ -10,6 +10,7 @@ import type { AppSchema } from '/common/types'
 
 import { defaultPresets, isDefaultPreset } from '/common/default-preset'
 import { api } from './api'
+import { books } from './books.svelte'
 import { cancelGeneration, generateLastReply, sendMessage, type SendControl } from './generate'
 import { session } from './session.svelte'
 import { subscribe } from './socket'
@@ -182,6 +183,15 @@ class Chats {
     return isDefaultPreset(genPreset) ? defaultPresets[genPreset] : undefined
   }
 
+  /**
+   * The chat's attached memory book, if it still exists. `common/prompt` folds in the
+   * character's own `characterBook` separately, so only the chat-level book is resolved.
+   */
+  private memoryBook() {
+    const memoryId = this.detail?.chat.memoryId
+    return memoryId ? books.get(memoryId) : undefined
+  }
+
   private setMessages(messages: AppSchema.ChatMessage[]) {
     this.messages = messages
     if (this.detail) this.detail = { ...this.detail, messages }
@@ -218,7 +228,8 @@ class Chats {
             this.setMessages(messages)
           },
         },
-        control
+        control,
+        this.memoryBook()
       )
 
       // Re-read rather than splice locally: the server assigns ids, parents and timestamps.
@@ -291,7 +302,8 @@ class Chats {
           onDone: () => (this.partial = ''),
           onError: (value) => (this.error = value),
         },
-        control
+        control,
+        this.memoryBook()
       )
       if (!reply || control.stopped) return
 
@@ -335,6 +347,26 @@ class Chats {
       this.stopping = false
       this.partial = ''
       this.control = undefined
+    }
+  }
+
+  /**
+   * Attaches (or detaches, with an empty id) a memory book to the open chat.
+   *
+   * `PUT /chat/:id` validates partially, so sending only `memoryId` leaves the rest of the
+   * chat untouched.
+   */
+  async setMemoryBook(bookId: string) {
+    const detail = this.detail
+    if (!detail || bookId === (detail.chat.memoryId ?? '')) return
+
+    const previous = detail.chat.memoryId
+    this.detail = { ...detail, chat: { ...detail.chat, memoryId: bookId || undefined } }
+    try {
+      await api.put(`/chat/${detail.chat._id}`, { memoryId: bookId })
+    } catch (ex) {
+      this.detail = { ...detail, chat: { ...detail.chat, memoryId: previous } }
+      this.error = ex instanceof Error ? ex.message : 'Failed to update memory book'
     }
   }
 
