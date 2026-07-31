@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { apiOrigin } from '/app/lib/config'
+  import { assetUrl } from '/app/lib/config'
   import type { AvatarCornerRadius } from '/common/types/ui'
 
   let {
@@ -27,13 +27,7 @@
       .map((part) => part[0]?.toUpperCase())
       .join('') || '?'
   )
-  const source = $derived(
-    avatar && !failed
-      ? /^(https?:|data:|blob:)/.test(avatar)
-        ? avatar
-        : `${apiOrigin}${avatar.startsWith('/') ? '' : '/'}${avatar}`
-      : ''
-  )
+  const source = $derived(avatar && !failed ? assetUrl(avatar) : '')
   const dimensions = $derived(
     px
       ? ''

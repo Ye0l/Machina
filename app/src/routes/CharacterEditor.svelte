@@ -1,6 +1,7 @@
 <script lang="ts">
   import {
     ArrowLeft,
+    Download,
     ImagePlus,
     MessageSquareText,
     Plus,
@@ -17,8 +18,17 @@
   import type { ElevenLabsModel } from '/common/types/texttospeech-schema'
   import { chats, type CharacterDraft } from '/app/lib/chats.svelte'
   import { api } from '/app/lib/api'
+  import { assetUrl } from '/app/lib/config'
   import { session } from '/app/lib/session.svelte'
   import { i18n } from '/app/lib/i18n.svelte'
+  import {
+    buildCharacterCard,
+    characterToJson,
+    downloadBlob,
+    type ExportFormat,
+    type ImportedCharacter,
+  } from '/app/lib/character-port'
+  import { pendingImport } from '/app/lib/pending-import'
   import CharacterAvatar from '/app/shared/CharacterAvatar.svelte'
 
   let {
@@ -43,6 +53,12 @@
 
   let originalPersona = $state<AppSchema.Persona | undefined>()
   let initialPersonaText = $state('')
+
+  /** The character as loaded from the server; the source for exports. */
+  let loadedCharacter = $state<AppSchema.Character | null>(null)
+  /** Recognised card data this editor has no home for, reported after an import. */
+  let importNotice = $state('')
+  let exporting = $state(false)
 
   // Core character fields.
   let form = $state({
@@ -340,15 +356,48 @@
     }
   })
 
+  /** Populates an empty editor from a card parsed by the library's import action. */
+  function applyImport(imported: ImportedCharacter) {
+    form = {
+      name: imported.name,
+      description: imported.description,
+      greeting: imported.greeting,
+      persona: personaToText(imported.persona),
+      scenario: imported.scenario,
+      sampleChat: imported.sampleChat,
+      systemPrompt: imported.systemPrompt,
+      postHistoryInstructions: imported.postHistoryInstructions,
+    }
+    tags = [...imported.tags]
+    greetings = [...imported.alternateGreetings]
+    creator = imported.creator
+    characterVersion = imported.characterVersion
+
+    if (imported.avatar) {
+      avatarFile = imported.avatar
+      avatarRemoved = false
+      avatarPreview = URL.createObjectURL(imported.avatar)
+    }
+
+    importNotice = imported.unsupported.length
+      ? i18n.t('Imported. Not carried over: {fields}.', { fields: imported.unsupported.join(', ') })
+      : i18n.t('Imported. Review the character, then save it.')
+  }
+
   async function loadCharacter() {
     if (!characterId) {
+      // Snapshot the empty form first, so an import registers as unsaved work and the
+      // navigation guard protects it.
       initialSnapshot = snapshot()
+      const imported = pendingImport.take()
+      if (imported) applyImport(imported)
       return
     }
 
     loading = true
     try {
       const character = await chats.getCharacter(characterId)
+      loadedCharacter = character
       originalPersona = character.persona
       initialPersonaText = personaToText(character.persona)
       form = {
@@ -569,6 +618,34 @@
     }
   }
 
+  /**
+   * Exports the character as last saved, not the current draft: a card that claims to be a
+   * character which does not exist on the server would be misleading.
+   */
+  async function exportCharacter(format: ExportFormat | 'card') {
+    const character = loadedCharacter
+    if (!character || exporting) return
+
+    exporting = true
+    error = ''
+    try {
+      if (format === 'card') {
+        const blob = await buildCharacterCard(
+          character,
+          character.avatar ? assetUrl(character.avatar) : undefined
+        )
+        downloadBlob(blob, `${character.name}.card.png`)
+      } else {
+        const json = characterToJson(character, format)
+        downloadBlob(new Blob([json], { type: 'application/json' }), `${character.name}.json`)
+      }
+    } catch (ex) {
+      error = ex instanceof Error ? ex.message : i18n.t('Failed to export character')
+    } finally {
+      exporting = false
+    }
+  }
+
   async function removeCharacter() {
     if (!characterId) return
     const subject = form.name || i18n.t('this character')
@@ -613,6 +690,30 @@
           : i18n.t('Build a reusable character prompt')}
       </p>
     </div>
+    {#if loadedCharacter}
+      <div class="hidden items-center gap-2 sm:flex">
+        <Download size={16} class="text-neutral-500" />
+        <!-- Exports the saved character, so it is offered only once one exists. -->
+        <select
+          class="field h-9 w-auto py-1 text-xs"
+          aria-label={i18n.t('Export character')}
+          disabled={exporting}
+          value=""
+          onchange={(event) => {
+            const select = event.currentTarget
+            const format = select.value
+            select.value = ''
+            if (format) exportCharacter(format as ExportFormat | 'card')
+          }}
+        >
+          <option value="" disabled hidden>{i18n.t('Export')}</option>
+          <option value="card">{i18n.t('Tavern card (PNG)')}</option>
+          <option value="tavern">{i18n.t('Tavern V2 (JSON)')}</option>
+          <option value="native">{i18n.t('Agnai (JSON)')}</option>
+          <option value="ooba">{i18n.t('TextGen (JSON)')}</option>
+        </select>
+      </div>
+    {/if}
     <button class="button-primary hidden sm:inline-flex" type="submit" disabled={saving || loading}>
       <Save size={17} />
       {saving ? i18n.t('Saving...') : i18n.t('Save character')}
@@ -665,6 +766,23 @@
     <div class="mx-auto w-full max-w-4xl px-4 py-5 sm:px-6 sm:py-7">
       {#if error}
         <div class="error-banner mb-5" role="alert">{error}</div>
+      {/if}
+
+      {#if importNotice}
+        <div
+          class="mb-5 flex items-start gap-3 rounded-lg border border-violet-900/70 bg-violet-950/40 px-3 py-2.5 text-sm text-violet-200"
+          role="status"
+        >
+          <span class="flex-1">{importNotice}</span>
+          <button
+            class="shrink-0 text-violet-400 hover:text-violet-200"
+            type="button"
+            aria-label={i18n.t('Dismiss')}
+            onclick={() => (importNotice = '')}
+          >
+            <X size={16} />
+          </button>
+        </div>
       {/if}
 
       {#if loading}
