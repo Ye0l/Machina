@@ -1,0 +1,76 @@
+# Runs the application itself, with its database.
+#
+# `docker-compose.yml` is a different thing: it starts only MongoDB and Redis, for developing
+# against a locally-run server (`pnpm run up`). Use this file to run the built app.
+#
+#   cp .env.selfhost.example .env   # then edit it
+#   pnpm run docker:up
+#
+# The project name differs from the development stack's so the two can coexist.
+name: agnai-selfhost
+
+services:
+  app:
+    # Swap for `image: ghcr.io/ye0l/agnai:dev` to run a published image instead of building.
+    build:
+      context: .
+      args:
+        SHA: ${SHA:-selfhost}
+    restart: unless-stopped
+    depends_on:
+      mongo:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      # Required. The image sets NODE_ENV=production, and the server refuses to start in
+      # production without a signing secret rather than generating a throwaway one
+      # (srv/config.ts). Changing it invalidates every existing session.
+      JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET in .env, e.g. `openssl rand -hex 32`}
+      # Applied on every boot: the account is created if missing, and its password is RESET
+      # to this value if it already exists (srv/db/user.ts).
+      INITIAL_USER: ${INITIAL_USER:-admin}
+      INITIAL_PASSWORD: ${INITIAL_PASSWORD:?set INITIAL_PASSWORD in .env}
+      DB_HOST: mongo
+      DB_PORT: '27017'
+      DB_NAME: ${DB_NAME:-agnai}
+      REDIS_HOST: redis
+      REDIS_PORT: '6379'
+      PORT: '3001'
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+    ports:
+      - '${PORT:-3001}:3001'
+    volumes:
+      # Uploaded avatars and images. Matches ASSET_FOLDER in the image.
+      - assets:/usr/src/agnai/dist/assets
+
+  mongo:
+    image: mongo:8
+    restart: unless-stopped
+    volumes:
+      - mongo:/data/db
+    healthcheck:
+      # `app` waits on this, so it does not race the database on a cold start.
+      test: ['CMD', 'mongosh', '--quiet', '--eval', "db.adminCommand('ping').ok"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+    # Deliberately no `ports`: the database is reachable to `app` over the compose network,
+    # and publishing it would expose an unauthenticated MongoDB on the host.
+
+  redis:
+    image: redis:7
+    restart: unless-stopped
+    volumes:
+      - redis:/data
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  mongo:
+  redis:
+  assets:

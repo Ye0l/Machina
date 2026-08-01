@@ -49,6 +49,9 @@ Run `pnpm install --frozen-lockfile` again after pulling changes to `package.jso
 | `pnpm run selfhost`     | Build everything and start the server with `SELF_HOST=1`                   |
 | `pnpm run model`        | Install and run the optional Python pipeline                               |
 | `pnpm run up`           | Start MongoDB and Redis with Docker Compose or Podman Compose              |
+| `pnpm run docker:up`    | Build and start the whole application stack in containers                  |
+| `pnpm run docker:down`  | Stop the containerised stack                                               |
+| `pnpm run docker:logs`  | Follow the application container's logs                                    |
 | `pnpm run legacy:web`   | Run the legacy SolidJS/Parcel frontend                                     |
 | `pnpm run legacy:build` | Build the legacy SolidJS/Parcel frontend                                   |
 
@@ -65,7 +68,35 @@ Run `pnpm install --frozen-lockfile` again after pulling changes to `package.jso
 - AI-assisted character and image generation
 - Optional long-term memory, Wikipedia, and PDF pipeline features
 
-## Self-hosting settings
+## Self-hosting
+
+### With containers
+
+[`docker-compose.selfhost.yml`](./docker-compose.selfhost.yml) runs the application, MongoDB
+and Redis together. This is separate from [`docker-compose.yml`](./docker-compose.yml), which
+starts only the databases for developing against a locally-run server.
+
+```sh
+cp .env.selfhost.example .env
+# Fill in JWT_SECRET and INITIAL_PASSWORD, then:
+pnpm run docker:up
+```
+
+The application is available at <http://localhost:3001>.
+
+`JWT_SECRET` is required — the image runs in production mode, and the server refuses to start
+without a signing secret rather than generating a throwaway one. Changing it later invalidates
+every existing session.
+
+`INITIAL_USER` and `INITIAL_PASSWORD` are applied on **every** boot: the account is created if
+missing, and its password is reset to that value if it already exists. Change the password in
+the app after the first sign-in, and treat `.env` as a secret.
+
+MongoDB and Redis are not published to the host — they are reachable to the application over
+the compose network. Uploaded assets and the database live in named volumes, so `docker
+compose down` keeps them; `down -v` deletes them.
+
+### Settings file
 
 MongoDB is required. Without Redis, the server runs in non-distributed mode.
 
