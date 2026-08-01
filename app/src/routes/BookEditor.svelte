@@ -85,8 +85,11 @@
     nameError = name.trim() ? '' : i18n.t('Enter a book name.')
     if (nameError) return
 
-    // An entry with no keywords can never trigger, so it is dropped rather than saved dead.
-    const usable = entries.filter((entry) => entry.keywords.length > 0 && entry.entry.trim())
+    // An entry with no keywords can never trigger unless it is always included, so it is
+    // dropped rather than saved dead.
+    const usable = entries.filter(
+      (entry) => (entry.keywords.length > 0 || entry.constant) && entry.entry.trim()
+    )
     if (!usable.length) {
       error = i18n.t('Add at least one entry with a keyword and some text.')
       return

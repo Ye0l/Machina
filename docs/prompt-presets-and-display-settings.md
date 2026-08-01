@@ -55,7 +55,7 @@ before the first generation can happen.
 
 **Editor.** A picker above the raw textarea lists "This preset only", the built-ins, and the saved
 templates; choosing one copies its text into the editor and attaches it. Editing the text does
-*not* detach — that matches the legacy editor, and detaching per keystroke would hide the update
+_not_ detach — that matches the legacy editor, and detaching per keystroke would hide the update
 button. Because the two can then drift, the hint under the picker says which one actually
 generates and points at "Update template" or "This preset only". Switching to the basic prompt
 order detaches, since a template id would otherwise make the section list a lie.
@@ -185,3 +185,14 @@ Not started. Requires a separate plan and real `.charx` fixtures:
 - Display-time character-card asset substitution.
 
 These must not be represented as supported by this restoration pass.
+
+## Persona picker visibility
+
+The chat header's "Speak as" select used to render only when the library held a character
+other than the one being chatted with. That is the common case for a new account, and the
+result was that the entire persona feature was invisible — there is no other entry point for
+it, so nothing on screen suggested it existed.
+
+It now always renders, disabled, with an option explaining that another character is what
+makes it usable. A persona in Agnai _is_ one of your own characters sent as `impersonate`;
+there is no separate persona entity to configure elsewhere.

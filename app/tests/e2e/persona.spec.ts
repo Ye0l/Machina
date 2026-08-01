@@ -15,6 +15,18 @@ test.describe('personas', () => {
     await expect(app.locator('select[aria-label="Speak as"]')).toHaveValue('')
   })
 
+  test('stays on screen with nothing to pick, and says why', async ({ app, stub }) => {
+    // A library holding only the character being chatted with. Hiding the control here made
+    // the whole feature invisible to anyone who had not made a second character yet.
+    stub.state.soloCharacter = true
+
+    await app.goto('/chat/chat-1')
+    const picker = app.locator('select[aria-label="Speak as"]')
+    await expect(picker).toBeVisible()
+    await expect(picker).toBeDisabled()
+    await expect(picker).toContainText('make another character')
+  })
+
   test("only offers the user's other characters", async ({ app }) => {
     await app.goto('/chat/chat-1')
     const options = await app.locator('select[aria-label="Speak as"] option').allTextContents()

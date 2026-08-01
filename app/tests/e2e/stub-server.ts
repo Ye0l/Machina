@@ -118,6 +118,8 @@ export type StubState = {
   sends: any[]
   /** Per-character `characterBook`, served by GET /character/:id. */
   personaBookFor: Record<string, any>
+  /** Serves only the chat's own character, i.e. a library with nobody to speak as. */
+  soloCharacter: boolean
   /**
    * Providers and presets served by /user/init. Empty by default: a preset would be passed
    * into prompt assembly, changing the prompts other specs assert on.
@@ -158,6 +160,7 @@ export async function createStubServer(port: number) {
     characterUpdates: [],
     sends: [],
     personaBookFor: {},
+    soloCharacter: false,
     providers: [],
     presets: [],
     presetUpdates: [],
@@ -178,6 +181,7 @@ export async function createStubServer(port: number) {
       this.characterUpdates = []
       this.sends = []
       this.personaBookFor = {}
+      this.soloCharacter = false
       this.providers = []
       this.presets = []
       this.presetUpdates = []
@@ -365,7 +369,9 @@ export async function createStubServer(port: number) {
         return json(created)
       }
 
-      if (path === '/api/character') return json({ characters })
+      if (path === '/api/character') {
+        return json({ characters: state.soloCharacter ? characters.slice(0, 1) : characters })
+      }
 
       // Per-character chat list, which the character workspace renders incrementally.
       const charChats = path.match(/^\/api\/chat\/([^/]+)\/chats$/)

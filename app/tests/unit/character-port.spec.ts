@@ -218,6 +218,18 @@ describe('jsonToCharacter', () => {
       expect(book.entries.map((e) => e.enabled)).toEqual([true, false])
     })
 
+    it('keeps a keywordless entry the card marked constant', () => {
+      const book = withBook({
+        entries: [
+          { keys: [], content: 'always here', constant: true },
+          { keys: [], content: 'never fires' },
+        ],
+      })!
+
+      expect(book.entries).toHaveLength(1)
+      expect(book.entries[0]).toMatchObject({ entry: 'always here', constant: true })
+    })
+
     it('drops entries that could never fire and keeps the rest', () => {
       const book = withBook({
         entries: [

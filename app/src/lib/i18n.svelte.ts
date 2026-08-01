@@ -145,6 +145,11 @@ const korean: Record<string, string> = {
   Keywords: '키워드',
   'Add keyword…': '키워드 추가…',
   'No keywords — this entry can never trigger': '키워드 없음 — 이 항목은 작동하지 않습니다',
+  'Always include': '항상 포함',
+  'Always included': '항상 포함됨',
+  'Inserted every time, with or without a keyword, budget permitting.':
+    '키워드와 무관하게 매번 삽입됩니다. 토큰 예산 범위 내에서 적용됩니다.',
+  '— make another character to speak as it': '— 다른 캐릭터를 만들면 그 캐릭터로 말할 수 있습니다',
   'Press Enter or comma to add. Matching is case-insensitive.':
     'Enter 또는 쉼표로 추가합니다. 대소문자는 구분하지 않습니다.',
   'Text injected into the prompt when a keyword matches':

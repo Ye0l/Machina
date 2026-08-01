@@ -93,4 +93,36 @@ test.describe('memory books', () => {
     const detached = await sendAndCapturePrompt(app, stub.state, 'What about the dragon now?')
     expect(detached).not.toContain('MEMORY-DRAGON-FACT')
   })
+
+  test('an always-included entry reaches the prompt with no keyword at all', async ({
+    app,
+    stub,
+  }) => {
+    await app.goto('/memory/new')
+    await app.waitForSelector('input[placeholder="Book name"]')
+
+    await app.fill('input[placeholder="Book name"]', 'Standing orders')
+    await app.fill('input[placeholder="For your reference only"]', 'Tone')
+    // Deliberately no keyword: the flag is the only thing that can carry this entry.
+    await app.check('input[aria-label="Always include"]')
+    await app.fill(
+      'textarea[placeholder="Text injected into the prompt when a keyword matches"]',
+      'ALWAYS-TONE-FACT: speak plainly.'
+    )
+    await app.click('button:has-text("Save book")')
+    await expect(app.getByRole('heading', { name: 'Standing orders', exact: true })).toBeVisible()
+
+    expect(stub.state.memoryBooks[0].entries[0]).toMatchObject({
+      keywords: [],
+      constant: true,
+    })
+
+    await app.goto('/chat/chat-1')
+    await app.waitForSelector('select[aria-label="Memory book"]')
+    await app.selectOption('select[aria-label="Memory book"]', stub.state.memoryBooks[0]._id)
+    await expect.poll(() => stub.state.chatUpdates.length).toBe(1)
+
+    const prompt = await sendAndCapturePrompt(app, stub.state, 'Nothing to do with the entry.')
+    expect(prompt).toContain('ALWAYS-TONE-FACT')
+  })
 })

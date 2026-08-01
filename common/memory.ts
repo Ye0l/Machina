@@ -161,6 +161,14 @@ async function findMatchWithLowestAge(
     lowestAge = Math.min(lowestAge, match)
   }
 
+  /*
+   * A constant entry is inserted whether or not anything triggered it -- that is what the
+   * flag means, and it is the only way to write lore that has no keyword to hang off.
+   * It is aged as if the newest message had matched: it is relevant right now, and the
+   * budget is still shared, so `priority` remains the lever for what survives a tight one.
+   */
+  if (entry.constant) lowestAge = 0
+
   if (lowestAge === Infinity) return
 
   const text = entry.entry

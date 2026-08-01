@@ -263,20 +263,25 @@
     >
       <Plus size={18} />
     </button>
-    {#if personaOptions.length}
-      <select
-        class="field order-last h-9 w-full max-w-none py-1 text-xs sm:order-none sm:w-auto sm:max-w-[10rem]"
-        value={persona.characterId}
-        onchange={selectPersona}
-        aria-label={i18n.t('Speak as')}
-        disabled={chats.generating || persona.loading}
-      >
-        <option value="">{i18n.t('Speak as yourself')}</option>
-        {#each personaOptions as option (option._id)}
-          <option value={option._id}>{option.name}</option>
-        {/each}
-      </select>
-    {/if}
+    <!--
+      Always rendered, even with nothing to pick: hiding it made the whole persona feature
+      invisible to anyone whose library holds only the character they are chatting with.
+    -->
+    <select
+      class="field order-last h-9 w-full max-w-none py-1 text-xs sm:order-none sm:w-auto sm:max-w-[10rem]"
+      value={persona.characterId}
+      onchange={selectPersona}
+      aria-label={i18n.t('Speak as')}
+      disabled={chats.generating || persona.loading || !personaOptions.length}
+    >
+      <option value="">{i18n.t('Speak as yourself')}</option>
+      {#each personaOptions as option (option._id)}
+        <option value={option._id}>{option.name}</option>
+      {/each}
+      {#if !personaOptions.length}
+        <option value="" disabled>{i18n.t('— make another character to speak as it')}</option>
+      {/if}
+    </select>
     {#if books.books.length}
       <select
         class="field order-last h-9 w-full max-w-none py-1 text-xs sm:order-none sm:ml-auto sm:w-auto sm:max-w-[10rem]"
@@ -291,9 +296,10 @@
         {/each}
       </select>
     {/if}
+    <!-- The persona select is always present now, so only the book select can carry the gap. -->
     <select
       class="field order-last h-9 w-full max-w-none py-1 text-xs sm:order-none sm:w-auto sm:max-w-[12rem]"
-      class:sm:ml-auto={!books.books.length && !personaOptions.length}
+      class:sm:ml-auto={!books.books.length}
       value={selectedPresetId}
       onchange={selectPreset}
       aria-label={i18n.t('Chat preset')}

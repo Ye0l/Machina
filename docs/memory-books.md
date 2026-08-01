@@ -18,10 +18,10 @@ Only the chat-level book is passed: `common/prompt.ts` folds in the character's 
 
 ## Routes
 
-| Path | View |
-| --- | --- |
-| `/memory` | Book library |
-| `/memory/new` | Book editor, empty |
+| Path          | View                  |
+| ------------- | --------------------- |
+| `/memory`     | Book library          |
+| `/memory/new` | Book editor, empty    |
 | `/memory/:id` | Book editor for `:id` |
 
 ## Editor
@@ -33,8 +33,8 @@ the reply), because the names alone do not say.
 
 Two rules are enforced on save:
 
-- Entries with no keywords or no text are dropped. An entry without keywords can never
-  trigger, so saving it would be storing something dead.
+- Entries with no text are dropped, as are entries with no keywords unless they are marked
+  always-included. Either way saving them would be storing something dead.
 - A book must have at least one usable entry.
 
 Keywords are de-duplicated case-insensitively, matching how `common/memory.ts` compares them.
@@ -84,6 +84,25 @@ is the same failure mode found earlier in `chats.loadCharacters` and recorded in
     without the entry text; a message mentioning `dragon` produces a prompt containing
     `MEMORY-DRAGON-FACT`; detaching the book removes it again even though the keyword is
     still in recent history.
+
+## Always-included entries
+
+`MemoryEntry.constant` was already in the schema and was already round-tripped by card import
+and export — `common/memory.ts` simply never read it when matching, so the flag was inert
+wherever it came from. `findMatchWithLowestAge` now treats a constant entry as matched
+regardless of its keywords.
+
+It is aged as if the newest message had triggered it: it is relevant right now, and the token
+budget is still shared, so `priority` stays the lever for what survives a tight one. Disabled
+still wins over constant, and a constant entry that does not fit the context limit is dropped
+like any other match.
+
+The three places that dropped keywordless entries as dead — the book editor, a character's own
+book, and the card importer — now keep them when they are constant. That is the only way to
+write lore with nothing to hang a keyword off.
+
+Covered by `tests/memory-constant.spec.ts` (6, asserting on the built memory prompt) and one
+browser test that saves a keywordless entry and finds its text in the assembled prompt.
 
 ## Residual risk and follow-ups
 

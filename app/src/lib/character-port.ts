@@ -150,8 +150,9 @@ function readCharacterBook(raw: any, characterName: string): AppSchema.MemoryBoo
         enabled: entry.enabled !== false,
       }
     })
-    // An entry with no keyword can never trigger, and one with no text has nothing to insert.
-    .filter((entry) => entry.keywords.length > 0 && entry.entry.trim())
+    // An entry with no keyword can never trigger unless the card marked it constant, and one
+    // with no text has nothing to insert either way.
+    .filter((entry) => (entry.keywords.length > 0 || entry.constant) && entry.entry.trim())
 
   if (!entries.length) return undefined
 
