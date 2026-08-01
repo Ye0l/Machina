@@ -2,6 +2,7 @@ import extractPngChunks from 'png-chunks-extract'
 import encodePngChunks from 'png-chunks-encode'
 import * as pngText from 'png-chunk-text'
 import { load as loadExif } from 'exifreader'
+import JSZip from 'jszip'
 import { exportCharacter, formatCharacter } from '/common/characters'
 import { characterBookToNative, type CharacterBook } from '/common/memory'
 import type { AppSchema } from '/common/types'
@@ -17,8 +18,8 @@ import type { AppSchema } from '/common/types'
  * layer both frontends already use, so no new format definition is introduced here.
  */
 
-export const IMPORT_EXTENSIONS = ['json', 'png', 'apng', 'jpg', 'jpeg', 'webp'] as const
-export const IMPORT_ACCEPT = '.json,.png,.apng,.jpg,.jpeg,.webp'
+export const IMPORT_EXTENSIONS = ['json', 'png', 'apng', 'jpg', 'jpeg', 'webp', 'charx'] as const
+export const IMPORT_ACCEPT = '.json,.png,.apng,.jpg,.jpeg,.webp,.charx'
 
 /** The fields the Svelte character editor can represent. */
 export type ImportedCharacter = {
@@ -38,11 +39,20 @@ export type ImportedCharacter = {
   avatar?: File
   /** The card's own lore, ready to be saved as `character.characterBook`. */
   characterBook?: AppSchema.MemoryBook
+  /** Images unpacked from a CHARX archive, uploaded after the character has an id. */
+  assets?: ImportedAsset[]
   /**
    * Recognised data the editor has no home for, reported to the user rather than dropped
    * silently.
    */
   unsupported: string[]
+}
+
+/** An asset lifted out of a `.charx`, held until the character exists to attach it to. */
+export type ImportedAsset = {
+  name: string
+  /** A `data:` URL, which is what the asset upload route accepts. */
+  image: string
 }
 
 export type ExportFormat = 'native' | 'tavern' | 'ooba'
@@ -246,7 +256,14 @@ export function jsonToCharacter(json: any): ImportedCharacter {
       characterVersion: data.character_version ?? '',
     }
     rawBook = data.character_book
-    if (json.spec === 'chara_card_v3') unsupported.push('Character Card V3 assets')
+    /*
+     * A V3 card's `assets` name files by URI. Only a CHARX archive actually carries them --
+     * `parseCharacterFile` unpacks those and clears this notice -- so a bare V3 card still
+     * has to say the images were left behind.
+     */
+    if (json.spec === 'chara_card_v3' && ensureArray<any>(data.assets).length) {
+      unsupported.push('Character Card V3 assets')
+    }
   } else if (format === 'charas') {
     const data = json.data ?? {}
     parsed = {
@@ -312,6 +329,93 @@ function readWebpCard(bytes: Uint8Array): string {
   return utf8FromBytes(Uint8Array.from(String(data).split(',').map(Number)))
 }
 
+/* --------------------------------------------------------------------------- CHARX */
+
+/**
+ * A `.charx` is a ZIP holding `card.json` (a Character Card V3) plus the files its `assets`
+ * entries point at. Asset URIs use the scheme `embeded://` -- the misspelling is the V3
+ * spec's, not a typo here -- with a path relative to the archive root.
+ *
+ * Limits are deliberate. An archive is attacker-supplied input, so the entry count and the
+ * decompressed size of anything read are capped rather than trusted; a zip bomb should fail
+ * the import, not the tab. Only files an asset entry names are read at all, so a path outside
+ * the archive's own listing can never be reached.
+ */
+const CHARX_MAX_ENTRIES = 256
+const CHARX_MAX_ASSET_BYTES = 8 * 1024 * 1024
+const EMBEDDED_SCHEME = 'embeded://'
+
+/** The V3 icon named `main` is the avatar, not something the character shows mid-reply. */
+const isAvatarAsset = (asset: any) =>
+  String(asset?.type ?? '').toLowerCase() === 'icon' &&
+  String(asset?.name ?? '').toLowerCase() === 'main'
+
+const dataUrlFromBytes = (bytes: Uint8Array, ext: string) =>
+  `data:image/${ext === 'jpg' ? 'jpeg' : ext || 'png'};base64,${base64FromBytes(bytes)}`
+
+async function readCharx(file: File): Promise<ImportedCharacter> {
+  const zip = await JSZip.loadAsync(await file.arrayBuffer())
+
+  const names = Object.keys(zip.files)
+  if (names.length > CHARX_MAX_ENTRIES) {
+    throw new Error(`The archive has too many files (${names.length})`)
+  }
+
+  // The spec fixes the name, but archives in the wild vary in case and leading path.
+  const cardName = names.find((name) => /(^|\/)card\.json$/i.test(name))
+  if (!cardName) throw new Error('The archive has no card.json')
+
+  const card = JSON.parse(await zip.files[cardName].async('string'))
+  const parsed = jsonToCharacter(card)
+  const declared = ensureArray<any>(card.data?.assets)
+  const assets: ImportedAsset[] = []
+  let avatar: File | undefined
+  let skipped = 0
+
+  for (const asset of declared) {
+    const uri = String(asset?.uri ?? '')
+    if (!uri.startsWith(EMBEDDED_SCHEME)) {
+      // `ccdefault:`, `http://` and `data:` are legal in V3 and are not in the archive.
+      skipped++
+      continue
+    }
+
+    const path = uri.slice(EMBEDDED_SCHEME.length)
+    const entry = zip.files[path] ?? zip.files[names.find((n) => n.endsWith(path)) ?? '']
+    if (!entry) {
+      skipped++
+      continue
+    }
+
+    const bytes = new Uint8Array(await entry.async('arraybuffer'))
+    if (bytes.byteLength > CHARX_MAX_ASSET_BYTES) {
+      skipped++
+      continue
+    }
+
+    const ext = String(asset?.ext ?? path.split('.').pop() ?? 'png').toLowerCase()
+
+    if (isAvatarAsset(asset) && !avatar) {
+      avatar = new File([bytes as BlobPart], `avatar.${ext}`, { type: `image/${ext}` })
+      continue
+    }
+
+    const name = String(asset?.name ?? '').trim()
+    if (!name) {
+      skipped++
+      continue
+    }
+
+    assets.push({ name, image: dataUrlFromBytes(bytes, ext) })
+  }
+
+  // The archive carried its images, so the V3 notice no longer applies to what came through.
+  const unsupported = parsed.unsupported.filter((item) => item !== 'Character Card V3 assets')
+  if (skipped) unsupported.push(`${skipped} asset(s) stored outside the archive`)
+
+  return { ...parsed, unsupported, avatar, assets: assets.length ? assets : undefined }
+}
+
 export async function parseCharacterFile(file: File): Promise<ImportedCharacter> {
   const extension = file.name.split('.').pop()?.toLowerCase() ?? ''
 
@@ -319,6 +423,8 @@ export async function parseCharacterFile(file: File): Promise<ImportedCharacter>
     const parsed = jsonToCharacter(JSON.parse(await file.text()))
     return parsed
   }
+
+  if (extension === 'charx') return readCharx(file)
 
   if (!(IMPORT_EXTENSIONS as readonly string[]).includes(extension)) {
     throw new Error(`Unsupported file type ".${extension}"`)

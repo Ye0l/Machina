@@ -122,3 +122,26 @@ Avatar URL resolution moved out of `CharacterAvatar.svelte` into `assetUrl()` in
   imported string reaches the DOM through Svelte's escaping or the sanitiser in
   `renderMarkdown`, but there is no schema validation and no size limit on an imported field.
 - Chub browsing/download (`web/pages/Chub`) was not ported.
+
+## CHARX
+
+A `.charx` is a ZIP holding `card.json` (a Character Card V3) and the files its `assets`
+entries point at. Asset URIs use the scheme `embeded://` — the misspelling is the V3 spec's —
+with a path relative to the archive root. `jszip` was already a dependency for the legacy
+client's bulk export, so nothing new was added.
+
+The V3 asset typed `icon` and named `main` becomes the character's **avatar**. Everything else
+becomes a character asset (`docs/character-assets.md`), uploaded one request at a time once the
+character has an id — the same deferred pattern the memory book uses, for the same reason.
+
+`ccdefault:`, `http(s)://` and `data:` URIs are legal in V3 and are not in the archive. Those
+are counted and reported in the import notice rather than fetched: importing a card should not
+make requests to whatever host the card names.
+
+**An archive is attacker-supplied input.** The entry count and the decompressed size of any
+file read are capped, so a zip bomb fails the import instead of the tab. Only files an asset
+entry names are read at all, so a path outside the archive's own listing is unreachable.
+
+A bare V3 card — one that is not a `.charx` — still reports its assets as not carried over,
+because only the archive holds the files. That notice is now conditional on the card actually
+declaring assets.

@@ -84,6 +84,7 @@ const korean: Record<string, string> = {
   'Could not import {name}: {reason}': '{name}을(를) 가져오지 못했습니다: {reason}',
   'Imported. Review the character, then save it.': '가져왔습니다. 캐릭터를 확인한 뒤 저장하세요.',
   'Imported. Not carried over: {fields}.': '가져왔습니다. 반영되지 않은 항목: {fields}.',
+  '{count} assets will be uploaded with it.': '에셋 {count}개도 함께 업로드됩니다.',
   '{count} memory book entries will be saved with it.':
     '메모리 북 항목 {count}개도 함께 저장됩니다.',
   'Memory books': '메모리 북',
