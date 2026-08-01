@@ -16,3 +16,13 @@ export const apiOrigin =
     : location.origin
 
 export const wsOrigin = apiOrigin.replace(/^http/, 'ws')
+
+/**
+ * Resolves a stored asset path (avatars) to a fetchable URL. Already-absolute values --
+ * remote URLs, data URLs and the blob URLs used for un-saved local previews -- pass through
+ * untouched.
+ */
+export function assetUrl(path: string): string {
+  if (/^(https?:|data:|blob:)/.test(path)) return path
+  return `${apiOrigin}${path.startsWith('/') ? '' : '/'}${path}`
+}

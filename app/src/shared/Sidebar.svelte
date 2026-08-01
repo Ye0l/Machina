@@ -1,28 +1,44 @@
 <script lang="ts">
-  import { LogOut, MessageCircle, Plus, Settings, Sparkles, Users, X } from '@lucide/svelte'
+  import {
+    BookOpen,
+    LogOut,
+    MessageCircle,
+    Plus,
+    Settings,
+    Sparkles,
+    Users,
+    X,
+  } from '@lucide/svelte'
   import { chats } from '/app/lib/chats.svelte'
   import { i18n } from '/app/lib/i18n.svelte'
   import { session } from '/app/lib/session.svelte'
+  import { isRouterClick, router, routes } from '/app/lib/router.svelte'
 
   let {
-    current,
     onClose,
-    onShowCharacters,
-    onShowSettings,
-    onNewCharacter,
-    onOpenChat,
+    onNavigate,
     onLogout,
   }: {
-    current: 'characters' | 'editor' | 'chat' | 'settings'
     onClose: () => void
-    onShowCharacters: () => void
-    onShowSettings: () => void
-    onNewCharacter: () => void
-    onOpenChat: (chatId: string) => void
+    onNavigate: (path: string) => void
     onLogout: () => void
   } = $props()
 
+  const route = $derived(router.route)
+  const inLibrary = $derived(route.name === 'characters' || route.name === 'character')
+  const inBooks = $derived(route.name === 'books' || route.name === 'book')
+  const openChatId = $derived(route.name === 'chat' ? route.chatId : undefined)
   const recentChats = $derived(chats.chats.slice(0, 8))
+
+  /**
+   * Nav entries are real anchors so the URL is visible on hover and modified clicks open a
+   * new tab; plain clicks are handled in-app.
+   */
+  const link = (path: string) => (event: MouseEvent) => {
+    if (!isRouterClick(event)) return
+    event.preventDefault()
+    onNavigate(path)
+  }
 </script>
 
 <div class="flex h-full min-h-0 flex-col bg-[#0d1118]">
@@ -45,30 +61,46 @@
   </div>
 
   <div class="flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto px-3 py-4">
-    <button class="button-primary w-full justify-center" type="button" onclick={onNewCharacter}>
+    <a
+      class="button-primary w-full justify-center"
+      href={routes.newCharacter()}
+      onclick={link(routes.newCharacter())}
+    >
       <Plus size={17} />
       {i18n.t('New character')}
-    </button>
+    </a>
 
     <nav class="space-y-1" aria-label="Primary navigation">
-      <button
-        class:nav-active={current === 'characters' || current === 'editor'}
+      <a
+        class:nav-active={inLibrary}
         class="nav-item"
-        type="button"
-        onclick={onShowCharacters}
+        href={routes.characters()}
+        aria-current={inLibrary ? 'page' : undefined}
+        onclick={link(routes.characters())}
       >
         <Users size={18} />
         {i18n.t('Characters')}
-      </button>
-      <button
-        class:nav-active={current === 'settings'}
+      </a>
+      <a
+        class:nav-active={inBooks}
         class="nav-item"
-        type="button"
-        onclick={onShowSettings}
+        href={routes.books()}
+        aria-current={inBooks ? 'page' : undefined}
+        onclick={link(routes.books())}
+      >
+        <BookOpen size={18} />
+        {i18n.t('Memory books')}
+      </a>
+      <a
+        class:nav-active={route.name === 'settings'}
+        class="nav-item"
+        href={routes.settings()}
+        aria-current={route.name === 'settings' ? 'page' : undefined}
+        onclick={link(routes.settings())}
       >
         <Settings size={18} />
         {i18n.t('AI settings')}
-      </button>
+      </a>
     </nav>
 
     <section class="min-h-0">
@@ -81,15 +113,16 @@
 
       <div class="space-y-1">
         {#each recentChats as chat (chat._id)}
-          <button
-            class:nav-active={current === 'chat' && chats.detail?.chat._id === chat._id}
+          <a
+            class:nav-active={openChatId === chat._id}
             class="nav-item"
-            type="button"
-            onclick={() => onOpenChat(chat._id)}
+            href={routes.chat(chat._id)}
+            aria-current={openChatId === chat._id ? 'page' : undefined}
+            onclick={link(routes.chat(chat._id))}
           >
             <MessageCircle size={17} />
             <span class="truncate">{chat.name}</span>
-          </button>
+          </a>
         {:else}
           <p class="px-2 py-3 text-xs leading-5 text-neutral-600">
             {i18n.t('Your recent chats appear here.')}

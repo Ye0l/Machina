@@ -1,60 +1,69 @@
 <script lang="ts">
+  import { untrack } from 'svelte'
   import { boot, session } from '/app/lib/session.svelte'
   import { chats } from '/app/lib/chats.svelte'
   import { i18n } from '/app/lib/i18n.svelte'
+  import { router, routes } from '/app/lib/router.svelte'
   import AppShell from '/app/shared/AppShell.svelte'
   import Login from '/app/routes/Login.svelte'
 
   let ready = $state(boot())
-  let editorId = $state<string | null | undefined>(undefined)
-  let view = $state<'characters' | 'settings'>('characters')
   let editorDirty = $state(false)
 
-  function leaveEditor() {
-    if (editorId === undefined || !editorDirty) return true
-    return window.confirm(i18n.t('Discard your unsaved character changes?'))
+  /** Routes that own an editor with unsaved-change protection. */
+  const isEditorRoute = (name: string) => name === 'character' || name === 'book'
+
+  // Set once: App is the root component and is never torn down.
+  router.guard = () => {
+    if (!isEditorRoute(router.route.name) || !editorDirty) return true
+    return window.confirm(i18n.t('Discard your unsaved changes?'))
   }
 
-  function showCharacters() {
-    if (!leaveEditor()) return
-    chats.close()
-    editorDirty = false
-    editorId = undefined
-    view = 'characters'
-  }
+  /**
+   * The open chat follows the URL, so `/chat/:id` works on a reload or a shared link and
+   * not just on an in-app click.
+   *
+   * `chats.detail` is read untracked: this effect must run on navigation only, otherwise
+   * loading a chat would re-trigger it.
+   */
+  $effect(() => {
+    const route = router.route
 
-  function showSettings() {
-    if (!leaveEditor()) return
-    chats.close()
-    editorDirty = false
-    editorId = undefined
-    view = 'settings'
-  }
+    if (!isEditorRoute(route.name)) editorDirty = false
 
-  function showEditor(characterId: string | null = null) {
-    if (!leaveEditor()) return
-    chats.close()
-    editorDirty = false
-    editorId = characterId
-    view = 'characters'
-  }
+    if (route.name !== 'chat') {
+      chats.close()
+      return
+    }
 
-  function openChat(chatId: string) {
-    if (!leaveEditor()) return
+    const chatId = route.chatId
+    if (untrack(() => chats.detail?.chat._id) === chatId) return
+
+    chats.openChat(chatId).then(() => {
+      // Drop a load that a newer navigation has already superseded.
+      const current = router.route
+      if (current.name !== 'chat' || current.chatId !== chatId) return
+      // A chat that could not be loaded (deleted, or not ours) must not keep its URL.
+      if (chats.detail?.chat._id !== chatId) router.replace(routes.characters())
+    })
+  })
+
+  function logout() {
+    if (!router.canLeave()) return
     editorDirty = false
-    editorId = undefined
-    view = 'characters'
-    chats.openChat(chatId)
+    session.logout()
+    router.replace(routes.characters())
   }
 
   function savedCharacter() {
+    // Clear first: the save already persisted the changes, so leaving must not prompt.
     editorDirty = false
-    showCharacters()
+    router.go(routes.characters())
   }
 
-  function logout() {
-    if (!leaveEditor()) return
-    session.logout()
+  function savedBook() {
+    editorDirty = false
+    router.go(routes.books())
   }
 </script>
 
@@ -72,16 +81,10 @@
     <Login />
   {:else}
     <AppShell
-      {editorId}
-      {view}
-      onShowSettings={showSettings}
       onEditorDirtyChange={(dirty) => (editorDirty = dirty)}
       onCharacterSaved={savedCharacter}
+      onBookSaved={savedBook}
       onLogout={logout}
-      onShowCharacters={showCharacters}
-      onNewCharacter={() => showEditor()}
-      onEditCharacter={(id) => showEditor(id)}
-      onOpenChat={openChat}
     />
   {/if}
 {/await}

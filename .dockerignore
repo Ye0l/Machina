@@ -1,0 +1,17 @@
+node_modules
+dist
+.git
+.github
+.playwright
+playwright-report
+.model
+web
+tests
+screenshots
+docs
+model
+extras
+*.md
+!README.md
+.env
+settings.json
