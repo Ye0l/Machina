@@ -1331,8 +1331,14 @@
     </div>
   </div>
 
+  <!--
+    Standalone, this footer is the small-screen counterpart to the header's save button.
+    Embedded there is no header, so it is the only save control and must stay on every width.
+  -->
   <footer
-    class="shrink-0 border-t border-neutral-800/80 bg-[#0d1118] p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:hidden"
+    class="shrink-0 border-t border-neutral-800/80 bg-[#0d1118] p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] {embedded
+      ? ''
+      : 'sm:hidden'}"
   >
     <button class="button-primary w-full justify-center" type="submit" disabled={saving || loading}>
       <Save size={17} />

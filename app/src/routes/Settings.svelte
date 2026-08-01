@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { untrack } from 'svelte'
   import {
     ArrowLeft,
     CheckCircle2,
@@ -51,6 +52,8 @@
   } from '/common/types/ui'
   import type { ModelFormat } from '/common/presets/templates'
   import { BUILTIN_FORMATS } from '/common/presets/templates'
+  import { BUILTIN_TEMPLATE_IDS, promptTemplates } from '/app/lib/prompt-templates.svelte'
+  import { renderPromptPreview, type PromptPreview } from '/app/lib/prompt-preview'
   import type { SettingsTab } from '/app/lib/router.svelte'
 
   // The visible tab is owned by the route (`/settings/:tab`) so it survives a reload and
@@ -254,6 +257,13 @@
   let presetNameError = $state('')
   let presetPromptError = $state('')
   let rawTemplateEl: HTMLTextAreaElement | null = null
+  /** Name for "Save as template" / "Update template"; seeded from the selected template. */
+  let templateName = $state('')
+  let templateError = $state('')
+  /** Rendered prompt preview; `null` while hidden. */
+  let preview = $state<PromptPreview | null>(null)
+  let previewing = $state(false)
+  let previewError = $state('')
   let modelOptions = $state<string[]>([])
   let modelLoading = $state(false)
   let modelMessage = $state('')
@@ -323,6 +333,7 @@
     presetForm = emptyPresetForm()
     presetNameError = ''
     presetPromptError = ''
+    seedTemplateName()
     editingPreset = 'new'
     void refreshModels()
   }
@@ -356,6 +367,7 @@
     }
     presetNameError = ''
     presetPromptError = ''
+    seedTemplateName()
     editingPreset = preset._id
     void refreshModels()
   }
@@ -400,7 +412,6 @@
     const start = el.selectionStart ?? el.value.length
     const end = el.selectionEnd ?? el.value.length
     presetForm.gaslight = el.value.slice(0, start) + inserted + el.value.slice(end)
-    presetForm.promptTemplateId = undefined
     requestAnimationFrame(() => {
       el.focus()
       const pos = start + inserted.length
@@ -408,9 +419,123 @@
     })
   }
 
-  function onRawTemplateInput() {
-    // Manual raw edits detach the preset from a built-in template id.
-    presetForm.promptTemplateId = undefined
+  /**
+   * A preset's `promptTemplateId` outranks both its raw template and its prompt order
+   * (`getTemplate`, common/prompt.ts), so leaving one attached would make the section list
+   * below a lie. Switching to the basic mode detaches it.
+   */
+  function onPromptModeChange() {
+    if (presetForm.useAdvancedPrompt === 'basic') presetForm.promptTemplateId = undefined
+  }
+
+  const isBuiltinTemplate = (id: string) => (BUILTIN_TEMPLATE_IDS as string[]).includes(id)
+
+  // The preview is a snapshot of one render; anything it was built from invalidates it.
+  $effect(() => {
+    presetForm.gaslight
+    presetForm.promptTemplateId
+    presetForm.modelFormat
+    untrack(() => {
+      if (preview) preview = null
+    })
+  })
+
+  async function togglePreview() {
+    if (preview) {
+      preview = null
+      return
+    }
+
+    previewing = true
+    previewError = ''
+    try {
+      // The attached template is what generates, so that is what gets previewed.
+      const template = selectedTemplate?.template ?? presetForm.gaslight
+      preview = await renderPromptPreview(template, {
+        ...presetForm,
+        maxContextLength: presetForm.maxContext,
+      })
+    } catch (ex) {
+      previewError = ex instanceof Error ? ex.message : i18n.t('Could not render the prompt.')
+    } finally {
+      previewing = false
+    }
+  }
+
+  /** The saved or built-in template the preset is attached to, if any. */
+  const selectedTemplate = $derived(
+    presetForm.promptTemplateId ? promptTemplates.resolve(presetForm.promptTemplateId) : undefined
+  )
+
+  /**
+   * Editing the text does not detach the preset, so the two can drift apart -- and the
+   * attached template is what actually generates. The editor says so rather than letting an
+   * edit look applied when it is not.
+   */
+  const templateDiverged = $derived(
+    !!selectedTemplate && selectedTemplate.template !== presetForm.gaslight
+  )
+
+  function seedTemplateName() {
+    templateName = presetForm.promptTemplateId
+      ? promptTemplates.resolve(presetForm.promptTemplateId)?.name ?? ''
+      : ''
+    templateError = ''
+  }
+
+  function onTemplatePick(id: string) {
+    templateError = ''
+    if (!id) {
+      // "This preset only": keep the text on screen, drop the link to the shared template.
+      presetForm.promptTemplateId = undefined
+      return
+    }
+
+    const template = promptTemplates.resolve(id)
+    if (!template) return
+    presetForm.promptTemplateId = id
+    presetForm.gaslight = template.template
+    templateName = template.name
+  }
+
+  async function saveAsTemplate() {
+    const name = templateName.trim()
+    templateError = name ? '' : i18n.t('Enter a name for this template.')
+    if (templateError) return
+
+    const created = await promptTemplates.create(name, presetForm.gaslight)
+    if (!created) {
+      templateError = promptTemplates.error
+      return
+    }
+    // Attaching it here is what makes the preset generate from the shared template.
+    presetForm.promptTemplateId = created._id
+  }
+
+  async function updateSelectedTemplate() {
+    const id = presetForm.promptTemplateId
+    if (!id || isBuiltinTemplate(id)) return
+
+    const name = templateName.trim()
+    templateError = name ? '' : i18n.t('Enter a name for this template.')
+    if (templateError) return
+
+    const updated = await promptTemplates.update(id, name, presetForm.gaslight)
+    if (!updated) templateError = promptTemplates.error
+  }
+
+  async function deleteSelectedTemplate() {
+    const id = presetForm.promptTemplateId
+    if (!id || isBuiltinTemplate(id)) return
+    if (!window.confirm(i18n.t('Delete template “{name}”?', { name: templateName }))) return
+
+    if (await promptTemplates.remove(id)) {
+      // The text stays in the editor, now owned by the preset alone.
+      presetForm.promptTemplateId = undefined
+      templateName = ''
+    } else {
+      templateError = promptTemplates.error
+    }
   }
 
   async function submitPreset(event: SubmitEvent) {
@@ -1237,6 +1362,7 @@
                       id="preset-prompt-mode"
                       class="field"
                       bind:value={presetForm.useAdvancedPrompt}
+                      onchange={onPromptModeChange}
                     >
                       <option value="basic">{i18n.t('Basic prompt order')}</option>
                       <option value="no-validation">{i18n.t('Raw prompt template')}</option>
@@ -1314,6 +1440,45 @@
                   </div>
                 {:else}
                   <div class="field-group">
+                    <label class="field-label" for="preset-template-pick"
+                      >{i18n.t('Prompt template')}</label
+                    >
+                    <select
+                      id="preset-template-pick"
+                      class="field"
+                      value={presetForm.promptTemplateId ?? ''}
+                      onchange={(e) => onTemplatePick(e.currentTarget.value)}
+                    >
+                      <option value="">{i18n.t('This preset only')}</option>
+                      <optgroup label={i18n.t('Built-in')}>
+                        {#each BUILTIN_TEMPLATE_IDS as id (id)}
+                          <option value={id}>{id}</option>
+                        {/each}
+                      </optgroup>
+                      {#if promptTemplates.list.length}
+                        <optgroup label={i18n.t('Saved')}>
+                          {#each promptTemplates.list as template (template._id)}
+                            <option value={template._id}>{template.name}</option>
+                          {/each}
+                        </optgroup>
+                      {/if}
+                    </select>
+                    <p class="field-hint" class:text-amber-300={templateDiverged}>
+                      {!selectedTemplate
+                        ? i18n.t('The template below is stored on this preset alone.')
+                        : !templateDiverged
+                        ? i18n.t('A shared template. It is used ahead of the text below.')
+                        : isBuiltinTemplate(selectedTemplate._id)
+                        ? i18n.t(
+                            'Edited. Pick “This preset only” to keep this text — the built-in is used otherwise.'
+                          )
+                        : i18n.t(
+                            'Edited. “Update template” applies it; “This preset only” keeps it here instead.'
+                          )}
+                    </p>
+                  </div>
+
+                  <div class="field-group">
                     <div class="flex flex-wrap items-center justify-between gap-2">
                       <label class="field-label" for="preset-gaslight"
                         >{i18n.t('Raw prompt template')}</label
@@ -1338,10 +1503,75 @@
                       class="field min-h-40 resize-y font-mono text-xs leading-5"
                       spellcheck="false"
                       bind:value={presetForm.gaslight}
-                      oninput={onRawTemplateInput}
                     />
                     {#if presetPromptError}
                       <p class="text-xs text-red-300">{presetPromptError}</p>
+                    {/if}
+
+                    <div class="flex flex-wrap items-end gap-2">
+                      <label class="field-group min-w-[12rem] flex-1">
+                        <span class="field-label">{i18n.t('Template name')}</span>
+                        <input
+                          class="field"
+                          bind:value={templateName}
+                          placeholder={i18n.t('Reusable across presets')}
+                          autocomplete="off"
+                        />
+                      </label>
+                      <button
+                        class="button-secondary"
+                        type="button"
+                        disabled={promptTemplates.saving}
+                        onclick={saveAsTemplate}
+                      >
+                        {i18n.t('Save as template')}
+                      </button>
+                      <button
+                        class="button-secondary"
+                        type="button"
+                        disabled={previewing}
+                        onclick={togglePreview}
+                      >
+                        {preview ? i18n.t('Hide preview') : i18n.t('Preview prompt')}
+                      </button>
+                      {#if selectedTemplate && !isBuiltinTemplate(selectedTemplate._id)}
+                        <button
+                          class="button-secondary"
+                          type="button"
+                          disabled={promptTemplates.saving}
+                          onclick={updateSelectedTemplate}
+                        >
+                          {i18n.t('Update template')}
+                        </button>
+                        <button
+                          class="button-secondary"
+                          type="button"
+                          disabled={promptTemplates.saving}
+                          onclick={deleteSelectedTemplate}
+                        >
+                          {i18n.t('Delete template')}
+                        </button>
+                      {/if}
+                    </div>
+                    {#if templateError}
+                      <p class="text-xs text-red-300">{templateError}</p>
+                    {/if}
+                    {#if previewError}
+                      <p class="text-xs text-red-300">{previewError}</p>
+                    {/if}
+
+                    {#if preview}
+                      <div class="rounded-lg border border-neutral-800 bg-[#0f131a] p-3">
+                        <div class="mb-2 flex items-center justify-between gap-2">
+                          <span class="field-label">{i18n.t('Rendered with sample data')}</span>
+                          <span class="text-xs tabular-nums text-neutral-400">
+                            {i18n.t('{count} tokens', { count: preview.tokens })}
+                          </span>
+                        </div>
+                        <pre
+                          class="max-h-80 overflow-auto whitespace-pre-wrap break-words font-mono text-xs leading-5 text-neutral-300"
+                          data-testid="prompt-preview">{preview.text}</pre>
+                      </div>
                     {/if}
                   </div>
                 {/if}

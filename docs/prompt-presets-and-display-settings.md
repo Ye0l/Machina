@@ -30,12 +30,49 @@ were introduced, and no server contract was changed.
 - **Basic**: reorderable list of the nine sections with an enabled toggle and keyboard-accessible
   move up/down buttons (same controls on desktop and mobile). Persists `{ placeholder, enabled }[]`.
 - **Advanced**: raw `gaslight` editing in a monospace textarea with a placeholder insert menu that
-  inserts at the current caret/selection. Manual edits clear `promptTemplateId`.
+  inserts at the current caret/selection, plus the template picker and preview below.
 - Prompt format select backed by `BUILTIN_FORMATS` (the existing `modelFormat` field).
 - Global system prompt, jailbreak/UJB, and bot response prefill, each with the matching
   character-override toggle.
 - Validation: advanced mode requires a non-empty raw template; basic mode always emits a
   normalized order.
+
+### 2a. Reusable prompt templates (`app/src/lib/prompt-templates.svelte.ts`)
+
+A preset can point at a shared template through `promptTemplateId`, which outranks both its raw
+`gaslight` and its prompt order — see `getTemplate` in `common/prompt.ts`.
+
+**The locator.** `common/prompt.ts` resolves that id through a locator it leaves as a no-op until
+a frontend registers one, because the shared layer cannot reach either client's store. The legacy
+client registers it in `web/store/data/bot-generate.ts`; this one did not, and it matters more
+here: the Svelte client assembles the prompt in the browser and posts the finished text to
+`/chat/inference-stream`, so a preset carrying a template id was silently generating from its
+`gaslight` instead. The store registers the locator on import and `AppShell` loads the templates
+before the first generation can happen.
+
+**Resolution order** mirrors the server's (`srv/api/chat/message.ts`): a built-in name from
+`common/presets/templates.ts` first, then one of the user's saved templates.
+
+**Editor.** A picker above the raw textarea lists "This preset only", the built-ins, and the saved
+templates; choosing one copies its text into the editor and attaches it. Editing the text does
+*not* detach — that matches the legacy editor, and detaching per keystroke would hide the update
+button. Because the two can then drift, the hint under the picker says which one actually
+generates and points at "Update template" or "This preset only". Switching to the basic prompt
+order detaches, since a template id would otherwise make the section list a lie.
+
+CRUD goes through the server's existing `/user/templates` routes, which no client of this app had
+been calling.
+
+### 2b. Prompt preview (`app/src/lib/prompt-preview.ts`)
+
+Renders the attached template (or the raw one) through `buildPromptPlaceholders` and
+`parseTemplate` against the invented cast from `common/dummy.ts`, then applies the preset's
+`modelFormat` instruct tags exactly as generation does. The settings screen is global with no chat
+in scope, so sample data is the only option — the same approach as the legacy previewer.
+
+Token count comes from the app's tokenizer. The encoder is a parameter rather than a fixed
+import so tests can count without standing one up. The preview is a snapshot: an edit to the
+template, the attached id, or the model format clears it rather than leaving a stale render.
 
 ### 3. Display settings store (`app/src/lib/ui-settings.svelte.ts`)
 
@@ -88,6 +125,22 @@ English and Korean labels for every new prompt and display string.
     applied to chat width, font size, avatar shape, and message opacity.
   - No console or page errors; `scrollWidth == clientWidth` on both viewports.
 
+### Prompt templates and preview
+
+- `app/tests/unit/prompt-templates.spec.ts` (9) asserts through `getTemplate` rather than through
+  the store, which is what proves the locator is registered: a built-in and a saved template are
+  each returned, they outrank the preset's own `gaslight`, a deleted id falls back to it, and a
+  preset with no id is untouched.
+- `app/tests/unit/prompt-preview.spec.ts` (6): placeholders, history, persona/scenario and
+  conditional blocks all fill from the sample cast; `modelFormat` substitutes instruct tags; the
+  token count is of the rendered text, not the template.
+- `app/tests/e2e/prompt-templates.spec.ts` (6): picking a built-in fills the editor and is saved
+  as `promptTemplateId`; "Save as template" POSTs and attaches the new id; an existing template is
+  listed, updated in place and deleted (leaving its text on the preset); switching to the basic
+  order detaches; the preview renders with a token count and is dropped when the template changes.
+- Providers and presets are seeded per test rather than served by default, because a preset
+  reaches prompt assembly and would change the prompts the chat specs assert on.
+
 ### Fixed during verification
 
 Adding a fourth settings tab caused the tab row to overflow on mobile and scroll the entire page.
@@ -117,8 +170,9 @@ were verified.
   (`font`, `fontSize`, `customAvatarWidth` / `customAvatarHeight`, `chatAlternating`, …) are
   persisted without validation. Extending the guard is a server-side change and was out of scope.
 - Drag-and-drop reordering as an addition to the existing move up/down controls.
-- Prompt preview / token estimate for the assembled template.
 - Reasoning, Jinja template, and parser preset fields are still not exposed in the Svelte editor.
+- The preview renders sample data only. Previewing the prompt for the chat actually open would
+  need the preview to live in the chat rather than in global settings.
 
 ### Deferred: CHARX and Character Card V3
 

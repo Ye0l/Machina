@@ -4,6 +4,7 @@
   import { chats } from '/app/lib/chats.svelte'
   import { books } from '/app/lib/books.svelte'
   import { persona } from '/app/lib/persona.svelte'
+  import { promptTemplates } from '/app/lib/prompt-templates.svelte'
   import { i18n } from '/app/lib/i18n.svelte'
   import { router, routes } from '/app/lib/router.svelte'
   import CharacterEditor from '/app/routes/CharacterEditor.svelte'
@@ -32,6 +33,9 @@
   chats.loadCharacters()
   // Books back the chat's memory-book picker, so they are needed outside their own route.
   books.load()
+  // Not only for the preset editor: a preset's `promptTemplateId` is resolved through these
+  // when the prompt is assembled, so they must be loaded before the first generation.
+  promptTemplates.load()
   // Re-resolves the persona chosen before the last reload.
   persona.restore()
 
