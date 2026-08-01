@@ -8,11 +8,11 @@ project actually ships.
 
 ## Layers
 
-| Suite | Runner | Scope | Command |
-| --- | --- | --- | --- |
-| Server / shared | mocha | `common/`, `srv/` prompt and parsing logic | `pnpm test` |
-| Client units | Vitest | pure client logic: routing, markdown, card port | `pnpm run test:unit` |
-| Browser flows | Playwright | the built app end to end | `pnpm run test:e2e` |
+| Suite           | Runner     | Scope                                           | Command              |
+| --------------- | ---------- | ----------------------------------------------- | -------------------- |
+| Server / shared | mocha      | `common/`, `srv/` prompt and parsing logic      | `pnpm test`          |
+| Client units    | Vitest     | pure client logic: routing, markdown, card port | `pnpm run test:unit` |
+| Browser flows   | Playwright | the built app end to end                        | `pnpm run test:e2e`  |
 
 `pnpm run check` runs formatting, all four TypeScript projects, svelte-check, mocha and
 Vitest. Browser tests stay out of it: they need a build and a browser binary, which is the
@@ -58,7 +58,7 @@ Chromium of a different version. CI installs its own and leaves it unset.
 
 ## Found by these tests
 
-The markdown quote-wrapper's code-skipping clauses were dead. It runs on Showdown's *output*,
+The markdown quote-wrapper's code-skipping clauses were dead. It runs on Showdown's _output_,
 where fenced blocks are already `<pre><code>` and inline code is `<code>`, but it matched
 backticks — which can never appear at that stage. Quotes inside code blocks were being
 restyled as dialogue. The legacy client has the same bug. The clauses now match the markup.
@@ -94,13 +94,13 @@ cannot have, and publishing from unreviewed code would be wrong regardless.
 
 ## Residual risk and follow-ups
 
-- **The image itself was never built.** There is no Docker daemon in the environment this was
-  written in, so `docker build` has not run once. The two stages were validated separately as
-  described above, but layer caching, the `VOLUME` declarations, `corepack` in the runtime
-  image, and the final image actually starting are unverified. The first CI run on
-  `docker.yml` is the real test.
-- Neither workflow has run. Action versions, the pnpm/node setup and the GHCR permissions are
-  written from the documented behaviour, not observed.
+- **The image is built by CI but has never been run.** There is no Docker daemon in the
+  environment this was written in. `docker.yml` has since built it successfully on every pull
+  request, so the Dockerfile is sound; the `VOLUME` declarations, `corepack` in the runtime
+  image, and the container actually starting and serving are still unverified. The
+  `docker-compose.selfhost.yml` stack has never been brought up.
+- Both workflows have since run green on pull requests. GHCR publishing is still unobserved:
+  it is gated to `dev` and `v*` tags, neither of which has been pushed since.
 - No coverage thresholds are enforced. Large parts of the client — every Svelte component's
   internals, the settings and character editors, the generation stream's error paths — have
   no unit coverage; the browser tests exercise them only along the paths they walk.

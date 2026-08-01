@@ -24,13 +24,13 @@ types them with `Buffer` and is not in this project's `include`.
 
 **Formats recognised** (`detectFormat`, matching the legacy detector):
 
-| Source | Detected by |
-| --- | --- |
-| Agnai native | `kind === 'character'`, or name/persona/greeting/scenario all present |
-| Character Card V2 / V3 | `spec === 'chara_card_v2'` / `'chara_card_v3'` |
-| TavernAI V1 | `mes_example` present |
-| TextGen (ooba) | `char_name` present |
-| Charas | `extensions.charas` present |
+| Source                 | Detected by                                                           |
+| ---------------------- | --------------------------------------------------------------------- |
+| Agnai native           | `kind === 'character'`, or name/persona/greeting/scenario all present |
+| Character Card V2 / V3 | `spec === 'chara_card_v2'` / `'chara_card_v3'`                        |
+| TavernAI V1            | `mes_example` present                                                 |
+| TextGen (ooba)         | `char_name` present                                                   |
+| Charas                 | `extensions.charas` present                                           |
 
 **Card extraction**: PNG/APNG/JPEG cards carry base64 JSON in a `chara` tEXt chunk; WEBP
 cards keep the same JSON in EXIF `UserComment`, in either the older raw-JSON form or the
@@ -45,7 +45,7 @@ otherwise the persona is rebuilt from `description` + `personality`. This is the
 `{{user}}:`, as the legacy importer did, so cards written for other frontends read correctly.
 
 **Review before saving**: an import routes to `/character/new` with the editor pre-filled
-rather than creating the character outright. The empty-form snapshot is taken *before* the
+rather than creating the character outright. The empty-form snapshot is taken _before_ the
 import is applied, so the draft registers as unsaved work and the navigation guard protects
 it.
 
@@ -59,8 +59,8 @@ the V2 card's (`keys`/`content`), converted by `characterBookToNative` from
 `common/memory.ts`, and Agnai's own (`keywords`/`entry`) from a native export — and both are
 then re-checked field by field, because every field the converter leaves optional is required
 by the server's book validator (`srv/api/memory/index.ts`) and a hand-written card is under
-no obligation to supply them. Entries with no keyword or no text are dropped: they could
-never fire. A book whose entries are all unusable is reported in the "not carried over"
+no obligation to supply them. Entries with no text are dropped, as are entries with no keyword
+unless the card marked them constant — see `docs/memory-books.md`. A book whose entries are all unusable is reported in the "not carried over"
 notice instead, so an empty book is never silently saved.
 
 The editor has no entry UI of its own — the character does not exist yet, so there is nothing
@@ -109,14 +109,10 @@ Avatar URL resolution moved out of `CharacterAvatar.svelte` into `assetUrl()` in
 
 ## Residual risk and follow-ups
 
-- No automated regression test, for the reason recorded in `docs/client-routing.md`: the
-  mocha project (`srv.tsconfig.json`) does not compile `app/`, and this code needs a DOM for
-  canvas and `atob`. `jsonToCharacter` is pure and would be the first thing worth covering if
-  the client gets a test runner. The browser run above used a throwaway harness that is not
-  in the repository.
-- **Character books are not imported.** They are reported, not persisted — importing data the
-  user can neither see nor edit seemed worse than telling them it was left behind. This
-  becomes straightforward once a memory-book UI exists.
+- Covered by `app/tests/unit/character-port.spec.ts` and `app/tests/e2e/character-port.spec.ts`
+  since the client gained test runners (`docs/testing-and-ci.md`). `buildCharacterCard` and
+  `toPngBytes` still have no unit coverage, because they need a real canvas; the export browser
+  test exercises them end to end instead.
 - CHARX / Character Card V3 remains unstarted, as recorded in
   `docs/prompt-presets-and-display-settings.md`. A V3 card's JSON is read here because its
   `data` block is V2-shaped, but its `assets` manifest is not, and `.charx` archives are not

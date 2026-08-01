@@ -20,6 +20,8 @@
   import { i18n } from '/app/lib/i18n.svelte'
   import { isRouterClick, router, routes } from '/app/lib/router.svelte'
   import { renderMarkdown } from '/app/lib/markdown'
+  import { replaceAssetTags } from '/common/assets'
+  import { assetUrl } from '/app/lib/config'
   import { uiSettings } from '/app/lib/ui-settings.svelte'
   import { FONT_FACES } from '/common/types/ui'
   import type { AppSchema } from '/common/types'
@@ -102,9 +104,28 @@
       )
       .replace(/\{\{char\}\}/gi, speaker?.name || detail.character?.name || detail.chat.name)
 
+  const escapeAttribute = (value: string) =>
+    value.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;')
+
+  /**
+   * `{{asset:name}}` becomes the image it names. An unknown name is left as written rather
+   * than silently deleted: the model naming an asset that does not exist is worth seeing.
+   *
+   * The markup goes in before the markdown pass, so it lands in the same sanitiser as
+   * everything else -- nothing here is trusted on its own.
+   */
+  const renderAssets = (text: string, speaker?: AppSchema.Character) =>
+    replaceAssetTags(text, speaker?.assets, (asset, name) =>
+      asset
+        ? `<img class="chat-asset" src="${escapeAttribute(
+            assetUrl(asset.uri)
+          )}" alt="${escapeAttribute(name)}" />`
+        : `{{asset:${name}}}`
+    )
+
   /** Placeholders are substituted before rendering, so what is shown matches the prompt. */
   const renderBody = (text: string, speaker?: AppSchema.Character) =>
-    renderMarkdown(displayMessage(text, speaker))
+    renderMarkdown(renderAssets(displayMessage(text, speaker), speaker))
 
   /* ------------------------------------------------------------------- editing */
 

@@ -419,6 +419,27 @@ export async function createStubServer(port: number) {
       }
       if (path === '/api/chat' && req.method === 'GET') return json({ chats: chatList })
 
+      const assetAdd = path.match(/^\/api\/character\/([^/]+)\/assets$/)
+      if (assetAdd && req.method === 'POST') {
+        const body = await readBody(req)
+        const target = characters.find((c) => c._id === assetAdd[1]) as any
+        if (!target) return json({ message: 'Not found' }, 404)
+        const name = String(body.name).trim()
+        target.assets = (target.assets ?? [])
+          .filter((a: any) => a.name.toLowerCase() !== name.toLowerCase())
+          .concat({ name, uri: `${name}.png` })
+        return json(target)
+      }
+
+      const assetRemove = path.match(/^\/api\/character\/([^/]+)\/assets\/([^/]+)$/)
+      if (assetRemove && req.method === 'DELETE') {
+        const target = characters.find((c) => c._id === assetRemove[1]) as any
+        if (!target) return json({ message: 'Not found' }, 404)
+        const name = decodeURIComponent(assetRemove[2]).toLowerCase()
+        target.assets = (target.assets ?? []).filter((a: any) => a.name.toLowerCase() !== name)
+        return json(target)
+      }
+
       const charUpdate = path.match(/^\/api\/character\/([^/]+)\/update$/)
       if (charUpdate && req.method === 'POST') {
         const body = await readBody(req)

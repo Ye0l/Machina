@@ -97,6 +97,21 @@ const korean: Record<string, string> = {
   '{shown} of {total}': '{total}개 중 {shown}개',
   'Lore that applies whenever this character replies, wherever it is used.':
     '이 캐릭터가 응답할 때 어디서든 적용되는 설정입니다.',
+  Assets: '에셋',
+  'Asset name': '에셋 이름',
+  'Add asset': '에셋 추가',
+  'Choose image': '이미지 선택',
+  'Choose an image first.': '먼저 이미지를 선택하세요.',
+  'Enter an asset name.': '에셋 이름을 입력하세요.',
+  'Failed to save asset': '에셋을 저장하지 못했습니다',
+  'Failed to delete asset': '에셋을 삭제하지 못했습니다',
+  'Could not read file': '파일을 읽지 못했습니다',
+  'e.g. smiling': '예: smiling',
+  'The character shows it by writing': '캐릭터는 이렇게 써서 보여줍니다',
+  'Images this character can show. It is told the names and shows one by writing a tag.':
+    '이 캐릭터가 보여줄 수 있는 이미지입니다. 이름을 알려주면 캐릭터가 태그를 써서 표시합니다.',
+  'No assets. This character has no images to show.':
+    '에셋이 없습니다. 이 캐릭터는 보여줄 이미지가 없습니다.',
   'No entries. This character carries no lore of its own.':
     '항목이 없습니다. 이 캐릭터는 고유 설정을 갖고 있지 않습니다.',
   'Save memory book': '메모리 북 저장',

@@ -45,6 +45,7 @@ export namespace AppSchema {
   export type UserPersona = UserPersonas.UserPersona
   export type BaseCharacter = Library.BaseCharacter
   export type Character = Library.Character
+  export type CharacterAsset = Library.CharacterAsset
 
   export type GenSettings = Preset.GenSettings
   export type ImagePreset = Preset.ImagePreset

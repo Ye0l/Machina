@@ -68,10 +68,9 @@ define.
 
 ## Residual risk and follow-ups
 
-- No automated regression test. `renderMarkdown` is pure and worth covering, but it needs a
-  DOM for DOMPurify and lives in `app/`, which the mocha project (`srv.tsconfig.json`) does
-  not compile — the same constraint recorded in `docs/client-routing.md`. The browser run
-  above used a throwaway harness that is not in the repository.
+- Coverage is `app/tests/unit/markdown.spec.ts` (jsdom, which is what `renderMarkdown` needs
+  for DOMPurify) and `app/tests/e2e/messages.spec.ts`. Writing that suite is what surfaced the
+  dead code-skip clauses in the quote wrapper, recorded above.
 - Editing a message does not re-run generation or invalidate later messages; it only changes
   stored text, matching the legacy behaviour.
 - The legacy client also runs preset `parsers` over message text before rendering

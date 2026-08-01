@@ -42,7 +42,8 @@ advertising a sign-up that cannot work.
 
 ## Residual risk and follow-ups
 
-- No automated regression test, for the reason recorded in `docs/client-routing.md`.
+- Browser coverage is in `app/tests/e2e/auth.spec.ts`. The register route itself has no
+  server-side test; the stub is what the browser tests talk to.
 - Password strength is not checked client-side; whatever the server enforces is what applies.
 - Not ported from the legacy auth screen: password reset (`POST /user/reset-password`), Google
   OAuth (`/user/login/google`), remote/device login, and the 18+ terms acknowledgement shown

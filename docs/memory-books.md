@@ -106,7 +106,6 @@ browser test that saves a keywordless entry and finds its text in the assembled 
 
 ## Residual risk and follow-ups
 
-- No automated regression test, for the reason recorded in `docs/client-routing.md`.
 - The editor does not expose `scanDepth`, `tokenBudget` or `recursiveScanning`. They are
   preserved, not editable — the API's own validator does not accept them either.
 - Long-term memory / embeddings (`chat_embed`, `userEmbedId`) are untouched.

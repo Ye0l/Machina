@@ -14,7 +14,7 @@ export type SettingsTab = (typeof SETTINGS_TABS)[number]
  * Sections of a character's workspace. A saved character owns its chats and its own memory
  * book, so they are tabs of the character rather than top-level destinations.
  */
-export const CHARACTER_TABS = ['chats', 'edit', 'book'] as const
+export const CHARACTER_TABS = ['chats', 'edit', 'book', 'assets'] as const
 export type CharacterTab = (typeof CHARACTER_TABS)[number]
 
 export type Route =
