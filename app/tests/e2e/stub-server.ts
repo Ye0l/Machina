@@ -118,6 +118,18 @@ export type StubState = {
   sends: any[]
   /** Per-character `characterBook`, served by GET /character/:id. */
   personaBookFor: Record<string, any>
+  /**
+   * Providers and presets served by /user/init. Empty by default: a preset would be passed
+   * into prompt assembly, changing the prompts other specs assert on.
+   */
+  providers: any[]
+  presets: any[]
+  /** Bodies sent to POST /user/presets/:id. */
+  presetUpdates: Array<{ id: string; body: any }>
+  /** Saved prompt templates, served by GET /user/templates. */
+  promptTemplates: any[]
+  /** Writes to /user/templates, in order. */
+  templateCalls: Array<{ method: string; path: string; body: any }>
   reset(): void
 }
 
@@ -146,6 +158,11 @@ export async function createStubServer(port: number) {
     characterUpdates: [],
     sends: [],
     personaBookFor: {},
+    providers: [],
+    presets: [],
+    presetUpdates: [],
+    promptTemplates: [],
+    templateCalls: [],
     reset() {
       this.canAuth = true
       this.memoryBooks = []
@@ -161,6 +178,11 @@ export async function createStubServer(port: number) {
       this.characterUpdates = []
       this.sends = []
       this.personaBookFor = {}
+      this.providers = []
+      this.presets = []
+      this.presetUpdates = []
+      this.promptTemplates = []
+      this.templateCalls = []
       // Rebuilt rather than trimmed: the update route `Object.assign`s onto a character, so
       // a test that renames one would otherwise leave it renamed for every test after it.
       characters.length = 0
@@ -281,7 +303,55 @@ export async function createStubServer(port: number) {
 
       if (path === '/api/user/init') {
         if (!req.headers.authorization) return json({ message: 'Unauthorized' }, 401)
-        return json({ user, profile, presets: [] })
+        return json({
+          user: { ...user, providers: state.providers },
+          profile,
+          presets: state.presets,
+        })
+      }
+
+      if (path === '/api/user/templates' && req.method === 'GET') {
+        return json({ templates: state.promptTemplates })
+      }
+
+      if (path === '/api/user/templates' && req.method === 'POST') {
+        const body = await readBody(req)
+        state.templateCalls.push({ method: 'POST', path, body })
+        const created = {
+          kind: 'prompt-template',
+          _id: `tpl-${state.promptTemplates.length + 1}`,
+          userId: 'user-1',
+          createdAt: now,
+          updatedAt: now,
+          ...body,
+        }
+        state.promptTemplates.push(created)
+        return json(created)
+      }
+
+      const templateWrite = path.match(/^\/api\/user\/templates\/([^/]+)$/)
+      if (templateWrite && req.method === 'POST') {
+        const body = await readBody(req)
+        state.templateCalls.push({ method: 'POST', path, body })
+        const target = state.promptTemplates.find((t) => t._id === templateWrite[1])
+        if (!target) return json({ message: 'Not found' }, 404)
+        Object.assign(target, body)
+        return json(target)
+      }
+      if (templateWrite && req.method === 'DELETE') {
+        state.templateCalls.push({ method: 'DELETE', path, body: undefined })
+        state.promptTemplates = state.promptTemplates.filter((t) => t._id !== templateWrite[1])
+        return json({ success: true })
+      }
+
+      const presetUpdate = path.match(/^\/api\/user\/presets\/([^/]+)$/)
+      if (presetUpdate && req.method === 'POST') {
+        const body = await readBody(req)
+        state.presetUpdates.push({ id: presetUpdate[1], body })
+        const target = state.presets.find((p) => p._id === presetUpdate[1])
+        if (!target) return json({ message: 'Not found' }, 404)
+        Object.assign(target, body)
+        return json(target)
       }
 
       if (path === '/api/character' && req.method === 'POST') {
