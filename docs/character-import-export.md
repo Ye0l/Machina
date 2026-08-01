@@ -20,7 +20,7 @@ types them with `Buffer` and is not in this project's `include`.
 ## Import
 
 **Entry point**: an Import button in the character library, accepting
-`.json`, `.png`, `.apng`, `.jpg`, `.jpeg`, `.webp`.
+`.json`, `.png`, `.apng`, `.jpg`, `.jpeg`, `.webp`, `.charx`.
 
 **Formats recognised** (`detectFormat`, matching the legacy detector):
 
@@ -50,7 +50,8 @@ import is applied, so the draft registers as unsaved work and the navigation gua
 it.
 
 **Nothing is dropped silently.** Recognised data the editor cannot represent is listed back
-to the user in a notice on the editor — currently Character Card V3 asset manifests.
+to the user in a notice on the editor — currently the assets a bare V3 card names but does not
+carry, and any a CHARX stores outside itself.
 
 **Character books are carried.** A card's `character_book` becomes the new character's own
 `characterBook`, which is what the workspace's Memory book tab edits and what
@@ -107,22 +108,6 @@ Avatar URL resolution moved out of `CharacterAvatar.svelte` into `assetUrl()` in
     card naming Aria.
   - Native JSON export yields `Aria.json` with `_id` absent.
 
-## Residual risk and follow-ups
-
-- Covered by `app/tests/unit/character-port.spec.ts` and `app/tests/e2e/character-port.spec.ts`
-  since the client gained test runners (`docs/testing-and-ci.md`). `buildCharacterCard` and
-  `toPngBytes` still have no unit coverage, because they need a real canvas; the export browser
-  test exercises them end to end instead.
-- CHARX / Character Card V3 remains unstarted, as recorded in
-  `docs/prompt-presets-and-display-settings.md`. A V3 card's JSON is read here because its
-  `data` block is V2-shaped, but its `assets` manifest is not, and `.charx` archives are not
-  accepted at all.
-- Import handles one file at a time; the legacy client accepted several.
-- The importer trusts the card's JSON structure. It is parsed, not evaluated, and every
-  imported string reaches the DOM through Svelte's escaping or the sanitiser in
-  `renderMarkdown`, but there is no schema validation and no size limit on an imported field.
-- Chub browsing/download (`web/pages/Chub`) was not ported.
-
 ## CHARX
 
 A `.charx` is a ZIP holding `card.json` (a Character Card V3) and the files its `assets`
@@ -145,3 +130,17 @@ entry names are read at all, so a path outside the archive's own listing is unre
 A bare V3 card — one that is not a `.charx` — still reports its assets as not carried over,
 because only the archive holds the files. That notice is now conditional on the card actually
 declaring assets.
+
+## Residual risk and follow-ups
+
+- Covered by `app/tests/unit/character-port.spec.ts` and `app/tests/e2e/character-port.spec.ts`
+  since the client gained test runners (`docs/testing-and-ci.md`). `buildCharacterCard` and
+  `toPngBytes` still have no unit coverage, because they need a real canvas; the export browser
+  test exercises them end to end instead.
+- Export to `.charx` is not implemented; import is. Embedded assets are not deduplicated, and
+  a file left behind by a deleted asset is not cleaned up.
+- Import handles one file at a time; the legacy client accepted several.
+- The importer trusts the card's JSON structure. It is parsed, not evaluated, and every
+  imported string reaches the DOM through Svelte's escaping or the sanitiser in
+  `renderMarkdown`, but there is no schema validation and no size limit on an imported field.
+- Chub browsing/download (`web/pages/Chub`) was not ported.
