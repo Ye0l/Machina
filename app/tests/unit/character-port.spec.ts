@@ -122,9 +122,39 @@ describe('jsonToCharacter', () => {
       expect(personaText(result)).toBe('someone rewrote this by hand\nbold')
     })
 
-    it('reports a character book instead of dropping it silently', () => {
-      const result = jsonToCharacter(card({ character_book: { entries: [] } }))
-      expect(result.unsupported).toContain('character book')
+    it('carries the character book across', () => {
+      const result = jsonToCharacter(
+        card({
+          character_book: {
+            name: 'Hero lore',
+            entries: [
+              { keys: ['sword'], content: 'A blade of note.', insertion_order: 3, enabled: true },
+            ],
+          },
+        })
+      )
+
+      expect(result.unsupported).not.toContain('character book')
+      expect(result.characterBook?.name).toBe('Hero lore')
+      expect(result.characterBook?.entries).toEqual([
+        expect.objectContaining({
+          keywords: ['sword'],
+          entry: 'A blade of note.',
+          weight: 3,
+          enabled: true,
+        }),
+      ])
+    })
+
+    it('reports a book that carried nothing usable', () => {
+      // Empty, and an entry with no keyword can never trigger, so neither survives.
+      const empty = jsonToCharacter(card({ character_book: { entries: [] } }))
+      const dead = jsonToCharacter(card({ character_book: { entries: [{ content: 'orphan' }] } }))
+
+      expect(empty.unsupported).toContain('character book')
+      expect(empty.characterBook).toBeUndefined()
+      expect(dead.unsupported).toContain('character book')
+      expect(dead.characterBook).toBeUndefined()
     })
 
     it('reports V3 assets', () => {
@@ -149,6 +179,94 @@ describe('jsonToCharacter', () => {
     expect(result.name).toBe('Charas')
     expect(result.systemPrompt).toBe('sys')
     expect(result.tags).toEqual(['c'])
+  })
+
+  describe('character book normalisation', () => {
+    const withBook = (book: unknown) =>
+      jsonToCharacter({
+        spec: 'chara_card_v2',
+        data: { name: 'Booked', character_book: book },
+      }).characterBook
+
+    it('fills in the fields the server requires but a card may omit', () => {
+      const [entry] = withBook({ entries: [{ keys: ['x'], content: 'y' }] })!.entries
+
+      expect(entry).toEqual(
+        expect.objectContaining({
+          name: 'Unnamed',
+          priority: 100,
+          weight: 100,
+          // A card that never mentions `enabled` means the entry is live.
+          enabled: true,
+        })
+      )
+    })
+
+    it('keeps a deliberate zero rather than treating it as missing', () => {
+      const book = withBook({ entries: [{ keys: ['x'], content: 'y', insertion_order: 0 }] })!
+      expect(book.entries[0].weight).toBe(0)
+    })
+
+    it('keeps an entry disabled only when the card says so', () => {
+      const book = withBook({
+        entries: [
+          { keys: ['on'], content: 'a', enabled: true },
+          { keys: ['off'], content: 'b', enabled: false },
+        ],
+      })!
+
+      expect(book.entries.map((e) => e.enabled)).toEqual([true, false])
+    })
+
+    it('drops entries that could never fire and keeps the rest', () => {
+      const book = withBook({
+        entries: [
+          { keys: [], content: 'no keyword' },
+          { keys: ['blank'], content: '   ' },
+          { keys: ['  ', 'kept'], content: 'usable' },
+        ],
+      })!
+
+      expect(book.entries).toHaveLength(1)
+      // Blank keywords are stripped rather than sent as empty strings.
+      expect(book.entries[0].keywords).toEqual(['kept'])
+    })
+
+    it('names an unnamed book after the character', () => {
+      expect(withBook({ entries: [{ keys: ['x'], content: 'y' }] })!.name).toBe('Booked lore')
+    })
+
+    it('reads a native book, whose entries use the Agnai field names', () => {
+      const book = jsonToCharacter({
+        kind: 'character',
+        name: 'Native',
+        persona: { kind: 'text', attributes: { text: [''] } },
+        greeting: '',
+        scenario: '',
+        characterBook: {
+          name: 'Kept',
+          entries: [
+            { name: 'e', keywords: ['k'], entry: 'text', priority: 5, weight: 6, enabled: true },
+          ],
+        },
+      }).characterBook!
+
+      expect(book.name).toBe('Kept')
+      expect(book.entries[0]).toEqual(
+        expect.objectContaining({ keywords: ['k'], entry: 'text', priority: 5, weight: 6 })
+      )
+    })
+
+    it('normalises entry text the same way it normalises the character', () => {
+      const book = withBook({ entries: [{ keys: ['x'], content: 'a\\nb' }] })!
+      expect(book.entries[0].entry).toBe('a\nb')
+    })
+
+    it('leaves the ids to the save, rather than keeping the converter placeholders', () => {
+      const book = withBook({ entries: [{ keys: ['x'], content: 'y' }] })!
+      expect(book._id).toBe('')
+      expect(book.userId).toBe('')
+    })
   })
 
   describe('normalisation', () => {

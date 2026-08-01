@@ -3,6 +3,7 @@ import encodePngChunks from 'png-chunks-encode'
 import * as pngText from 'png-chunk-text'
 import { load as loadExif } from 'exifreader'
 import { exportCharacter, formatCharacter } from '/common/characters'
+import { characterBookToNative, type CharacterBook } from '/common/memory'
 import type { AppSchema } from '/common/types'
 
 /**
@@ -35,6 +36,8 @@ export type ImportedCharacter = {
   characterVersion: string
   /** Present when the source was an image card; becomes the character's avatar. */
   avatar?: File
+  /** The card's own lore, ready to be saved as `character.characterBook`. */
+  characterBook?: AppSchema.MemoryBook
   /**
    * Recognised data the editor has no home for, reported to the user rather than dropped
    * silently.
@@ -97,9 +100,79 @@ function sanitise<T extends Record<string, any>>(value: T): T {
   return value
 }
 
+/** Falls back only for a missing or unparseable value, so a deliberate `0` survives. */
+function numberOr(value: unknown, fallback: number) {
+  if (value === null || value === undefined || value === '') return fallback
+  const parsed = Number(value)
+  return Number.isFinite(parsed) ? parsed : fallback
+}
+
+/**
+ * Reads a card's bundled lore into the shape `character.characterBook` expects.
+ *
+ * Two entry shapes reach here: the V2 card's (`keys`/`content`), which `characterBookToNative`
+ * converts, and Agnai's own (`keywords`/`entry`), which native exports carry as-is. Either way
+ * the result is re-checked field by field, because the fields the converter leaves optional are
+ * all required by the server's book validator (`srv/api/memory/index.ts`), and a hand-written
+ * card is under no obligation to supply them.
+ *
+ * Returns undefined when nothing usable survives, so the caller can still report the book as
+ * dropped rather than saving one that could never match.
+ */
+function readCharacterBook(raw: any, characterName: string): AppSchema.MemoryBook | undefined {
+  if (!raw || typeof raw !== 'object') return undefined
+
+  const rawEntries = ensureArray<any>(raw.entries)
+  if (!rawEntries.length) return undefined
+
+  const isNative = rawEntries.some((entry) => entry && 'keywords' in entry)
+  const book: AppSchema.MemoryBook = isNative
+    ? raw
+    : characterBookToNative({
+        ...raw,
+        entries: rawEntries,
+        extensions: raw.extensions ?? {},
+      } as CharacterBook)
+
+  const entries = book.entries
+    .map((source: any) => {
+      const entry = sanitise({ ...source })
+      return {
+        ...entry,
+        name: String(entry.name ?? '').trim() || 'Unnamed',
+        entry: String(entry.entry ?? ''),
+        keywords: ensureArray<unknown>(entry.keywords)
+          .map((keyword) => String(keyword).trim())
+          .filter(Boolean),
+        priority: numberOr(entry.priority, 100),
+        weight: numberOr(entry.weight, 100),
+        // Only an explicit `false` disables an entry; cards routinely omit the field entirely.
+        enabled: entry.enabled !== false,
+      }
+    })
+    // An entry with no keyword can never trigger, and one with no text has nothing to insert.
+    .filter((entry) => entry.keywords.length > 0 && entry.entry.trim())
+
+  if (!entries.length) return undefined
+
+  return {
+    ...book,
+    kind: 'memory',
+    // Assigned by the character save; the converter's placeholder ids would be misleading here.
+    _id: '',
+    userId: '',
+    // Read from the card, not from `book`: the converter substitutes a generic placeholder for
+    // a missing name, and the character's own name is the more useful label.
+    name: String(raw.name ?? '').trim() || `${characterName} lore`,
+    description: book.description ?? '',
+    entries,
+  }
+}
+
 export function jsonToCharacter(json: any): ImportedCharacter {
   const format = detectFormat(json)
   const unsupported: string[] = []
+  let rawBook: unknown
 
   const base = {
     name: '',
@@ -134,7 +207,7 @@ export function jsonToCharacter(json: any): ImportedCharacter {
       creator: json.creator ?? '',
       characterVersion: json.characterVersion ?? '',
     }
-    if (json.characterBook) unsupported.push('character book')
+    rawBook = json.characterBook
   } else if (format === 'ooba') {
     parsed = {
       ...base,
@@ -171,7 +244,7 @@ export function jsonToCharacter(json: any): ImportedCharacter {
       creator: data.creator ?? '',
       characterVersion: data.character_version ?? '',
     }
-    if (data.character_book) unsupported.push('character book')
+    rawBook = data.character_book
     if (json.spec === 'chara_card_v3') unsupported.push('Character Card V3 assets')
   } else if (format === 'charas') {
     const data = json.data ?? {}
@@ -199,12 +272,15 @@ export function jsonToCharacter(json: any): ImportedCharacter {
       sampleChat: json.mes_example ?? '',
       alternateGreetings: ensureArray<string>(json.data?.alternate_greetings),
     }
-    if (json.data?.character_book) unsupported.push('character book')
+    rawBook = json.data?.character_book
   }
 
   if (!parsed.name.trim()) throw new Error('The character card has no name')
 
-  return { ...sanitise(parsed), unsupported }
+  const characterBook = readCharacterBook(rawBook, parsed.name.trim())
+  if (rawBook && !characterBook) unsupported.push('character book')
+
+  return { ...sanitise(parsed), characterBook, unsupported }
 }
 
 /** Reads the `chara` tEXt chunk that PNG/APNG/JPEG cards store their JSON in. */

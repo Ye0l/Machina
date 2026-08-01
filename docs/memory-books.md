@@ -88,14 +88,8 @@ is the same failure mode found earlier in `chats.loadCharacters` and recorded in
 ## Residual risk and follow-ups
 
 - No automated regression test, for the reason recorded in `docs/client-routing.md`.
-- Character books still are not imported (`docs/character-import-export.md`). Now that books
-  exist, `characterBookToNative` from `common/memory.ts` could turn an imported card's
-  `character_book` into a standalone book. It was left out of this change to keep import
-  behaviour unchanged.
 - The editor does not expose `scanDepth`, `tokenBudget` or `recursiveScanning`. They are
   preserved, not editable — the API's own validator does not accept them either.
-- Books attach to chats only. The server also supports a book embedded on a character
-  (`characterBook`), which `common/prompt.ts` already injects, but there is no UI for it.
 - Long-term memory / embeddings (`chat_embed`, `userEmbedId`) are untouched.
 - Deleting a book that is attached to a chat leaves a dangling `memoryId`. This is handled at
   read time — `memoryBook()` resolves through the loaded list and yields nothing when the

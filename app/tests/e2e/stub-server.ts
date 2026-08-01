@@ -161,6 +161,7 @@ export async function createStubServer(port: number) {
       this.characterUpdates = []
       this.sends = []
       this.personaBookFor = {}
+      characters.length = baseCharacterCount
       for (const character of characters) delete (character as any).characterBook
     },
   }
@@ -179,6 +180,9 @@ export async function createStubServer(port: number) {
       greeting: 'Hm.',
     }),
   ]
+
+  /** Characters created during a test are trimmed back to these by `reset`. */
+  const baseCharacterCount = characters.length
 
   const chatList = [
     {
@@ -276,6 +280,17 @@ export async function createStubServer(port: number) {
       if (path === '/api/user/init') {
         if (!req.headers.authorization) return json({ message: 'Unauthorized' }, 401)
         return json({ user, profile, presets: [] })
+      }
+
+      if (path === '/api/character' && req.method === 'POST') {
+        const body = await readBody(req)
+        const created = character(`char-${characters.length + 1}`, body.name, '', {
+          ...body,
+          // The create endpoint takes the persona as a JSON string; the record holds an object.
+          persona: typeof body.persona === 'string' ? JSON.parse(body.persona) : body.persona,
+        })
+        characters.push(created)
+        return json(created)
       }
 
       if (path === '/api/character') return json({ characters })

@@ -52,6 +52,12 @@
 
   /** Recognised card data this editor has no home for, reported after an import. */
   let importNotice = $state('')
+  /**
+   * Lore carried in from a card. The editor has no UI for it -- the workspace's Memory book tab
+   * owns that -- but the character does not exist yet at import time, so it is held here and
+   * written with the rest of the deferred fields once the character has an id.
+   */
+  let importedBook = $state<AppSchema.MemoryBook | null>(null)
 
   // Core character fields.
   let form = $state({
@@ -301,6 +307,7 @@
     return JSON.stringify({
       form,
       avatar: avatarFile ? 'pending' : avatarRemoved ? 'removed' : avatarPreview,
+      book: importedBook,
       tags,
       folder,
       greetings,
@@ -372,9 +379,17 @@
       avatarPreview = URL.createObjectURL(imported.avatar)
     }
 
-    importNotice = imported.unsupported.length
+    importedBook = imported.characterBook ?? null
+
+    const notice = imported.unsupported.length
       ? i18n.t('Imported. Not carried over: {fields}.', { fields: imported.unsupported.join(', ') })
       : i18n.t('Imported. Review the character, then save it.')
+    // The entries are not editable until the character exists, so say where they went.
+    importNotice = importedBook
+      ? `${notice} ${i18n.t('{count} memory book entries will be saved with it.', {
+          count: importedBook.entries.length,
+        })}`
+      : notice
   }
 
   async function loadCharacter() {
@@ -592,6 +607,9 @@
       // created character receives its avatar (no id exists until after create).
       const partial = buildDeferredPartial()
       if (avatarFile) partial.avatar = await fileToPngDataUrl(avatarFile)
+      // Only ever set from an import, which cannot happen for an existing character, so this
+      // never overwrites a book edited under the workspace's Memory book tab.
+      if (importedBook) partial.characterBook = { ...importedBook, userId: saved.userId }
 
       if (Object.keys(partial).length) {
         await api.post(`/character/${id}/update`, partial)
