@@ -104,6 +104,8 @@ const korean: Record<string, string> = {
   'Discard changes': '변경사항 버리기',
   'Memory book': '메모리 북',
   'No memory book': '메모리 북 없음',
+  'Speak as': '내가 연기할 캐릭터',
+  'Speak as yourself': '내 프로필로 말하기',
   'New book': '새 북',
   'Edit book': '북 편집',
   'Save book': '북 저장',

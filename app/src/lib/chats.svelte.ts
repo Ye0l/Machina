@@ -12,6 +12,7 @@ import { defaultPresets, isDefaultPreset } from '/common/default-preset'
 import { api } from './api'
 import { books } from './books.svelte'
 import { cancelGeneration, generateLastReply, sendMessage, type SendControl } from './generate'
+import { persona } from './persona.svelte'
 import { session } from './session.svelte'
 import { subscribe } from './socket'
 const delay = (ms: number) => {
@@ -244,7 +245,8 @@ class Chats {
           },
         },
         control,
-        this.memoryBook()
+        this.memoryBook(),
+        persona.character
       )
 
       // Re-read rather than splice locally: the server assigns ids, parents and timestamps.
@@ -293,9 +295,11 @@ class Chats {
 
     const last = this.messages.at(-1)
     if (!last) return
-    const rerolling = !!last.characterId
+    // `userId`, not `characterId`: an impersonated user message carries both
+    // (srv/api/chat/message.ts:135), so a persona would otherwise look like a bot reply.
+    const rerolling = !last.userId
     const promptMessages = rerolling ? this.messages.slice(0, -1) : this.messages
-    if (!promptMessages.length || promptMessages.at(-1)?.characterId) return
+    if (!promptMessages.length || !promptMessages.at(-1)?.userId) return
 
     const control: SendControl = { requestId: '', stopped: false }
     this.control = control
@@ -318,7 +322,8 @@ class Chats {
           onError: (value) => (this.error = value),
         },
         control,
-        this.memoryBook()
+        this.memoryBook(),
+        persona.character
       )
       if (!reply || control.stopped) return
 

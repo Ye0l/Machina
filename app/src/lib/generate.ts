@@ -56,7 +56,8 @@ export async function sendMessage(
   text: string,
   handlers: StreamHandlers,
   control: SendControl,
-  book?: AppSchema.MemoryBook
+  book?: AppSchema.MemoryBook,
+  impersonate?: AppSchema.Character
 ) {
   const { chat, characters } = detail
   const char = detail.character ?? characters.find((c) => c._id === chat.characterId)
@@ -71,6 +72,7 @@ export async function sendMessage(
     text,
     messageId: newId(),
     parent,
+    impersonate,
   })
   handlers.onUserMessage?.(userMessage.message)
 
@@ -97,9 +99,12 @@ export async function sendMessage(
       userEmbeds: [],
       resolvedScenario: chat.scenario ?? char.scenario ?? '',
       jsonValues: undefined,
-      // The chat's attached memory book. `common/prompt` also folds in the character's own
-      // `characterBook`, so only the chat-level one is supplied here.
+      // The chat's attached memory book. `common/prompt` also folds in the replying
+      // character's and the persona's own `characterBook`, so only the chat-level one is
+      // supplied here.
       book,
+      // Who the user is speaking as; drives the sender name and `{{impersonating}}`.
+      impersonate,
       kind: 'send',
     },
     encoder
@@ -143,7 +148,8 @@ export async function generateLastReply(
   preset: Partial<AppSchema.GenSettings> | undefined,
   handlers: StreamHandlers,
   control: SendControl,
-  book?: AppSchema.MemoryBook
+  book?: AppSchema.MemoryBook,
+  impersonate?: AppSchema.Character
 ) {
   const { chat, characters } = detail
   const char = detail.character ?? characters.find((c) => c._id === chat.characterId)
@@ -174,9 +180,12 @@ export async function generateLastReply(
       userEmbeds: [],
       resolvedScenario: chat.scenario ?? char.scenario ?? '',
       jsonValues: undefined,
-      // The chat's attached memory book. `common/prompt` also folds in the character's own
-      // `characterBook`, so only the chat-level one is supplied here.
+      // The chat's attached memory book. `common/prompt` also folds in the replying
+      // character's and the persona's own `characterBook`, so only the chat-level one is
+      // supplied here.
       book,
+      // Who the user is speaking as; drives the sender name and `{{impersonating}}`.
+      impersonate,
       kind: 'send',
     },
     encoder

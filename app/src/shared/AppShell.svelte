@@ -3,6 +3,7 @@
   import { fade, fly } from 'svelte/transition'
   import { chats } from '/app/lib/chats.svelte'
   import { books } from '/app/lib/books.svelte'
+  import { persona } from '/app/lib/persona.svelte'
   import { i18n } from '/app/lib/i18n.svelte'
   import { router, routes } from '/app/lib/router.svelte'
   import CharacterEditor from '/app/routes/CharacterEditor.svelte'
@@ -31,6 +32,8 @@
   chats.loadCharacters()
   // Books back the chat's memory-book picker, so they are needed outside their own route.
   books.load()
+  // Re-resolves the persona chosen before the last reload.
+  persona.restore()
 
   let drawerOpen = $state(false)
   const route = $derived(router.route)
