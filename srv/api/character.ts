@@ -318,6 +318,52 @@ const removeAvatar = handle(async ({ userId, params }) => {
   return { ...char, avatar: '' }
 })
 
+/**
+ * Character assets: images the character can show mid-reply by emitting `{{asset:name}}`.
+ *
+ * Uploaded one at a time rather than through the partial update, because each needs its own
+ * file write. The name is what the model refers to, so it has to be unique within a character
+ * -- re-uploading the same name replaces the image rather than shadowing it.
+ */
+const addAsset = handle(async ({ body, userId, params }) => {
+  assertValid({ name: 'string', image: 'string' }, body)
+
+  const char = await store.characters.getCharacter(userId, params.id)
+  if (!char) throw errors.NotFound
+
+  const name = body.name.trim()
+  if (!name) throw new StatusError('An asset requires a name', 400)
+  if (!body.image.startsWith('data:image/')) {
+    throw new StatusError('An asset must be an image', 400)
+  }
+
+  const filename = await entityUploadBase64(
+    'char-asset',
+    `${params.id}-${v4().slice(0, 8)}`,
+    body.image
+  )
+  if (!filename) throw new StatusError('Could not store the asset', 500)
+
+  const existing = char.assets ?? []
+  const assets = existing
+    .filter((asset) => asset.name.trim().toLowerCase() !== name.toLowerCase())
+    .concat({ name, uri: filename })
+
+  await store.characters.updateCharacter(params.id, userId, { assets })
+  return { ...char, assets }
+})
+
+const removeAsset = handle(async ({ userId, params }) => {
+  const char = await store.characters.getCharacter(userId, params.id)
+  if (!char) throw errors.NotFound
+
+  const wanted = decodeURIComponent(params.name).trim().toLowerCase()
+  const assets = (char.assets ?? []).filter((asset) => asset.name.trim().toLowerCase() !== wanted)
+
+  await store.characters.updateCharacter(params.id, userId, { assets })
+  return { ...char, assets }
+})
+
 const getCharacter = handle(async ({ userId, params }) => {
   const char = await store.characters.getCharacter(userId!, params.id)
   if (!char) {
@@ -380,6 +426,8 @@ router.post('/:id', editFullCharacter)
 router.get('/:id', getCharacter)
 router.post('/:id/favorite', editCharacterFavorite)
 router.delete('/:id/avatar', removeAvatar)
+router.post('/:id/assets', addAsset)
+router.delete('/:id/assets/:name', removeAsset)
 
 export default router
 

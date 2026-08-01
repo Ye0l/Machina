@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { ArrowLeft, BookOpen, Download, MessagesSquare, UserRound } from '@lucide/svelte'
+  import { ArrowLeft, BookOpen, Download, Images, MessagesSquare, UserRound } from '@lucide/svelte'
   import type { AppSchema } from '/common/types'
   import { chats } from '/app/lib/chats.svelte'
   import { assetUrl } from '/app/lib/config'
@@ -15,6 +15,7 @@
   import CharacterChats from './CharacterChats.svelte'
   import CharacterEditor from './CharacterEditor.svelte'
   import CharacterBook from './CharacterBook.svelte'
+  import CharacterAssets from './CharacterAssets.svelte'
 
   let {
     characterId,
@@ -89,6 +90,7 @@
     { id: 'chats', label: 'Chats', icon: MessagesSquare },
     { id: 'edit', label: 'Character', icon: UserRound },
     { id: 'book', label: 'Memory book', icon: BookOpen },
+    { id: 'assets', label: 'Assets', icon: Images },
   ]
 
   load()
@@ -201,6 +203,8 @@
             onDirtyChange={onEditorDirtyChange}
             onSaved={(updated) => (character = updated)}
           />
+        {:else if tab === 'assets' && character}
+          <CharacterAssets {character} onSaved={(updated) => (character = updated)} />
         {/if}
       </div>
     {/if}

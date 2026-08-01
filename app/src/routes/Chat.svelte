@@ -15,11 +15,13 @@
   } from '@lucide/svelte'
   import { chats } from '/app/lib/chats.svelte'
   import { books } from '/app/lib/books.svelte'
-  import { persona } from '/app/lib/persona.svelte'
+  import { personas } from '/app/lib/personas.svelte'
   import { session } from '/app/lib/session.svelte'
   import { i18n } from '/app/lib/i18n.svelte'
   import { isRouterClick, router, routes } from '/app/lib/router.svelte'
   import { renderMarkdown } from '/app/lib/markdown'
+  import { replaceAssetTags } from '/common/assets'
+  import { assetUrl } from '/app/lib/config'
   import { uiSettings } from '/app/lib/ui-settings.svelte'
   import { FONT_FACES } from '/common/types/ui'
   import type { AppSchema } from '/common/types'
@@ -75,7 +77,7 @@
   const authorOf = (message: AppSchema.ChatMessage) => {
     if (message.name) return message.name
     if (fromUser(message))
-      return persona.character?.name ?? session.profile?.handle ?? i18n.t('You')
+      return personas.selected?.name ?? session.profile?.handle ?? i18n.t('You')
     return (
       detail.characters.find((character) => character._id === message.characterId)?.name ??
       detail.character?.name ??
@@ -95,16 +97,35 @@
     text
       .replace(
         /\{\{user\}\}/gi,
-        persona.character?.name ||
+        personas.selected?.name ||
           session.profile?.handle ||
           session.user?.username ||
           i18n.t('You')
       )
       .replace(/\{\{char\}\}/gi, speaker?.name || detail.character?.name || detail.chat.name)
 
+  const escapeAttribute = (value: string) =>
+    value.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;')
+
+  /**
+   * `{{asset:name}}` becomes the image it names. An unknown name is left as written rather
+   * than silently deleted: the model naming an asset that does not exist is worth seeing.
+   *
+   * The markup goes in before the markdown pass, so it lands in the same sanitiser as
+   * everything else -- nothing here is trusted on its own.
+   */
+  const renderAssets = (text: string, speaker?: AppSchema.Character) =>
+    replaceAssetTags(text, speaker?.assets, (asset, name) =>
+      asset
+        ? `<img class="chat-asset" src="${escapeAttribute(
+            assetUrl(asset.uri)
+          )}" alt="${escapeAttribute(name)}" />`
+        : `{{asset:${name}}}`
+    )
+
   /** Placeholders are substituted before rendering, so what is shown matches the prompt. */
   const renderBody = (text: string, speaker?: AppSchema.Character) =>
-    renderMarkdown(displayMessage(text, speaker))
+    renderMarkdown(renderAssets(displayMessage(text, speaker), speaker))
 
   /* ------------------------------------------------------------------- editing */
 
@@ -192,15 +213,11 @@
     chats.setMemoryBook((event.currentTarget as HTMLSelectElement).value)
 
   /**
-   * Speaking as one of your own characters. Empty means the account profile, so it is a real
-   * option rather than a placeholder.
+   * Who the user speaks as. Empty means the account profile, so it is a real option rather
+   * than a placeholder.
    */
-  const personaOptions = $derived(
-    chats.characters.filter((character) => character._id !== detail.chat.characterId)
-  )
-
   const selectPersona = (event: Event) =>
-    persona.select((event.currentTarget as HTMLSelectElement).value)
+    personas.select((event.currentTarget as HTMLSelectElement).value)
 
   const deleteOpenChat = async () => {
     if (
@@ -263,20 +280,25 @@
     >
       <Plus size={18} />
     </button>
-    {#if personaOptions.length}
-      <select
-        class="field order-last h-9 w-full max-w-none py-1 text-xs sm:order-none sm:w-auto sm:max-w-[10rem]"
-        value={persona.characterId}
-        onchange={selectPersona}
-        aria-label={i18n.t('Speak as')}
-        disabled={chats.generating || persona.loading}
-      >
-        <option value="">{i18n.t('Speak as yourself')}</option>
-        {#each personaOptions as option (option._id)}
-          <option value={option._id}>{option.name}</option>
-        {/each}
-      </select>
-    {/if}
+    <!--
+      Always rendered, even with nothing to pick: hiding it left no trace of the feature for
+      anyone who had not made a persona yet, and there is no other entry point to it.
+    -->
+    <select
+      class="field order-last h-9 w-full max-w-none py-1 text-xs sm:order-none sm:w-auto sm:max-w-[10rem]"
+      value={personas.selectedId}
+      onchange={selectPersona}
+      aria-label={i18n.t('Speak as')}
+      disabled={chats.generating || personas.loading || !personas.list.length}
+    >
+      <option value="">{i18n.t('Speak as yourself')}</option>
+      {#each personas.list as option (option._id)}
+        <option value={option._id}>{option.name}</option>
+      {/each}
+      {#if !personas.list.length}
+        <option value="" disabled>{i18n.t('— add a persona in the sidebar')}</option>
+      {/if}
+    </select>
     {#if books.books.length}
       <select
         class="field order-last h-9 w-full max-w-none py-1 text-xs sm:order-none sm:ml-auto sm:w-auto sm:max-w-[10rem]"
@@ -291,9 +313,10 @@
         {/each}
       </select>
     {/if}
+    <!-- The persona select is always present now, so only the book select can carry the gap. -->
     <select
       class="field order-last h-9 w-full max-w-none py-1 text-xs sm:order-none sm:w-auto sm:max-w-[12rem]"
-      class:sm:ml-auto={!books.books.length && !personaOptions.length}
+      class:sm:ml-auto={!books.books.length}
       value={selectedPresetId}
       onchange={selectPreset}
       aria-label={i18n.t('Chat preset')}
@@ -337,7 +360,7 @@
               style:height={`${avatarPx}px`}
               style:font-size={`${Math.max(10, Math.round(avatarPx * 0.35))}px`}
             >
-              {(persona.character?.name || session.profile?.handle || 'Y')
+              {(personas.selected?.name || session.profile?.handle || 'Y')
                 .slice(0, 1)
                 .toUpperCase()}
             </span>

@@ -45,8 +45,11 @@
   })
 
   async function save() {
-    // An entry with no keywords can never trigger, so it is dropped rather than saved dead.
-    const usable = entries.filter((entry) => entry.keywords.length > 0 && entry.entry.trim())
+    // An entry with no keywords can never trigger unless it is always included, so it is
+    // dropped rather than saved dead.
+    const usable = entries.filter(
+      (entry) => (entry.keywords.length > 0 || entry.constant) && entry.entry.trim()
+    )
 
     saving = true
     error = ''

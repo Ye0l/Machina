@@ -25,9 +25,18 @@ export interface BaseCharacter {
   sampleChat: string
 }
 
+/** An image the character can show mid-reply by emitting its `{{asset:name}}` tag. */
+export interface CharacterAsset {
+  /** What the model refers to it by. Unique within a character, matched case-insensitively. */
+  name: string
+  /** Stored path, resolved the same way an avatar is. */
+  uri: string
+}
+
 export interface Character extends BaseCharacter {
   kind: 'character'
   userId: string
+  assets?: CharacterAsset[]
 
   culture?: string
   tags?: string[]

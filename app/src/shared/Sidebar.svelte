@@ -6,6 +6,7 @@
     Plus,
     Settings,
     Sparkles,
+    UserRound,
     Users,
     X,
   } from '@lucide/svelte'
@@ -29,6 +30,7 @@
     route.name === 'characters' || route.name === 'character' || route.name === 'character-new'
   )
   const inBooks = $derived(route.name === 'books' || route.name === 'book')
+  const inPersonas = $derived(route.name === 'personas' || route.name === 'persona')
   const openChatId = $derived(route.name === 'chat' ? route.chatId : undefined)
   const recentChats = $derived(chats.chats.slice(0, 8))
 
@@ -92,6 +94,16 @@
       >
         <BookOpen size={18} />
         {i18n.t('Memory books')}
+      </a>
+      <a
+        class:nav-active={inPersonas}
+        class="nav-item"
+        href={routes.personas()}
+        aria-current={inPersonas ? 'page' : undefined}
+        onclick={link(routes.personas())}
+      >
+        <UserRound size={18} />
+        {i18n.t('Personas')}
       </a>
       <a
         class:nav-active={route.name === 'settings'}

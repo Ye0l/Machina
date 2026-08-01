@@ -8,6 +8,7 @@ import * as Saga from './saga'
 import * as Library from './library'
 import * as Preset from './presets'
 import * as Admin from './admin'
+import * as UserPersonas from './persona'
 
 export type AllDoc =
   | AppSchema.Announcement
@@ -30,6 +31,7 @@ export type AllDoc =
   | AppSchema.SagaTemplate
   | AppSchema.SagaSession
   | AppSchema.ImagePreset
+  | AppSchema.UserPersona
 
 export type OAuthScope = keyof typeof oauthScopes
 
@@ -40,8 +42,10 @@ export namespace AppSchema {
   export type MemoryEntry = Memory.MemoryEntry
 
   export type Persona = Library.Persona
+  export type UserPersona = UserPersonas.UserPersona
   export type BaseCharacter = Library.BaseCharacter
   export type Character = Library.Character
+  export type CharacterAsset = Library.CharacterAsset
 
   export type GenSettings = Preset.GenSettings
   export type ImagePreset = Preset.ImagePreset

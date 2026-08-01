@@ -1,4 +1,5 @@
 import type { AppSchema } from '/common/types'
+import { withAssetInstruction } from '/common/assets'
 import type { ChatDetailResponse, SendMessageBody, SendMessageResponse } from './contracts'
 import { createPromptParts } from '/common/prompt'
 import { getEncoder, prepareTokenizer } from '/common/tokenize'
@@ -112,7 +113,9 @@ export async function sendMessage(
 
   const reply = await stream(
     control.requestId,
-    prompt.template.parsed,
+    // Appended after assembly rather than through a placeholder: an asset the model was never
+    // told about can never be shown, so this must not depend on the user editing a template.
+    withAssetInstruction(prompt.template.parsed, char.assets),
     preset,
     user,
     chat._id,
@@ -193,7 +196,9 @@ export async function generateLastReply(
 
   const reply = await stream(
     control.requestId,
-    prompt.template.parsed,
+    // Appended after assembly rather than through a placeholder: an asset the model was never
+    // told about can never be shown, so this must not depend on the user editing a template.
+    withAssetInstruction(prompt.template.parsed, char.assets),
     preset,
     user,
     chat._id,

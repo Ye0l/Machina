@@ -63,6 +63,11 @@
     router.go(characterId ? routes.character(characterId) : routes.characters())
   }
 
+  function savedPersona() {
+    editorDirty = false
+    router.go(routes.personas())
+  }
+
   function savedBook() {
     editorDirty = false
     router.go(routes.books())
@@ -86,6 +91,7 @@
       onEditorDirtyChange={(dirty) => (editorDirty = dirty)}
       onCharacterSaved={savedCharacter}
       onBookSaved={savedBook}
+      onPersonaSaved={savedPersona}
       onLogout={logout}
     />
   {/if}

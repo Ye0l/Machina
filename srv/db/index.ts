@@ -6,6 +6,7 @@ import * as admin from './admin'
 import * as presets from './presets'
 import * as msgs from './messages'
 import * as memory from './memory'
+import * as personas from './persona'
 import * as scenario from './scenario'
 import * as oauth from './oauth'
 import * as subs from './subscriptions'
@@ -22,6 +23,7 @@ export const store = {
   presets,
   msgs,
   memory,
+  personas,
   scenario,
   oauth,
   subs,

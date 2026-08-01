@@ -9,14 +9,14 @@ No server contract changed, and no routing library was added.
 
 ## Routes
 
-| Path                | View                                    |
-| ------------------- | --------------------------------------- |
-| `/`                 | Character library                       |
-| `/character/new`    | Character editor, empty                 |
-| `/character/:id`    | Character editor for `:id`              |
-| `/chat/:id`         | Chat `:id`                              |
-| `/settings`         | Settings, General tab                   |
-| `/settings/:tab`    | Settings — `providers`, `presets`, `display` |
+| Path             | View                                         |
+| ---------------- | -------------------------------------------- |
+| `/`              | Character library                            |
+| `/character/new` | Character editor, empty                      |
+| `/character/:id` | Character editor for `:id`                   |
+| `/chat/:id`      | Chat `:id`                                   |
+| `/settings`      | Settings, General tab                        |
+| `/settings/:tab` | Settings — `providers`, `presets`, `display` |
 
 Unknown paths, and paths with an unknown settings tab, resolve to the nearest real route and
 the address bar is rewritten to match, so the URL never disagrees with what is rendered.
@@ -105,14 +105,11 @@ in-flight guard so the two operations no longer suppress each other.
 
 ## Residual risk and follow-ups
 
-- **No automated regression coverage for the router.** `parse` and `toPath` are pure and
-  worth unit testing, but the mocha suite compiles through `srv.tsconfig.json`, which covers
-  only `srv/`, `common/` and `tests/`. Adding `app/` to it would emit `.js` beside the `.ts`
-  sources, which is exactly the stale-output hazard `app/vite.config.ts`'s
-  `preferCommonSources` plugin exists to prevent for `common/`. Giving the client a real
-  test runner (Vitest for the pure helpers, Playwright for the flows above) is a separate
-  decision with lockfile and CI consequences, so it was not made here. The browser run above
-  was performed with a throwaway harness that is not in the repository.
+- The client has since gained its own runners rather than extending the mocha project, for
+  the reason this section originally recorded: compiling `app/` through `srv.tsconfig.json`
+  would emit `.js` beside the `.ts` sources. `parse` and `toPath` are covered by
+  `app/tests/unit/router.spec.ts`, and the flows above by `app/tests/e2e/routing.spec.ts`
+  (`docs/testing-and-ci.md`).
 - A guard that refuses a browser back leaves the popped entry on the history stack, because
   the refusal is undone with a `pushState`. The alternative, `history.go(1)`, races with
   further user input. The URL and the rendered view stay correct either way.

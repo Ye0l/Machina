@@ -130,6 +130,15 @@ button {
   margin-top: 0;
 }
 
+/* Character assets: sized to the bubble rather than to their own pixels. */
+.rendered-markdown .chat-asset {
+  display: block;
+  max-width: min(100%, 22rem);
+  height: auto;
+  margin: 0.5rem 0;
+  border-radius: 0.625rem;
+}
+
 .rendered-markdown > *:last-child {
   margin-bottom: 0;
 }

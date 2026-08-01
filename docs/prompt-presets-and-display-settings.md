@@ -55,7 +55,7 @@ before the first generation can happen.
 
 **Editor.** A picker above the raw textarea lists "This preset only", the built-ins, and the saved
 templates; choosing one copies its text into the editor and attaches it. Editing the text does
-*not* detach — that matches the legacy editor, and detaching per keystroke would hide the update
+_not_ detach — that matches the legacy editor, and detaching per keystroke would hide the update
 button. Because the two can then drift, the hint under the picker says which one actually
 generates and points at "Update template" or "This preset only". Switching to the basic prompt
 order detaches, since a template id would otherwise make the section list a lie.
@@ -185,3 +185,22 @@ Not started. Requires a separate plan and real `.charx` fixtures:
 - Display-time character-card asset substitution.
 
 These must not be represented as supported by this restoration pass.
+
+## Persona picker visibility
+
+The chat header's "Speak as" select used to render only when there was something to pick. That
+is not the case for a new account, and the result was that the entire persona feature was
+invisible — there is no other entry point for it, so nothing on screen suggested it existed.
+
+It now always renders, disabled, pointing at where personas are made. Personas themselves are
+documented in `docs/personas.md`.
+
+## Removed from the character editor
+
+Voice and per-character image-generation settings were deleted. Neither had a consumer in this
+client — nothing speaks a reply, and nothing generates an image — so they were controls that
+wrote fields no code here reads.
+
+The fields still exist on the server and on stored characters. They are simply no longer sent
+in the editor's deferred partial, and a partial update leaves untouched fields alone, so
+existing values survive rather than being cleared.

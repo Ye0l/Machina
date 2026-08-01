@@ -106,7 +106,11 @@
             {entry.name || i18n.t('Untitled entry')}
           </span>
           <span class="mt-0.5 block truncate text-xs text-neutral-500">
-            {entry.keywords.length
+            {entry.constant
+              ? entry.keywords.length
+                ? `${i18n.t('Always included')} · ${entry.keywords.join(', ')}`
+                : i18n.t('Always included')
+              : entry.keywords.length
               ? entry.keywords.join(', ')
               : i18n.t('No keywords — this entry can never trigger')}
           </span>
@@ -150,6 +154,21 @@
               placeholder={i18n.t('For your reference only')}
               autocomplete="off"
             />
+          </label>
+
+          <label class="flex items-start gap-2">
+            <input
+              class="mt-0.5 h-4 w-4 shrink-0 accent-violet-500"
+              type="checkbox"
+              bind:checked={entry.constant}
+              aria-label={i18n.t('Always include')}
+            />
+            <span class="text-sm text-neutral-300">
+              {i18n.t('Always include')}
+              <span class="block text-xs text-neutral-500">
+                {i18n.t('Inserted every time, with or without a keyword, budget permitting.')}
+              </span>
+            </span>
           </label>
 
           <div class="field-group">
