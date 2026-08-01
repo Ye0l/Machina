@@ -3,7 +3,7 @@
   import { fade, fly } from 'svelte/transition'
   import { chats } from '/app/lib/chats.svelte'
   import { books } from '/app/lib/books.svelte'
-  import { persona } from '/app/lib/persona.svelte'
+  import { personas } from '/app/lib/personas.svelte'
   import { promptTemplates } from '/app/lib/prompt-templates.svelte'
   import { i18n } from '/app/lib/i18n.svelte'
   import { router, routes } from '/app/lib/router.svelte'
@@ -11,6 +11,8 @@
   import CharacterWorkspace from '/app/routes/CharacterWorkspace.svelte'
   import Characters from '/app/routes/Characters.svelte'
   import Books from '/app/routes/Books.svelte'
+  import Personas from '/app/routes/Personas.svelte'
+  import PersonaEditor from '/app/routes/PersonaEditor.svelte'
   import BookEditor from '/app/routes/BookEditor.svelte'
   import Settings from '/app/routes/Settings.svelte'
   import Chat from '/app/routes/Chat.svelte'
@@ -20,11 +22,13 @@
     onEditorDirtyChange,
     onCharacterSaved,
     onBookSaved,
+    onPersonaSaved,
     onLogout,
   }: {
     onEditorDirtyChange: (dirty: boolean) => void
     onCharacterSaved: (characterId?: string) => void
     onBookSaved: () => void
+    onPersonaSaved: () => void
     onLogout: () => void
   } = $props()
 
@@ -36,8 +40,9 @@
   // Not only for the preset editor: a preset's `promptTemplateId` is resolved through these
   // when the prompt is assembled, so they must be loaded before the first generation.
   promptTemplates.load()
-  // Re-resolves the persona chosen before the last reload.
-  persona.restore()
+  // The chat's persona picker needs them outside the /persona route, and the selection made
+  // before the last reload is resolved through this list.
+  personas.load()
 
   let drawerOpen = $state(false)
   const route = $derived(router.route)
@@ -47,6 +52,8 @@
       ? 'characters'
       : route.name === 'book'
       ? 'books'
+      : route.name === 'persona'
+      ? 'personas'
       : route.name
   )
 
@@ -122,6 +129,17 @@
             {/key}
           {:else if route.name === 'books'}
             <Books />
+          {:else if route.name === 'persona'}
+            {#key route.personaId}
+              <PersonaEditor
+                personaId={route.personaId}
+                onCancel={() => router.go(routes.personas())}
+                onSaved={onPersonaSaved}
+                onDirtyChange={onEditorDirtyChange}
+              />
+            {/key}
+          {:else if route.name === 'personas'}
+            <Personas />
           {:else if route.name === 'settings'}
             <Settings tab={route.tab} onTabChange={(tab) => router.replace(routes.settings(tab))} />
           {:else}

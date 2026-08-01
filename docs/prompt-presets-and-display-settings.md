@@ -188,11 +188,9 @@ These must not be represented as supported by this restoration pass.
 
 ## Persona picker visibility
 
-The chat header's "Speak as" select used to render only when the library held a character
-other than the one being chatted with. That is the common case for a new account, and the
-result was that the entire persona feature was invisible — there is no other entry point for
-it, so nothing on screen suggested it existed.
+The chat header's "Speak as" select used to render only when there was something to pick. That
+is not the case for a new account, and the result was that the entire persona feature was
+invisible — there is no other entry point for it, so nothing on screen suggested it existed.
 
-It now always renders, disabled, with an option explaining that another character is what
-makes it usable. A persona in Agnai _is_ one of your own characters sent as `impersonate`;
-there is no separate persona entity to configure elsewhere.
+It now always renders, disabled, pointing at where personas are made. Personas themselves are
+documented in `docs/personas.md`.

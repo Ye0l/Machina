@@ -26,6 +26,9 @@ export type Route =
   | { name: 'books' }
   /** `bookId` is null for the create form. */
   | { name: 'book'; bookId: string | null }
+  | { name: 'personas' }
+  /** `personaId` is null for the create form. */
+  | { name: 'persona'; personaId: string | null }
   | { name: 'settings'; tab: SettingsTab }
 
 export type RouteName = Route['name']
@@ -47,6 +50,9 @@ export const routes = {
   books: () => '/memory',
   newBook: () => '/memory/new',
   book: (bookId: string) => `/memory/${encodeURIComponent(bookId)}`,
+  personas: () => '/persona',
+  newPersona: () => '/persona/new',
+  persona: (personaId: string) => `/persona/${encodeURIComponent(personaId)}`,
   settings: (tab: SettingsTab = 'general') =>
     tab === 'general' ? '/settings' : `/settings/${tab}`,
 }
@@ -77,6 +83,10 @@ export function parse(pathname: string): Route {
       if (!tail) return { name: 'books' }
       return { name: 'book', bookId: tail === 'new' ? null : decodeURIComponent(tail) }
 
+    case 'persona':
+      if (!tail) return { name: 'personas' }
+      return { name: 'persona', personaId: tail === 'new' ? null : decodeURIComponent(tail) }
+
     case 'settings':
       return { name: 'settings', tab: isSettingsTab(tail) ? tail : 'general' }
 
@@ -99,6 +109,10 @@ export function toPath(route: Route): string {
       return routes.books()
     case 'book':
       return route.bookId === null ? routes.newBook() : routes.book(route.bookId)
+    case 'personas':
+      return routes.personas()
+    case 'persona':
+      return route.personaId === null ? routes.newPersona() : routes.persona(route.personaId)
     case 'settings':
       return routes.settings(route.tab)
   }

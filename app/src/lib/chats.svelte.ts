@@ -12,7 +12,8 @@ import { defaultPresets, isDefaultPreset } from '/common/default-preset'
 import { api } from './api'
 import { books } from './books.svelte'
 import { cancelGeneration, generateLastReply, sendMessage, type SendControl } from './generate'
-import { persona } from './persona.svelte'
+import { personas } from './personas.svelte'
+import { toImpersonate } from '/common/persona'
 import { session } from './session.svelte'
 import { subscribe } from './socket'
 const delay = (ms: number) => {
@@ -208,6 +209,15 @@ class Chats {
     return memoryId ? books.get(memoryId) : undefined
   }
 
+  /**
+   * The selected persona in the character shape `impersonate` is typed as. Undefined means
+   * speaking as the account profile, which is a real choice rather than an absence.
+   */
+  private impersonate() {
+    const selected = personas.selected
+    return selected ? toImpersonate(selected) : undefined
+  }
+
   private setMessages(messages: AppSchema.ChatMessage[]) {
     this.messages = messages
     if (this.detail) this.detail = { ...this.detail, messages }
@@ -246,7 +256,7 @@ class Chats {
         },
         control,
         this.memoryBook(),
-        persona.character
+        this.impersonate()
       )
 
       // Re-read rather than splice locally: the server assigns ids, parents and timestamps.
@@ -323,7 +333,7 @@ class Chats {
         },
         control,
         this.memoryBook(),
-        persona.character
+        this.impersonate()
       )
       if (!reply || control.stopped) return
 

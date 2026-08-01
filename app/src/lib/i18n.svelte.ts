@@ -108,6 +108,27 @@ const korean: Record<string, string> = {
   'No memory book': '메모리 북 없음',
   'Speak as': '내가 연기할 캐릭터',
   'Speak as yourself': '내 프로필로 말하기',
+  Personas: '페르소나',
+  'New persona': '새 페르소나',
+  'Edit persona': '페르소나 편집',
+  'Save persona': '페르소나 저장',
+  'Delete persona': '페르소나 삭제',
+  'Create persona': '페르소나 만들기',
+  'No personas yet': '아직 페르소나가 없습니다',
+  'Loading personas': '페르소나를 불러오는 중...',
+  'That persona no longer exists.': '해당 페르소나가 더 이상 존재하지 않습니다.',
+  'Back to personas': '페르소나 목록으로',
+  'Enter a persona name.': '페르소나 이름을 입력하세요.',
+  'Who you are in a conversation. Pick one in any chat.':
+    '대화에서 내가 누구인지 정의합니다. 어느 채팅에서든 선택할 수 있습니다.',
+  'A persona describes you to the model, the way a character describes a bot.':
+    '캐릭터가 봇을 설명하듯, 페르소나는 나를 모델에게 설명합니다.',
+  'The name the character calls you': '캐릭터가 나를 부를 이름',
+  'Appearance, background, how you speak...': '외모, 배경, 말투...',
+  'Reaches the prompt as {{impersonating}}, the way a character persona does.':
+    '캐릭터 페르소나와 같은 방식으로 {{impersonating}} 자리에 들어갑니다.',
+  'In use': '사용 중',
+  '— add a persona in the sidebar': '— 사이드바에서 페르소나를 추가하세요',
   'New book': '새 북',
   'Edit book': '북 편집',
   'Save book': '북 저장',
@@ -149,7 +170,6 @@ const korean: Record<string, string> = {
   'Always included': '항상 포함됨',
   'Inserted every time, with or without a keyword, budget permitting.':
     '키워드와 무관하게 매번 삽입됩니다. 토큰 예산 범위 내에서 적용됩니다.',
-  '— make another character to speak as it': '— 다른 캐릭터를 만들면 그 캐릭터로 말할 수 있습니다',
   'Press Enter or comma to add. Matching is case-insensitive.':
     'Enter 또는 쉼표로 추가합니다. 대소문자는 구분하지 않습니다.',
   'Text injected into the prompt when a keyword matches':

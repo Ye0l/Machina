@@ -116,10 +116,10 @@ export type StubState = {
   characterUpdates: Array<{ id: string; body: any }>
   /** Bodies sent to POST /chat/:id/send. */
   sends: any[]
-  /** Per-character `characterBook`, served by GET /character/:id. */
-  personaBookFor: Record<string, any>
   /** Serves only the chat's own character, i.e. a library with nobody to speak as. */
   soloCharacter: boolean
+  /** User personas, served by GET /persona. */
+  personas: any[]
   /**
    * Providers and presets served by /user/init. Empty by default: a preset would be passed
    * into prompt assembly, changing the prompts other specs assert on.
@@ -159,8 +159,8 @@ export async function createStubServer(port: number) {
     extraChats: [],
     characterUpdates: [],
     sends: [],
-    personaBookFor: {},
     soloCharacter: false,
+    personas: [],
     providers: [],
     presets: [],
     presetUpdates: [],
@@ -180,8 +180,8 @@ export async function createStubServer(port: number) {
       this.extraChats = []
       this.characterUpdates = []
       this.sends = []
-      this.personaBookFor = {}
       this.soloCharacter = false
+      this.personas = []
       this.providers = []
       this.presets = []
       this.presetUpdates = []
@@ -314,6 +314,37 @@ export async function createStubServer(port: number) {
         })
       }
 
+      if (path === '/api/persona' && req.method === 'GET') {
+        return json({ personas: state.personas })
+      }
+
+      if (path === '/api/persona' && req.method === 'POST') {
+        const body = await readBody(req)
+        const created = {
+          kind: 'persona',
+          _id: `persona-${state.personas.length + 1}`,
+          userId: 'user-1',
+          createdAt: now,
+          updatedAt: now,
+          ...body,
+        }
+        state.personas.push(created)
+        return json(created)
+      }
+
+      const personaWrite = path.match(/^\/api\/persona\/([^/]+)$/)
+      if (personaWrite && req.method === 'POST') {
+        const body = await readBody(req)
+        const target = state.personas.find((p) => p._id === personaWrite[1])
+        if (!target) return json({ message: 'Not found' }, 404)
+        Object.assign(target, body)
+        return json(target)
+      }
+      if (personaWrite && req.method === 'DELETE') {
+        state.personas = state.personas.filter((p) => p._id !== personaWrite[1])
+        return json({ success: true })
+      }
+
       if (path === '/api/user/templates' && req.method === 'GET') {
         return json({ templates: state.promptTemplates })
       }
@@ -402,8 +433,7 @@ export async function createStubServer(port: number) {
       if (charMatch) {
         const found = characters.find((c) => c._id === charMatch[1])
         if (!found) return json({ message: 'Not found' }, 404)
-        const book = state.personaBookFor[charMatch[1]]
-        return json(book ? { ...found, characterBook: book } : found)
+        return json(found)
       }
 
       const chatMatch = path.match(/^\/api\/chat\/([^/]+)$/)

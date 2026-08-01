@@ -8,6 +8,7 @@ import subscriptions from './subscriptions'
 import horde from './horde'
 import settings from './settings'
 import memory from './memory'
+import persona from './persona'
 import scenario from './scenario'
 import selfhost from './json'
 import voice from './voice'
@@ -28,6 +29,7 @@ router.use('/admin', admin)
 router.use('/horde', horde)
 router.use('/settings', settings)
 router.use('/memory', memory)
+router.use('/persona', persona)
 router.use('/scenario', scenario)
 router.use('/voice', voice)
 router.use('/announce', announcements)

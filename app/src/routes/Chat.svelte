@@ -15,7 +15,7 @@
   } from '@lucide/svelte'
   import { chats } from '/app/lib/chats.svelte'
   import { books } from '/app/lib/books.svelte'
-  import { persona } from '/app/lib/persona.svelte'
+  import { personas } from '/app/lib/personas.svelte'
   import { session } from '/app/lib/session.svelte'
   import { i18n } from '/app/lib/i18n.svelte'
   import { isRouterClick, router, routes } from '/app/lib/router.svelte'
@@ -75,7 +75,7 @@
   const authorOf = (message: AppSchema.ChatMessage) => {
     if (message.name) return message.name
     if (fromUser(message))
-      return persona.character?.name ?? session.profile?.handle ?? i18n.t('You')
+      return personas.selected?.name ?? session.profile?.handle ?? i18n.t('You')
     return (
       detail.characters.find((character) => character._id === message.characterId)?.name ??
       detail.character?.name ??
@@ -95,7 +95,7 @@
     text
       .replace(
         /\{\{user\}\}/gi,
-        persona.character?.name ||
+        personas.selected?.name ||
           session.profile?.handle ||
           session.user?.username ||
           i18n.t('You')
@@ -192,15 +192,11 @@
     chats.setMemoryBook((event.currentTarget as HTMLSelectElement).value)
 
   /**
-   * Speaking as one of your own characters. Empty means the account profile, so it is a real
-   * option rather than a placeholder.
+   * Who the user speaks as. Empty means the account profile, so it is a real option rather
+   * than a placeholder.
    */
-  const personaOptions = $derived(
-    chats.characters.filter((character) => character._id !== detail.chat.characterId)
-  )
-
   const selectPersona = (event: Event) =>
-    persona.select((event.currentTarget as HTMLSelectElement).value)
+    personas.select((event.currentTarget as HTMLSelectElement).value)
 
   const deleteOpenChat = async () => {
     if (
@@ -264,22 +260,22 @@
       <Plus size={18} />
     </button>
     <!--
-      Always rendered, even with nothing to pick: hiding it made the whole persona feature
-      invisible to anyone whose library holds only the character they are chatting with.
+      Always rendered, even with nothing to pick: hiding it left no trace of the feature for
+      anyone who had not made a persona yet, and there is no other entry point to it.
     -->
     <select
       class="field order-last h-9 w-full max-w-none py-1 text-xs sm:order-none sm:w-auto sm:max-w-[10rem]"
-      value={persona.characterId}
+      value={personas.selectedId}
       onchange={selectPersona}
       aria-label={i18n.t('Speak as')}
-      disabled={chats.generating || persona.loading || !personaOptions.length}
+      disabled={chats.generating || personas.loading || !personas.list.length}
     >
       <option value="">{i18n.t('Speak as yourself')}</option>
-      {#each personaOptions as option (option._id)}
+      {#each personas.list as option (option._id)}
         <option value={option._id}>{option.name}</option>
       {/each}
-      {#if !personaOptions.length}
-        <option value="" disabled>{i18n.t('— make another character to speak as it')}</option>
+      {#if !personas.list.length}
+        <option value="" disabled>{i18n.t('— add a persona in the sidebar')}</option>
       {/if}
     </select>
     {#if books.books.length}
@@ -343,7 +339,7 @@
               style:height={`${avatarPx}px`}
               style:font-size={`${Math.max(10, Math.round(avatarPx * 0.35))}px`}
             >
-              {(persona.character?.name || session.profile?.handle || 'Y')
+              {(personas.selected?.name || session.profile?.handle || 'Y')
                 .slice(0, 1)
                 .toUpperCase()}
             </span>
