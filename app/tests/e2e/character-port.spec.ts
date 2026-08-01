@@ -187,3 +187,58 @@ test.describe('export', () => {
     expect(json._id).toBeUndefined()
   })
 })
+
+test.describe('CHARX', () => {
+  /** A `.charx` is a ZIP of `card.json` plus the files its V3 `assets` entries point at. */
+  async function makeCharx(assets: unknown[], files: Record<string, Buffer>) {
+    const JSZip = require('jszip')
+    const zip = new JSZip()
+    zip.file(
+      'card.json',
+      JSON.stringify({
+        spec: 'chara_card_v3',
+        spec_version: '3.0',
+        data: {
+          name: 'Charx Hero',
+          description: 'From an archive.',
+          first_mes: 'Unpacked.',
+          assets,
+        },
+      })
+    )
+    for (const [path, bytes] of Object.entries(files)) zip.file(path, bytes)
+    return zip.generateAsync({ type: 'nodebuffer' }) as Promise<Buffer>
+  }
+
+  test('unpacks the card and uploads its assets with the character', async ({ app, stub }) => {
+    const buffer = await makeCharx(
+      [
+        { type: 'icon', name: 'main', uri: 'embeded://assets/main.png', ext: 'png' },
+        { type: 'emotion', name: 'smiling', uri: 'embeded://assets/smile.png', ext: 'png' },
+        // Legal in V3 and not in the archive, so it can only be reported.
+        { type: 'emotion', name: 'remote', uri: 'https://example.com/x.png', ext: 'png' },
+      ],
+      { 'assets/main.png': BASE_PNG, 'assets/smile.png': BASE_PNG }
+    )
+
+    await app.goto('/')
+    await waitForLibrary(app)
+    await app.setInputFiles('input[type=file]', {
+      name: 'hero.charx',
+      mimeType: 'application/zip',
+      buffer,
+    })
+
+    await expect(app.locator('input[placeholder="Character name"]')).toHaveValue('Charx Hero')
+    await expect(app.getByRole('status')).toContainText('1 assets will be uploaded')
+    await expect(app.getByRole('status')).toContainText('1 asset(s) stored outside the archive')
+
+    await app.click('button:has-text("Save character")')
+
+    // The main icon became the avatar; the emotion became a shown asset.
+    await expect(app).toHaveURL(/\/character\/char-\d+$/)
+    await app.getByRole('tab', { name: 'Assets' }).click()
+    await expect(app.locator('main code:text-is("{{asset:smiling}}")')).toBeVisible()
+    await expect(app.locator('main code:text-is("{{asset:main}}")')).toHaveCount(0)
+  })
+})

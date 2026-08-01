@@ -3,6 +3,7 @@ import {
   characterToJson,
   embedCardInPng,
   jsonToCharacter,
+  parseCharacterFile,
   type ImportedCharacter,
 } from '/app/lib/character-port'
 import { formatCharacter } from '/common/characters'
@@ -157,9 +158,18 @@ describe('jsonToCharacter', () => {
       expect(dead.characterBook).toBeUndefined()
     })
 
-    it('reports V3 assets', () => {
-      const v3 = { ...card(), spec: 'chara_card_v3' }
+    it('reports V3 assets a bare card cannot carry', () => {
+      // Only a CHARX archive holds the files; a plain V3 card just names them.
+      const v3 = {
+        ...card({ assets: [{ name: 'smiling', uri: 'embeded://a.png' }] }),
+        spec: 'chara_card_v3',
+      }
       expect(jsonToCharacter(v3).unsupported).toContain('Character Card V3 assets')
+    })
+
+    it('says nothing about assets on a V3 card that declares none', () => {
+      const v3 = { ...card(), spec: 'chara_card_v3' }
+      expect(jsonToCharacter(v3).unsupported).toEqual([])
     })
 
     it('reports nothing when there is nothing to report', () => {
@@ -384,5 +394,100 @@ describe('embedCardInPng', () => {
 
     const textChunks = extract(twice).filter((c) => c.name === 'tEXt')
     expect(textChunks).toHaveLength(1)
+  })
+})
+
+describe('CHARX archives', () => {
+  /** Builds a `.charx` the same way one is read: a ZIP of `card.json` plus its asset files. */
+  async function makeCharx(card: unknown, files: Record<string, Uint8Array> = {}) {
+    const JSZip = (await import('jszip')).default
+    const zip = new JSZip()
+    zip.file('card.json', JSON.stringify(card))
+    for (const [path, bytes] of Object.entries(files)) zip.file(path, bytes)
+    const blob = await zip.generateAsync({ type: 'uint8array' })
+    return new File([blob as BlobPart], 'hero.charx')
+  }
+
+  const PIXEL = Uint8Array.from([137, 80, 78, 71])
+
+  const v3 = (assets: unknown[]) => ({
+    spec: 'chara_card_v3',
+    spec_version: '3.0',
+    data: { name: 'Charx Hero', description: 'desc', first_mes: 'hi', assets },
+  })
+
+  it('reads the card and unpacks the assets it names', async () => {
+    const file = await makeCharx(
+      v3([{ type: 'emotion', name: 'smiling', uri: 'embeded://assets/smile.png', ext: 'png' }]),
+      { 'assets/smile.png': PIXEL }
+    )
+
+    const result = await parseCharacterFile(file)
+    expect(result.name).toBe('Charx Hero')
+    expect(result.assets).toHaveLength(1)
+    expect(result.assets?.[0].name).toBe('smiling')
+    expect(result.assets?.[0].image.startsWith('data:image/png;base64,')).toBe(true)
+    // The archive carried them, so the "not carried over" notice must not still claim otherwise.
+    expect(result.unsupported).not.toContain('Character Card V3 assets')
+  })
+
+  it('takes the main icon as the avatar rather than as a shown image', async () => {
+    const file = await makeCharx(
+      v3([
+        { type: 'icon', name: 'main', uri: 'embeded://assets/main.png', ext: 'png' },
+        { type: 'emotion', name: 'smiling', uri: 'embeded://assets/smile.png', ext: 'png' },
+      ]),
+      { 'assets/main.png': PIXEL, 'assets/smile.png': PIXEL }
+    )
+
+    const result = await parseCharacterFile(file)
+    expect(result.avatar).toBeInstanceOf(File)
+    expect(result.assets?.map((asset) => asset.name)).toEqual(['smiling'])
+  })
+
+  it('reports assets that live outside the archive instead of inventing them', async () => {
+    // `ccdefault:` and remote URLs are legal in V3 and are not in the file.
+    const file = await makeCharx(
+      v3([
+        { type: 'emotion', name: 'remote', uri: 'https://example.com/x.png', ext: 'png' },
+        { type: 'emotion', name: 'default', uri: 'ccdefault:', ext: 'png' },
+      ])
+    )
+
+    const result = await parseCharacterFile(file)
+    expect(result.assets).toBeUndefined()
+    expect(result.unsupported.join(' ')).toContain('2 asset(s) stored outside the archive')
+  })
+
+  it('skips an asset whose file is missing from the archive', async () => {
+    const file = await makeCharx(
+      v3([{ type: 'emotion', name: 'gone', uri: 'embeded://assets/gone.png', ext: 'png' }])
+    )
+
+    const result = await parseCharacterFile(file)
+    expect(result.assets).toBeUndefined()
+    expect(result.unsupported.join(' ')).toContain('1 asset(s)')
+  })
+
+  it('rejects an archive with no card.json', async () => {
+    const JSZip = (await import('jszip')).default
+    const zip = new JSZip()
+    zip.file('readme.txt', 'nothing here')
+    const blob = await zip.generateAsync({ type: 'uint8array' })
+
+    await expect(parseCharacterFile(new File([blob as BlobPart], 'bad.charx'))).rejects.toThrow(
+      /no card\.json/
+    )
+  })
+
+  it('still carries the character book a CHARX card declares', async () => {
+    const card = v3([])
+    ;(card.data as any).character_book = {
+      name: 'Charx lore',
+      entries: [{ keys: ['relic'], content: 'CHARX-BOOK-FACT' }],
+    }
+
+    const result = await parseCharacterFile(await makeCharx(card))
+    expect(result.characterBook?.entries[0].entry).toBe('CHARX-BOOK-FACT')
   })
 })

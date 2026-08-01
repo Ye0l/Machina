@@ -15,7 +15,7 @@
   import { chats, type CharacterDraft } from '/app/lib/chats.svelte'
   import { api } from '/app/lib/api'
   import { i18n } from '/app/lib/i18n.svelte'
-  import type { ImportedCharacter } from '/app/lib/character-port'
+  import type { ImportedAsset, ImportedCharacter } from '/app/lib/character-port'
   import { pendingImport } from '/app/lib/pending-import'
   import CharacterAvatar from '/app/shared/CharacterAvatar.svelte'
 
@@ -54,6 +54,8 @@
    * written with the rest of the deferred fields once the character has an id.
    */
   let importedBook = $state<AppSchema.MemoryBook | null>(null)
+  /** Images unpacked from a CHARX, uploaded one at a time once the character has an id. */
+  let importedAssets = $state<ImportedAsset[]>([])
 
   // Core character fields.
   let form = $state({
@@ -179,6 +181,7 @@
       form,
       avatar: avatarFile ? 'pending' : avatarRemoved ? 'removed' : avatarPreview,
       book: importedBook,
+      assets: importedAssets.map((asset) => asset.name),
       tags,
       folder,
       greetings,
@@ -249,16 +252,21 @@
     }
 
     importedBook = imported.characterBook ?? null
+    importedAssets = imported.assets ?? []
 
     const notice = imported.unsupported.length
       ? i18n.t('Imported. Not carried over: {fields}.', { fields: imported.unsupported.join(', ') })
       : i18n.t('Imported. Review the character, then save it.')
-    // The entries are not editable until the character exists, so say where they went.
-    importNotice = importedBook
-      ? `${notice} ${i18n.t('{count} memory book entries will be saved with it.', {
+    // Neither is editable until the character exists, so the notice says where they went.
+    const extras = [
+      importedBook &&
+        i18n.t('{count} memory book entries will be saved with it.', {
           count: importedBook.entries.length,
-        })}`
-      : notice
+        }),
+      importedAssets.length &&
+        i18n.t('{count} assets will be uploaded with it.', { count: importedAssets.length }),
+    ].filter(Boolean)
+    importNotice = [notice, ...extras].join(' ')
   }
 
   async function loadCharacter() {
@@ -476,6 +484,13 @@
       if (avatarRemoved && !avatarFile) {
         await api.del(`/character/${id}/avatar`)
       }
+
+      // One request each: the asset route stores a file per call. Sequential rather than
+      // parallel, because each response carries the whole asset list and the last write wins.
+      for (const asset of importedAssets) {
+        await api.post(`/character/${id}/assets`, { name: asset.name, image: asset.image })
+      }
+      importedAssets = []
 
       await chats.loadCharacters(true)
       initialSnapshot = snapshot()

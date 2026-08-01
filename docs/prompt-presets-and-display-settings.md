@@ -174,17 +174,10 @@ were verified.
 - The preview renders sample data only. Previewing the prompt for the chat actually open would
   need the preview to live in the chat rather than in global settings.
 
-### Deferred: CHARX and Character Card V3
+### CHARX and Character Card V3
 
-Not started. Requires a separate plan and real `.charx` fixtures:
-
-- `.charx` ZIP import/export.
-- Character Card V3 schema and `assets` manifest validation.
-- Archive bomb, path traversal, file count, and size protections.
-- Embedded asset persistence, deduplication, ownership, deletion cleanup, and URL resolution.
-- Display-time character-card asset substitution.
-
-These must not be represented as supported by this restoration pass.
+Import is implemented — see `docs/character-import-export.md`. Export to `.charx` is not, and
+neither is embedded-asset deduplication or cleanup of files left behind by a deleted asset.
 
 ## Persona picker visibility
 
