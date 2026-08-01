@@ -110,6 +110,10 @@ export type StubState = {
   failedResponses: string[]
   chatMemory: Record<string, string | undefined>
   extraMessages: any[]
+  /** Chats invented per-test, e.g. to exercise the list's incremental rendering. */
+  extraChats: any[]
+  /** Bodies sent to POST /character/:id/update. */
+  characterUpdates: Array<{ id: string; body: any }>
   reset(): void
 }
 
@@ -134,6 +138,8 @@ export async function createStubServer(port: number) {
     failedResponses: [],
     chatMemory: {},
     extraMessages: [],
+    extraChats: [],
+    characterUpdates: [],
     reset() {
       this.canAuth = true
       this.memoryBooks = []
@@ -145,6 +151,9 @@ export async function createStubServer(port: number) {
       this.failedResponses = []
       this.chatMemory = {}
       this.extraMessages = []
+      this.extraChats = []
+      this.characterUpdates = []
+      for (const character of characters) delete (character as any).characterBook
     },
   }
 
@@ -262,7 +271,31 @@ export async function createStubServer(port: number) {
       }
 
       if (path === '/api/character') return json({ characters })
+
+      // Per-character chat list, which the character workspace renders incrementally.
+      const charChats = path.match(/^\/api\/chat\/([^/]+)\/chats$/)
+      if (charChats && req.method === 'GET') {
+        const owner = characters.find((c) => c._id === charChats[1])
+        if (!owner) return json({ message: 'Not found' }, 404)
+        return json({
+          character: owner,
+          chats: [
+            ...chatList.filter((c) => c.characterId === owner._id),
+            ...state.extraChats.filter((c) => c.characterId === owner._id),
+          ],
+        })
+      }
       if (path === '/api/chat' && req.method === 'GET') return json({ chats: chatList })
+
+      const charUpdate = path.match(/^\/api\/character\/([^/]+)\/update$/)
+      if (charUpdate && req.method === 'POST') {
+        const body = await readBody(req)
+        state.characterUpdates.push({ id: charUpdate[1], body })
+        const target = characters.find((c) => c._id === charUpdate[1])
+        if (!target) return json({ message: 'Not found' }, 404)
+        Object.assign(target, body)
+        return json(target)
+      }
 
       const charMatch = path.match(/^\/api\/character\/([^/]+)$/)
       if (charMatch) {

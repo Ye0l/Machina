@@ -139,6 +139,21 @@ class Chats {
   }
 
   /**
+   * Every chat belonging to one character, newest first (`GET /chat/:id/chats`).
+   *
+   * The endpoint returns the character's whole list -- there is no server-side paging -- so
+   * the caller is responsible for rendering it incrementally.
+   */
+  async listForCharacter(characterId: string): Promise<ChatSummary[]> {
+    const res = await api.get<{ character: AppSchema.Character; chats: ChatSummary[] }>(
+      `/chat/${characterId}/chats`
+    )
+    return (res.chats ?? [])
+      .slice()
+      .sort((a, b) => (b.updatedAt ?? '').localeCompare(a.updatedAt ?? ''))
+  }
+
+  /**
    * Reuses the most recent chat for a character, creating one only when none exists.
    *
    * Returns the chat id rather than opening it: the caller navigates to `/chat/:id` and the
@@ -465,6 +480,17 @@ class Chats {
     } catch (ex) {
       this.error = ex instanceof Error ? ex.message : 'Failed to delete message'
     }
+  }
+
+  /**
+   * Deletes any chat by id, whether or not it is the open one. Throws so a list view can
+   * surface the failure next to the row rather than in the chat's error banner.
+   */
+  async deleteChatById(chatId: string) {
+    await api.del<DeleteChatResponse>(`/chat/${chatId}`)
+    this.chats = this.chats.filter((c) => c._id !== chatId)
+    // Leaving the deleted chat open would render a chat the server no longer has.
+    if (this.detail?.chat._id === chatId) this.close()
   }
 
   /**

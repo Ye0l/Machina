@@ -25,7 +25,9 @@
   } = $props()
 
   const route = $derived(router.route)
-  const inLibrary = $derived(route.name === 'characters' || route.name === 'character')
+  const inLibrary = $derived(
+    route.name === 'characters' || route.name === 'character' || route.name === 'character-new'
+  )
   const inBooks = $derived(route.name === 'books' || route.name === 'book')
   const openChatId = $derived(route.name === 'chat' ? route.chatId : undefined)
   const recentChats = $derived(chats.chats.slice(0, 8))

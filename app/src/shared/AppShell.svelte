@@ -6,6 +6,7 @@
   import { i18n } from '/app/lib/i18n.svelte'
   import { router, routes } from '/app/lib/router.svelte'
   import CharacterEditor from '/app/routes/CharacterEditor.svelte'
+  import CharacterWorkspace from '/app/routes/CharacterWorkspace.svelte'
   import Characters from '/app/routes/Characters.svelte'
   import Books from '/app/routes/Books.svelte'
   import BookEditor from '/app/routes/BookEditor.svelte'
@@ -20,7 +21,7 @@
     onLogout,
   }: {
     onEditorDirtyChange: (dirty: boolean) => void
-    onCharacterSaved: () => void
+    onCharacterSaved: (characterId?: string) => void
     onBookSaved: () => void
     onLogout: () => void
   } = $props()
@@ -35,7 +36,11 @@
   const route = $derived(router.route)
   /** Transition key; an editor is a state of its section, not a section of its own. */
   const current = $derived(
-    route.name === 'character' ? 'characters' : route.name === 'book' ? 'books' : route.name
+    route.name === 'character' || route.name === 'character-new'
+      ? 'characters'
+      : route.name === 'book'
+      ? 'books'
+      : route.name
   )
 
   function navigate(path: string) {
@@ -83,13 +88,20 @@
                 {i18n.t('Loading chat')}
               </div>
             {/if}
+          {:else if route.name === 'character-new'}
+            <CharacterEditor
+              characterId={null}
+              onCancel={() => router.go(routes.characters())}
+              onSaved={onCharacterSaved}
+              onDirtyChange={onEditorDirtyChange}
+            />
           {:else if route.name === 'character'}
             {#key route.characterId}
-              <CharacterEditor
+              <CharacterWorkspace
                 characterId={route.characterId}
-                onCancel={() => router.go(routes.characters())}
-                onSaved={onCharacterSaved}
-                onDirtyChange={onEditorDirtyChange}
+                tab={route.tab}
+                {onEditorDirtyChange}
+                {onCharacterSaved}
               />
             {/key}
           {:else if route.name === 'book'}

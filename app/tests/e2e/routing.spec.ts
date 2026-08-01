@@ -27,9 +27,23 @@ test.describe('deep links', () => {
     expect(await path(app)).toBe('/settings/display')
   })
 
-  test('/character/:id loads that character', async ({ app }) => {
+  test('/character/:id opens that character workspace on its chats', async ({ app }) => {
     await app.goto('/character/char-2')
+    await expect(app.getByRole('heading', { name: 'Borin' })).toBeVisible()
+    await expect(app.getByRole('tab', { name: 'Chats' })).toHaveAttribute('aria-selected', 'true')
+  })
+
+  test('/character/:id/edit opens the editor for that character', async ({ app }) => {
+    await app.goto('/character/char-2/edit')
     await expect(app.locator('input[placeholder="Character name"]')).toHaveValue('Borin')
+  })
+
+  test('/character/:id/book opens that character own memory book', async ({ app }) => {
+    await app.goto('/character/char-1/book')
+    await expect(app.getByRole('tab', { name: 'Memory book' })).toHaveAttribute(
+      'aria-selected',
+      'true'
+    )
   })
 
   test('/character/new opens an empty editor', async ({ app }) => {
