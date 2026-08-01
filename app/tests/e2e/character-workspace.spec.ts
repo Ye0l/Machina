@@ -53,6 +53,24 @@ test.describe('character workspace', () => {
     await expect(app.locator('input[placeholder="Character name"]')).toHaveValue('Aria')
   })
 
+  test('the editor tab can be saved on a wide screen, where there is no header', async ({
+    app,
+    stub,
+  }) => {
+    await app.goto('/character/char-1/edit')
+    await app.fill('input[placeholder="Character name"]', 'Aria Renamed')
+
+    // The workspace supplies the header, so the editor's own save button lives in its footer
+    // -- which used to be small-screen only, leaving this tab with no way to save at all.
+    await app.click('button:has-text("Save character")')
+
+    await expect.poll(() => stub.state.characterUpdates.length).toBeGreaterThan(0)
+    expect(stub.state.characterUpdates[0].id).toBe('char-1')
+    // Leaving is no longer guarded, because the edit was saved rather than abandoned.
+    await app.click('a:has-text("Characters")')
+    await expect(app).toHaveURL(/\/$/)
+  })
+
   test("a character's own memory book saves onto the character", async ({ app, stub }) => {
     await app.goto('/character/char-1/book')
     await app.waitForSelector('button:has-text("Add entry")')

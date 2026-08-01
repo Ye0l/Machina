@@ -161,12 +161,15 @@ export async function createStubServer(port: number) {
       this.characterUpdates = []
       this.sends = []
       this.personaBookFor = {}
-      characters.length = baseCharacterCount
-      for (const character of characters) delete (character as any).characterBook
+      // Rebuilt rather than trimmed: the update route `Object.assign`s onto a character, so
+      // a test that renames one would otherwise leave it renamed for every test after it.
+      characters.length = 0
+      characters.push(...baseCharacters())
     },
   }
 
-  const characters = [
+  /** Fresh copies, so `reset` can undo whatever a test did to them. */
+  const baseCharacters = () => [
     character('char-1', 'Aria', '/assets/aria.png', {
       description: 'A test character',
       tags: ['test'],
@@ -181,8 +184,7 @@ export async function createStubServer(port: number) {
     }),
   ]
 
-  /** Characters created during a test are trimmed back to these by `reset`. */
-  const baseCharacterCount = characters.length
+  const characters = baseCharacters()
 
   const chatList = [
     {
