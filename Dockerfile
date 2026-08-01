@@ -1,7 +1,12 @@
 # Build stage: needs devDependencies (vite, svelte, tsc), which the runtime image drops.
 FROM node:22-bookworm-slim AS build
 
-WORKDIR /app
+# NOT /app, the usual choice. `app/vite.config.ts` aliases the `/app/` import prefix to
+# `app/src/`, and Vite applies aliases to absolute filesystem paths too -- so with the
+# project at /app, the entry's own path `/app/app/index.html` is rewritten to
+# `/app/app/src/app/index.html` and the build fails to find it. Any working directory that
+# does not start with an aliased prefix (`/app/`, `/common/`, `/srv/`) is fine.
+WORKDIR /usr/src/agnai
 
 RUN corepack enable
 
@@ -23,32 +28,32 @@ COPY app/ ./app/
 RUN pnpm run build:all
 
 ARG SHA=unknown
-RUN echo "${SHA}" > /app/version.txt
+RUN echo "${SHA}" > /usr/src/agnai/version.txt
 
 # Runtime stage.
 FROM node:22-bookworm-slim AS runtime
 
-WORKDIR /app
+WORKDIR /usr/src/agnai
 
 RUN corepack enable
 
 ENV NODE_ENV=production \
     LOG_LEVEL=info \
     DB_NAME=agnai \
-    ASSET_FOLDER=/app/dist/assets
+    ASSET_FOLDER=/usr/src/agnai/dist/assets
 
 COPY package.json pnpm-lock.yaml ./
 RUN pnpm install --frozen-lockfile --prod && pnpm store prune
 
 # The server runs the compiled .js emitted beside the sources, so `common/` and `srv/` are
 # copied from the build stage rather than from the context.
-COPY --from=build /app/common/ ./common/
-COPY --from=build /app/srv/ ./srv/
-COPY --from=build /app/dist/ ./dist/
-COPY --from=build /app/version.txt ./version.txt
+COPY --from=build /usr/src/agnai/common/ ./common/
+COPY --from=build /usr/src/agnai/srv/ ./srv/
+COPY --from=build /usr/src/agnai/dist/ ./dist/
+COPY --from=build /usr/src/agnai/version.txt ./version.txt
 COPY db/ ./db/
 
-VOLUME [ "/app/db", "/app/assets", "/app/dist/assets", "/app/extras" ]
+VOLUME [ "/usr/src/agnai/db", "/usr/src/agnai/assets", "/usr/src/agnai/dist/assets", "/usr/src/agnai/extras" ]
 
 EXPOSE 3001
 

@@ -51,6 +51,13 @@ export default defineConfig({
   root: repo('.'),
   plugins: [preferCommonSources(), svelte()],
   resolve: {
+    /**
+     * These aliases are absolute-looking prefixes, and Vite applies aliases to real
+     * filesystem paths as well as to import specifiers. The project must therefore not live
+     * at a path beginning with one of them: checked out under `/app`, the entry's own path
+     * `/app/app/index.html` is rewritten to `/app/app/src/app/index.html` and the build
+     * fails. The Dockerfile's working directory is chosen with this in mind.
+     */
     alias: [
       // The shared layer is imported with absolute-looking specifiers (`/common/...`),
       // matching the convention already used by `srv/` and the legacy `web/` frontend.
