@@ -466,7 +466,36 @@ describe('CHARX archives', () => {
 
     const result = await parseCharacterFile(file)
     expect(result.assets).toBeUndefined()
-    expect(result.unsupported.join(' ')).toContain('1 asset(s)')
+    // Counted apart from an external URI: a broken archive is a different problem.
+    expect(result.unsupported).toContain('1 asset(s) missing from the archive')
+  })
+
+  it('imports an archive with far more files than a proxy entry cap would allow', async () => {
+    // The regression this guards: the entry count was capped at 256, so a card with a full
+    // emotion set failed outright. Only what is decompressed is limited now.
+    const count = 400
+    const assets = Array.from({ length: count }, (_, i) => ({
+      type: 'emotion',
+      name: `emotion-${i}`,
+      uri: `embeded://assets/e${i}.png`,
+      ext: 'png',
+    }))
+    const files = Object.fromEntries(assets.map((_, i) => [`assets/e${i}.png`, PIXEL]))
+
+    const result = await parseCharacterFile(await makeCharx(v3(assets), files))
+    expect(result.assets).toHaveLength(count)
+    expect(result.unsupported).toEqual([])
+  })
+
+  it('finds an asset whose entry sits under a directory prefix', async () => {
+    // Archives in the wild wrap everything in a top-level folder; the URI stays relative.
+    const file = await makeCharx(
+      v3([{ type: 'emotion', name: 'smiling', uri: 'embeded://assets/smile.png', ext: 'png' }]),
+      { 'hero/assets/smile.png': PIXEL }
+    )
+
+    const result = await parseCharacterFile(file)
+    expect(result.assets).toHaveLength(1)
   })
 
   it('rejects an archive with no card.json', async () => {
