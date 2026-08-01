@@ -8,10 +8,29 @@ describe('parse', () => {
   })
 
   it('distinguishes the create form from an edit', () => {
-    expect(parse('/character/new')).toEqual({ name: 'character', characterId: null })
-    expect(parse('/character/abc')).toEqual({ name: 'character', characterId: 'abc' })
+    expect(parse('/character/new')).toEqual({ name: 'character-new' })
+    expect(parse('/character/abc')).toEqual({ name: 'character', characterId: 'abc', tab: 'chats' })
     expect(parse('/memory/new')).toEqual({ name: 'book', bookId: null })
     expect(parse('/memory/abc')).toEqual({ name: 'book', bookId: 'abc' })
+  })
+
+  it('reads a character workspace tab, defaulting to its chats', () => {
+    expect(parse('/character/abc/edit')).toEqual({
+      name: 'character',
+      characterId: 'abc',
+      tab: 'edit',
+    })
+    expect(parse('/character/abc/book')).toEqual({
+      name: 'character',
+      characterId: 'abc',
+      tab: 'book',
+    })
+    // An unknown tab is not a dead view.
+    expect(parse('/character/abc/nope')).toEqual({
+      name: 'character',
+      characterId: 'abc',
+      tab: 'chats',
+    })
   })
 
   it('reads chat and book ids', () => {
@@ -21,6 +40,14 @@ describe('parse', () => {
 
   it('decodes percent-encoded ids', () => {
     expect(parse('/chat/a%2Fb')).toEqual({ name: 'chat', chatId: 'a/b' })
+  })
+
+  it('does not mistake a character id for the create form', () => {
+    expect(parse('/character/newton')).toEqual({
+      name: 'character',
+      characterId: 'newton',
+      tab: 'chats',
+    })
   })
 
   it('defaults settings to the general tab and rejects unknown tabs', () => {
@@ -40,8 +67,10 @@ describe('parse', () => {
 describe('toPath', () => {
   const cases: Route[] = [
     { name: 'characters' },
-    { name: 'character', characterId: null },
-    { name: 'character', characterId: 'abc' },
+    { name: 'character-new' },
+    { name: 'character', characterId: 'abc', tab: 'chats' },
+    { name: 'character', characterId: 'abc', tab: 'edit' },
+    { name: 'character', characterId: 'abc', tab: 'book' },
     { name: 'chat', chatId: 'xyz' },
     { name: 'books' },
     { name: 'book', bookId: null },
@@ -57,11 +86,13 @@ describe('toPath', () => {
   it('canonicalises the aliases that parse accepts', () => {
     expect(toPath(parse('/characters'))).toBe('/')
     expect(toPath(parse('/settings/nope'))).toBe('/settings')
+    expect(toPath(parse('/character/abc/nope'))).toBe('/character/abc')
   })
 
   it('escapes ids that would otherwise change the path shape', () => {
     expect(toPath({ name: 'chat', chatId: 'a/b' })).toBe('/chat/a%2Fb')
     expect(routes.character('a b')).toBe('/character/a%20b')
+    expect(routes.character('a b', 'book')).toBe('/character/a%20b/book')
   })
 })
 

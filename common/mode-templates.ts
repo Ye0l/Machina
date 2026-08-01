@@ -6,6 +6,7 @@ import { OPENAI_MODELS } from './presets/openai'
 export const defaultTemplate = `
 {{char}}'s Persona: {{personality}}
 
+{{#if impersonating}}{{user}}'s Persona: {{impersonating}}{{/if}}
 {{#if scenario}}Scenario: {{scenario}}{{/if}}
 {{#if memory}}Facts:{{memory}}{{/if}}
 {{#if example_dialogue}}How {{char}} speaks: {{example_dialogue}}

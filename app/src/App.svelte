@@ -11,7 +11,8 @@
   let editorDirty = $state(false)
 
   /** Routes that own an editor with unsaved-change protection. */
-  const isEditorRoute = (name: string) => name === 'character' || name === 'book'
+  const isEditorRoute = (name: string) =>
+    name === 'character' || name === 'character-new' || name === 'book'
 
   // Set once: App is the root component and is never torn down.
   router.guard = () => {
@@ -55,10 +56,11 @@
     router.replace(routes.characters())
   }
 
-  function savedCharacter() {
+  function savedCharacter(characterId?: string) {
     // Clear first: the save already persisted the changes, so leaving must not prompt.
     editorDirty = false
-    router.go(routes.characters())
+    // A newly created character opens its own workspace; a deletion has nowhere to go.
+    router.go(characterId ? routes.character(characterId) : routes.characters())
   }
 
   function savedBook() {

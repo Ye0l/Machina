@@ -15,12 +15,14 @@
   } from '@lucide/svelte'
   import { chats } from '/app/lib/chats.svelte'
   import { books } from '/app/lib/books.svelte'
+  import { persona } from '/app/lib/persona.svelte'
   import { session } from '/app/lib/session.svelte'
   import { i18n } from '/app/lib/i18n.svelte'
   import { isRouterClick, router, routes } from '/app/lib/router.svelte'
   import { renderMarkdown } from '/app/lib/markdown'
   import { uiSettings } from '/app/lib/ui-settings.svelte'
   import { FONT_FACES } from '/common/types/ui'
+  import type { AppSchema } from '/common/types'
   import CharacterAvatar from '/app/shared/CharacterAvatar.svelte'
 
   const AVATAR_PX: Record<string, number> = {
@@ -67,11 +69,16 @@
   let draft = $state('')
   let messageList: HTMLOListElement
 
-  const authorOf = (message: { characterId?: string; name?: string }) => {
+  /** `userId` marks the sender, not `characterId`: an impersonated message carries both. */
+  const fromUser = (message: AppSchema.ChatMessage) => !!message.userId
+
+  const authorOf = (message: AppSchema.ChatMessage) => {
     if (message.name) return message.name
-    if (!message.characterId) return session.profile?.handle ?? i18n.t('You')
+    if (fromUser(message))
+      return persona.character?.name ?? session.profile?.handle ?? i18n.t('You')
     return (
       detail.characters.find((character) => character._id === message.characterId)?.name ??
+      detail.character?.name ??
       i18n.t('Bot')
     )
   }
@@ -79,13 +86,25 @@
   const characterOf = (characterId?: string) =>
     detail.characters.find((character) => character._id === characterId) ?? detail.character
 
-  const displayMessage = (text: string) =>
+  /**
+   * `{{char}}` resolves to the character that actually sent the message rather than the
+   * chat's headline character, and `{{user}}` to the active persona when there is one --
+   * matching what `common/prompt.ts` puts in the prompt.
+   */
+  const displayMessage = (text: string, speaker?: AppSchema.Character) =>
     text
-      .replace(/\{\{user\}\}/gi, session.profile?.handle || session.user?.username || i18n.t('You'))
-      .replace(/\{\{char\}\}/gi, detail.character?.name || detail.chat.name)
+      .replace(
+        /\{\{user\}\}/gi,
+        persona.character?.name ||
+          session.profile?.handle ||
+          session.user?.username ||
+          i18n.t('You')
+      )
+      .replace(/\{\{char\}\}/gi, speaker?.name || detail.character?.name || detail.chat.name)
 
   /** Placeholders are substituted before rendering, so what is shown matches the prompt. */
-  const renderBody = (text: string) => renderMarkdown(displayMessage(text))
+  const renderBody = (text: string, speaker?: AppSchema.Character) =>
+    renderMarkdown(displayMessage(text, speaker))
 
   /* ------------------------------------------------------------------- editing */
 
@@ -172,6 +191,17 @@
   const selectBook = (event: Event) =>
     chats.setMemoryBook((event.currentTarget as HTMLSelectElement).value)
 
+  /**
+   * Speaking as one of your own characters. Empty means the account profile, so it is a real
+   * option rather than a placeholder.
+   */
+  const personaOptions = $derived(
+    chats.characters.filter((character) => character._id !== detail.chat.characterId)
+  )
+
+  const selectPersona = (event: Event) =>
+    persona.select((event.currentTarget as HTMLSelectElement).value)
+
   const deleteOpenChat = async () => {
     if (
       !window.confirm(i18n.t('Delete "{name}"? This cannot be undone.', { name: detail.chat.name }))
@@ -233,6 +263,20 @@
     >
       <Plus size={18} />
     </button>
+    {#if personaOptions.length}
+      <select
+        class="field order-last h-9 w-full max-w-none py-1 text-xs sm:order-none sm:w-auto sm:max-w-[10rem]"
+        value={persona.characterId}
+        onchange={selectPersona}
+        aria-label={i18n.t('Speak as')}
+        disabled={chats.generating || persona.loading}
+      >
+        <option value="">{i18n.t('Speak as yourself')}</option>
+        {#each personaOptions as option (option._id)}
+          <option value={option._id}>{option.name}</option>
+        {/each}
+      </select>
+    {/if}
     {#if books.books.length}
       <select
         class="field order-last h-9 w-full max-w-none py-1 text-xs sm:order-none sm:ml-auto sm:w-auto sm:max-w-[10rem]"
@@ -249,7 +293,7 @@
     {/if}
     <select
       class="field order-last h-9 w-full max-w-none py-1 text-xs sm:order-none sm:w-auto sm:max-w-[12rem]"
-      class:sm:ml-auto={!books.books.length}
+      class:sm:ml-auto={!books.books.length && !personaOptions.length}
       value={selectedPresetId}
       onchange={selectPreset}
       aria-label={i18n.t('Chat preset')}
@@ -278,22 +322,24 @@
     aria-live="polite"
   >
     {#each chats.messages as message (message._id)}
-      {@const fromUser = !message.characterId}
-      {@const character = characterOf(message.characterId)}
+      {@const isUser = fromUser(message)}
+      {@const character = isUser ? undefined : characterOf(message.characterId)}
       {@const isLast = message._id === chats.messages.at(-1)?._id}
       <li
-        class:flex-row-reverse={fromUser}
+        class:flex-row-reverse={isUser}
         class="mx-auto flex w-full {widthClass} items-start gap-3"
       >
         {#if showAvatars}
-          {#if fromUser}
+          {#if isUser}
             <span
               class="flex shrink-0 items-center justify-center rounded-full bg-neutral-800 font-semibold text-neutral-300"
               style:width={`${avatarPx}px`}
               style:height={`${avatarPx}px`}
               style:font-size={`${Math.max(10, Math.round(avatarPx * 0.35))}px`}
             >
-              {(session.profile?.handle || 'Y').slice(0, 1).toUpperCase()}
+              {(persona.character?.name || session.profile?.handle || 'Y')
+                .slice(0, 1)
+                .toUpperCase()}
             </span>
           {:else}
             <CharacterAvatar
@@ -308,13 +354,11 @@
           class="min-w-0 max-w-[88%] sm:max-w-[75%]"
           style:max-width={alternating > 0 ? `${Math.max(40, 88 - alternating)}%` : undefined}
         >
-          <span class:text-right={fromUser} class="mb-1 block text-xs text-neutral-500"
+          <span class:text-right={isUser} class="mb-1 block text-xs text-neutral-500"
             >{authorOf(message)}</span
           >
           {#if editingId === message._id}
-            <div
-              class="rounded-2xl bg-[#151a23] p-2 {fromUser ? 'rounded-tr-md' : 'rounded-tl-md'}"
-            >
+            <div class="rounded-2xl bg-[#151a23] p-2 {isUser ? 'rounded-tr-md' : 'rounded-tl-md'}">
               <!-- prettier-ignore -->
               <textarea
                 class="field max-h-72 min-h-24 w-full resize-y py-2 leading-6"
@@ -347,19 +391,19 @@
             </div>
           {:else}
             <div
-              class:bg-violet-600={fromUser}
-              class:text-white={fromUser}
-              class="rendered-markdown rounded-2xl bg-[#151a23] px-4 py-3 leading-6 text-neutral-200 {fromUser
+              class:bg-violet-600={isUser}
+              class:text-white={isUser}
+              class="rendered-markdown rounded-2xl bg-[#151a23] px-4 py-3 leading-6 text-neutral-200 {isUser
                 ? 'rounded-tr-md'
                 : 'rounded-tl-md'}"
               style:opacity={msgOpacity}
             >
               <!-- Sanitised in renderMarkdown via DOMPurify. -->
-              {@html renderBody(message.msg)}
+              {@html renderBody(message.msg, character)}
             </div>
           {/if}
-          <div class="mt-1 flex min-h-7 items-center gap-1" class:justify-end={fromUser}>
-            {#if !fromUser && message.retries?.length}
+          <div class="mt-1 flex min-h-7 items-center gap-1" class:justify-end={isUser}>
+            {#if !isUser && message.retries?.length}
               <button
                 class="icon-button h-7 w-7"
                 type="button"
@@ -384,7 +428,7 @@
                 <ChevronRight size={14} />
               </button>
             {/if}
-            {#if !fromUser && isLast}
+            {#if !isUser && isLast}
               <button
                 class="icon-button h-7 w-7"
                 type="button"
@@ -444,7 +488,9 @@
             style:opacity={msgOpacity}
           >
             <!-- Sanitised in renderMarkdown; partial markup is closed off by the sanitiser. -->
-            {@html renderBody(chats.partial)}<span class="animate-pulse text-violet-300">▌</span>
+            {@html renderBody(chats.partial, detail.character)}<span
+              class="animate-pulse text-violet-300">▌</span
+            >
           </div>
         </div>
       </li>
@@ -471,7 +517,7 @@
         onkeydown={handleComposerKeydown}
       ></textarea>
       <div class="flex shrink-0 items-center gap-2">
-        {#if !chats.generating && chats.messages.length && !chats.messages.at(-1)?.characterId}
+        {#if !chats.generating && chats.messages.length && chats.messages.at(-1)?.userId}
           <button
             class="icon-button h-11 w-11"
             type="button"

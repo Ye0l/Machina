@@ -3,9 +3,11 @@
   import { fade, fly } from 'svelte/transition'
   import { chats } from '/app/lib/chats.svelte'
   import { books } from '/app/lib/books.svelte'
+  import { persona } from '/app/lib/persona.svelte'
   import { i18n } from '/app/lib/i18n.svelte'
   import { router, routes } from '/app/lib/router.svelte'
   import CharacterEditor from '/app/routes/CharacterEditor.svelte'
+  import CharacterWorkspace from '/app/routes/CharacterWorkspace.svelte'
   import Characters from '/app/routes/Characters.svelte'
   import Books from '/app/routes/Books.svelte'
   import BookEditor from '/app/routes/BookEditor.svelte'
@@ -20,7 +22,7 @@
     onLogout,
   }: {
     onEditorDirtyChange: (dirty: boolean) => void
-    onCharacterSaved: () => void
+    onCharacterSaved: (characterId?: string) => void
     onBookSaved: () => void
     onLogout: () => void
   } = $props()
@@ -30,12 +32,18 @@
   chats.loadCharacters()
   // Books back the chat's memory-book picker, so they are needed outside their own route.
   books.load()
+  // Re-resolves the persona chosen before the last reload.
+  persona.restore()
 
   let drawerOpen = $state(false)
   const route = $derived(router.route)
   /** Transition key; an editor is a state of its section, not a section of its own. */
   const current = $derived(
-    route.name === 'character' ? 'characters' : route.name === 'book' ? 'books' : route.name
+    route.name === 'character' || route.name === 'character-new'
+      ? 'characters'
+      : route.name === 'book'
+      ? 'books'
+      : route.name
   )
 
   function navigate(path: string) {
@@ -83,13 +91,20 @@
                 {i18n.t('Loading chat')}
               </div>
             {/if}
+          {:else if route.name === 'character-new'}
+            <CharacterEditor
+              characterId={null}
+              onCancel={() => router.go(routes.characters())}
+              onSaved={onCharacterSaved}
+              onDirtyChange={onEditorDirtyChange}
+            />
           {:else if route.name === 'character'}
             {#key route.characterId}
-              <CharacterEditor
+              <CharacterWorkspace
                 characterId={route.characterId}
-                onCancel={() => router.go(routes.characters())}
-                onSaved={onCharacterSaved}
-                onDirtyChange={onEditorDirtyChange}
+                tab={route.tab}
+                {onEditorDirtyChange}
+                {onCharacterSaved}
               />
             {/key}
           {:else if route.name === 'book'}

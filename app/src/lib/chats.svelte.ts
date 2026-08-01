@@ -12,6 +12,7 @@ import { defaultPresets, isDefaultPreset } from '/common/default-preset'
 import { api } from './api'
 import { books } from './books.svelte'
 import { cancelGeneration, generateLastReply, sendMessage, type SendControl } from './generate'
+import { persona } from './persona.svelte'
 import { session } from './session.svelte'
 import { subscribe } from './socket'
 const delay = (ms: number) => {
@@ -139,6 +140,21 @@ class Chats {
   }
 
   /**
+   * Every chat belonging to one character, newest first (`GET /chat/:id/chats`).
+   *
+   * The endpoint returns the character's whole list -- there is no server-side paging -- so
+   * the caller is responsible for rendering it incrementally.
+   */
+  async listForCharacter(characterId: string): Promise<ChatSummary[]> {
+    const res = await api.get<{ character: AppSchema.Character; chats: ChatSummary[] }>(
+      `/chat/${characterId}/chats`
+    )
+    return (res.chats ?? [])
+      .slice()
+      .sort((a, b) => (b.updatedAt ?? '').localeCompare(a.updatedAt ?? ''))
+  }
+
+  /**
    * Reuses the most recent chat for a character, creating one only when none exists.
    *
    * Returns the chat id rather than opening it: the caller navigates to `/chat/:id` and the
@@ -229,7 +245,8 @@ class Chats {
           },
         },
         control,
-        this.memoryBook()
+        this.memoryBook(),
+        persona.character
       )
 
       // Re-read rather than splice locally: the server assigns ids, parents and timestamps.
@@ -278,9 +295,11 @@ class Chats {
 
     const last = this.messages.at(-1)
     if (!last) return
-    const rerolling = !!last.characterId
+    // `userId`, not `characterId`: an impersonated user message carries both
+    // (srv/api/chat/message.ts:135), so a persona would otherwise look like a bot reply.
+    const rerolling = !last.userId
     const promptMessages = rerolling ? this.messages.slice(0, -1) : this.messages
-    if (!promptMessages.length || promptMessages.at(-1)?.characterId) return
+    if (!promptMessages.length || !promptMessages.at(-1)?.userId) return
 
     const control: SendControl = { requestId: '', stopped: false }
     this.control = control
@@ -303,7 +322,8 @@ class Chats {
           onError: (value) => (this.error = value),
         },
         control,
-        this.memoryBook()
+        this.memoryBook(),
+        persona.character
       )
       if (!reply || control.stopped) return
 
@@ -465,6 +485,17 @@ class Chats {
     } catch (ex) {
       this.error = ex instanceof Error ? ex.message : 'Failed to delete message'
     }
+  }
+
+  /**
+   * Deletes any chat by id, whether or not it is the open one. Throws so a list view can
+   * surface the failure next to the row rather than in the chat's error banner.
+   */
+  async deleteChatById(chatId: string) {
+    await api.del<DeleteChatResponse>(`/chat/${chatId}`)
+    this.chats = this.chats.filter((c) => c._id !== chatId)
+    // Leaving the deleted chat open would render a chat the server no longer has.
+    if (this.detail?.chat._id === chatId) this.close()
   }
 
   /**

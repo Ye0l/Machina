@@ -10,10 +10,18 @@
 export const SETTINGS_TABS = ['general', 'providers', 'presets', 'display'] as const
 export type SettingsTab = (typeof SETTINGS_TABS)[number]
 
+/**
+ * Sections of a character's workspace. A saved character owns its chats and its own memory
+ * book, so they are tabs of the character rather than top-level destinations.
+ */
+export const CHARACTER_TABS = ['chats', 'edit', 'book'] as const
+export type CharacterTab = (typeof CHARACTER_TABS)[number]
+
 export type Route =
   | { name: 'characters' }
-  /** `characterId` is null for the create form, matching the editor's own prop. */
-  | { name: 'character'; characterId: string | null }
+  /** The create form, which has no chats or book to show yet. */
+  | { name: 'character-new' }
+  | { name: 'character'; characterId: string; tab: CharacterTab }
   | { name: 'chat'; chatId: string }
   | { name: 'books' }
   /** `bookId` is null for the create form. */
@@ -25,10 +33,16 @@ export type RouteName = Route['name']
 const isSettingsTab = (value: string): value is SettingsTab =>
   (SETTINGS_TABS as readonly string[]).includes(value)
 
+const isCharacterTab = (value: string): value is CharacterTab =>
+  (CHARACTER_TABS as readonly string[]).includes(value)
+
 export const routes = {
   characters: () => '/',
   newCharacter: () => '/character/new',
-  character: (characterId: string) => `/character/${encodeURIComponent(characterId)}`,
+  character: (characterId: string, tab: CharacterTab = 'chats') => {
+    const base = `/character/${encodeURIComponent(characterId)}`
+    return tab === 'chats' ? base : `${base}/${tab}`
+  },
   chat: (chatId: string) => `/chat/${encodeURIComponent(chatId)}`,
   books: () => '/memory',
   newBook: () => '/memory/new',
@@ -39,16 +53,22 @@ export const routes = {
 
 /** Unknown paths resolve to the character library rather than rendering a dead view. */
 export function parse(pathname: string): Route {
-  const [, head = '', tail = ''] = pathname.split('/')
+  const [, head = '', tail = '', rest = ''] = pathname.split('/')
 
   switch (head) {
     case '':
     case 'characters':
       return { name: 'characters' }
 
-    case 'character':
+    case 'character': {
       if (!tail) return { name: 'characters' }
-      return { name: 'character', characterId: tail === 'new' ? null : decodeURIComponent(tail) }
+      if (tail === 'new') return { name: 'character-new' }
+      return {
+        name: 'character',
+        characterId: decodeURIComponent(tail),
+        tab: isCharacterTab(rest) ? rest : 'chats',
+      }
+    }
 
     case 'chat':
       return tail ? { name: 'chat', chatId: decodeURIComponent(tail) } : { name: 'characters' }
@@ -69,10 +89,10 @@ export function toPath(route: Route): string {
   switch (route.name) {
     case 'characters':
       return routes.characters()
+    case 'character-new':
+      return routes.newCharacter()
     case 'character':
-      return route.characterId === null
-        ? routes.newCharacter()
-        : routes.character(route.characterId)
+      return routes.character(route.characterId, route.tab)
     case 'chat':
       return routes.chat(route.chatId)
     case 'books':

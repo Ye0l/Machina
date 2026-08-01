@@ -191,10 +191,10 @@
             <div class="flex shrink-0 items-center gap-1">
               <a
                 class="icon-button"
-                href={routes.character(character._id)}
+                href={routes.character(character._id, 'edit')}
                 aria-label={i18n.t('Edit {name}', { name: character.name })}
                 title={i18n.t('Edit character')}
-                onclick={link(routes.character(character._id))}
+                onclick={link(routes.character(character._id, 'edit'))}
               >
                 <Pencil size={17} />
               </a>

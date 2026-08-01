@@ -602,6 +602,9 @@ export async function buildPromptPlaceholders(
     const books: AppSchema.MemoryBook[] = []
     if (opts.books) books.push(...opts.books)
     if (replyAs.characterBook) books.push(replyAs.characterBook)
+    // The impersonated character's own lore, so a persona carries its history the same way
+    // the bot does. Without this its name and persona reach the prompt but its book does not.
+    if (opts.impersonate?.characterBook) books.push(opts.impersonate.characterBook)
     if (opts.book) books.push(opts.book)
 
     parts.memory = await buildMemoryPrompt(

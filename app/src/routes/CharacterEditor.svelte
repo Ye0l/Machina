@@ -1,7 +1,6 @@
 <script lang="ts">
   import {
     ArrowLeft,
-    Download,
     ImagePlus,
     MessageSquareText,
     Plus,
@@ -18,16 +17,9 @@
   import type { ElevenLabsModel } from '/common/types/texttospeech-schema'
   import { chats, type CharacterDraft } from '/app/lib/chats.svelte'
   import { api } from '/app/lib/api'
-  import { assetUrl } from '/app/lib/config'
   import { session } from '/app/lib/session.svelte'
   import { i18n } from '/app/lib/i18n.svelte'
-  import {
-    buildCharacterCard,
-    characterToJson,
-    downloadBlob,
-    type ExportFormat,
-    type ImportedCharacter,
-  } from '/app/lib/character-port'
+  import type { ImportedCharacter } from '/app/lib/character-port'
   import { pendingImport } from '/app/lib/pending-import'
   import CharacterAvatar from '/app/shared/CharacterAvatar.svelte'
 
@@ -36,11 +28,15 @@
     onCancel,
     onSaved,
     onDirtyChange = () => {},
+    embedded = false,
   }: {
     characterId: string | null
     onCancel: () => void
-    onSaved: () => void
+    /** Receives the saved character's id; undefined when the character was deleted. */
+    onSaved: (characterId?: string) => void
     onDirtyChange?: (dirty: boolean) => void
+    /** Inside the character workspace, which supplies the header and tab row itself. */
+    embedded?: boolean
   } = $props()
 
   type EditorTab = 'profile' | 'prompt' | 'advanced'
@@ -54,11 +50,14 @@
   let originalPersona = $state<AppSchema.Persona | undefined>()
   let initialPersonaText = $state('')
 
-  /** The character as loaded from the server; the source for exports. */
-  let loadedCharacter = $state<AppSchema.Character | null>(null)
   /** Recognised card data this editor has no home for, reported after an import. */
   let importNotice = $state('')
-  let exporting = $state(false)
+  /**
+   * Lore carried in from a card. The editor has no UI for it -- the workspace's Memory book tab
+   * owns that -- but the character does not exist yet at import time, so it is held here and
+   * written with the rest of the deferred fields once the character has an id.
+   */
+  let importedBook = $state<AppSchema.MemoryBook | null>(null)
 
   // Core character fields.
   let form = $state({
@@ -308,6 +307,7 @@
     return JSON.stringify({
       form,
       avatar: avatarFile ? 'pending' : avatarRemoved ? 'removed' : avatarPreview,
+      book: importedBook,
       tags,
       folder,
       greetings,
@@ -379,9 +379,17 @@
       avatarPreview = URL.createObjectURL(imported.avatar)
     }
 
-    importNotice = imported.unsupported.length
+    importedBook = imported.characterBook ?? null
+
+    const notice = imported.unsupported.length
       ? i18n.t('Imported. Not carried over: {fields}.', { fields: imported.unsupported.join(', ') })
       : i18n.t('Imported. Review the character, then save it.')
+    // The entries are not editable until the character exists, so say where they went.
+    importNotice = importedBook
+      ? `${notice} ${i18n.t('{count} memory book entries will be saved with it.', {
+          count: importedBook.entries.length,
+        })}`
+      : notice
   }
 
   async function loadCharacter() {
@@ -397,7 +405,6 @@
     loading = true
     try {
       const character = await chats.getCharacter(characterId)
-      loadedCharacter = character
       originalPersona = character.persona
       initialPersonaText = personaToText(character.persona)
       form = {
@@ -600,6 +607,9 @@
       // created character receives its avatar (no id exists until after create).
       const partial = buildDeferredPartial()
       if (avatarFile) partial.avatar = await fileToPngDataUrl(avatarFile)
+      // Only ever set from an import, which cannot happen for an existing character, so this
+      // never overwrites a book edited under the workspace's Memory book tab.
+      if (importedBook) partial.characterBook = { ...importedBook, userId: saved.userId }
 
       if (Object.keys(partial).length) {
         await api.post(`/character/${id}/update`, partial)
@@ -610,39 +620,11 @@
 
       await chats.loadCharacters(true)
       initialSnapshot = snapshot()
-      onSaved()
+      onSaved(id)
     } catch (ex) {
       error = ex instanceof Error ? ex.message : i18n.t('Failed to save character')
     } finally {
       saving = false
-    }
-  }
-
-  /**
-   * Exports the character as last saved, not the current draft: a card that claims to be a
-   * character which does not exist on the server would be misleading.
-   */
-  async function exportCharacter(format: ExportFormat | 'card') {
-    const character = loadedCharacter
-    if (!character || exporting) return
-
-    exporting = true
-    error = ''
-    try {
-      if (format === 'card') {
-        const blob = await buildCharacterCard(
-          character,
-          character.avatar ? assetUrl(character.avatar) : undefined
-        )
-        downloadBlob(blob, `${character.name}.card.png`)
-      } else {
-        const json = characterToJson(character, format)
-        downloadBlob(new Blob([json], { type: 'application/json' }), `${character.name}.json`)
-      }
-    } catch (ex) {
-      error = ex instanceof Error ? ex.message : i18n.t('Failed to export character')
-    } finally {
-      exporting = false
     }
   }
 
@@ -669,56 +651,38 @@
 </script>
 
 <form class="flex h-full min-h-0 flex-col" onsubmit={submit}>
-  <header
-    class="flex min-h-16 shrink-0 items-center gap-3 border-b border-neutral-800/80 px-4 sm:px-6"
-  >
-    <button
-      class="icon-button"
-      type="button"
-      aria-label={i18n.t('Back to characters')}
-      onclick={onCancel}
+  {#if !embedded}
+    <header
+      class="flex min-h-16 shrink-0 items-center gap-3 border-b border-neutral-800/80 px-4 sm:px-6"
     >
-      <ArrowLeft size={19} />
-    </button>
-    <div class="min-w-0 flex-1">
-      <h1 class="truncate text-base font-semibold text-white sm:text-lg">
-        {characterId ? form.name || i18n.t('Edit character') : i18n.t('New character')}
-      </h1>
-      <p class="hidden text-xs text-neutral-500 sm:block">
-        {characterId
-          ? i18n.t('Update profile and prompt settings')
-          : i18n.t('Build a reusable character prompt')}
-      </p>
-    </div>
-    {#if loadedCharacter}
-      <div class="hidden items-center gap-2 sm:flex">
-        <Download size={16} class="text-neutral-500" />
-        <!-- Exports the saved character, so it is offered only once one exists. -->
-        <select
-          class="field h-9 w-auto py-1 text-xs"
-          aria-label={i18n.t('Export character')}
-          disabled={exporting}
-          value=""
-          onchange={(event) => {
-            const select = event.currentTarget
-            const format = select.value
-            select.value = ''
-            if (format) exportCharacter(format as ExportFormat | 'card')
-          }}
-        >
-          <option value="" disabled hidden>{i18n.t('Export')}</option>
-          <option value="card">{i18n.t('Tavern card (PNG)')}</option>
-          <option value="tavern">{i18n.t('Tavern V2 (JSON)')}</option>
-          <option value="native">{i18n.t('Agnai (JSON)')}</option>
-          <option value="ooba">{i18n.t('TextGen (JSON)')}</option>
-        </select>
+      <button
+        class="icon-button"
+        type="button"
+        aria-label={i18n.t('Back to characters')}
+        onclick={onCancel}
+      >
+        <ArrowLeft size={19} />
+      </button>
+      <div class="min-w-0 flex-1">
+        <h1 class="truncate text-base font-semibold text-white sm:text-lg">
+          {characterId ? form.name || i18n.t('Edit character') : i18n.t('New character')}
+        </h1>
+        <p class="hidden text-xs text-neutral-500 sm:block">
+          {characterId
+            ? i18n.t('Update profile and prompt settings')
+            : i18n.t('Build a reusable character prompt')}
+        </p>
       </div>
-    {/if}
-    <button class="button-primary hidden sm:inline-flex" type="submit" disabled={saving || loading}>
-      <Save size={17} />
-      {saving ? i18n.t('Saving...') : i18n.t('Save character')}
-    </button>
-  </header>
+      <button
+        class="button-primary hidden sm:inline-flex"
+        type="submit"
+        disabled={saving || loading}
+      >
+        <Save size={17} />
+        {saving ? i18n.t('Saving...') : i18n.t('Save character')}
+      </button>
+    </header>
+  {/if}
 
   <div class="shrink-0 border-b border-neutral-800/80 px-4 sm:px-6">
     <div

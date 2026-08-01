@@ -47,7 +47,15 @@ const V2_CARD = {
     tags: ['test', 'hero'],
     creator: 'fixture-author',
     character_version: '1.2',
-    character_book: { entries: [{ keys: ['x'], content: 'y' }] },
+    character_book: {
+      name: 'Hero lore',
+      entries: [
+        { keys: ['crossroads'], content: 'CARD-BOOK-FACT', insertion_order: 2 },
+        { keys: ['sword'], content: 'A notched blade.', insertion_order: 3 },
+        // No keyword, so it can never trigger and must not be saved.
+        { keys: [], content: 'orphaned' },
+      ],
+    },
   },
 }
 
@@ -57,7 +65,7 @@ test.describe('import', () => {
     await waitForLibrary(app)
   })
 
-  test('a PNG card fills the editor and reports what it could not carry', async ({ app }) => {
+  test('a PNG card fills the editor and reports what came with it', async ({ app }) => {
     await app.setInputFiles('input[type=file]', {
       name: 'hero.png',
       mimeType: 'image/png',
@@ -70,7 +78,43 @@ test.describe('import', () => {
     await expect(app.locator('button[aria-label="Remove test"]')).toBeVisible()
     await expect(app.locator('button[aria-label="Remove hero"]')).toBeVisible()
     await expect(app.locator('button[aria-label="Remove greeting"]')).toHaveCount(2)
-    await expect(app.getByRole('status')).toContainText('character book')
+    // The book has no editor until the character exists, so the notice stands in for it.
+    // The third entry has no keyword and is dropped, hence 2.
+    await expect(app.getByRole('status')).toContainText('2 memory book entries')
+  })
+
+  test("the card's lore is saved as the new character's own memory book", async ({ app, stub }) => {
+    await app.setInputFiles('input[type=file]', {
+      name: 'hero.png',
+      mimeType: 'image/png',
+      buffer: makeCardPng(V2_CARD),
+    })
+    await expect(app.locator('input[placeholder="Character name"]')).toHaveValue('Imported Hero')
+
+    await app.click('button:has-text("Save character")')
+
+    await expect.poll(() => stub.state.characterUpdates.length).toBe(1)
+    const book = stub.state.characterUpdates[0].body.characterBook
+    expect(book.name).toBe('Hero lore')
+    expect(book.entries).toHaveLength(2)
+    expect(book.entries[0]).toMatchObject({
+      keywords: ['crossroads'],
+      entry: 'CARD-BOOK-FACT',
+      weight: 2,
+      enabled: true,
+    })
+    // The book the server stores is the one the workspace then edits.
+    await expect(app).toHaveURL(/\/character\/char-\d+$/)
+    await app.getByRole('tab', { name: 'Memory book' }).click()
+
+    const workspace = app.locator('main')
+    await expect(workspace.getByRole('heading', { name: 'Entries' })).toContainText('(2)')
+    await workspace.getByRole('button', { name: 'crossroads' }).click()
+    await expect(
+      workspace.locator(
+        'textarea[placeholder="Text injected into the prompt when a keyword matches"]'
+      )
+    ).toHaveValue('CARD-BOOK-FACT')
   })
 
   test('an unsaved import is protected by the navigation guard', async ({ app }) => {

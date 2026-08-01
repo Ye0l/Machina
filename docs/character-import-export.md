@@ -50,8 +50,22 @@ import is applied, so the draft registers as unsaved work and the navigation gua
 it.
 
 **Nothing is dropped silently.** Recognised data the editor cannot represent is listed back
-to the user in a notice on the editor — currently character books (there is no memory-book UI
-yet) and Character Card V3 asset manifests.
+to the user in a notice on the editor — currently Character Card V3 asset manifests.
+
+**Character books are carried.** A card's `character_book` becomes the new character's own
+`characterBook`, which is what the workspace's Memory book tab edits and what
+`common/prompt.ts` injects whenever the character replies. Two shapes reach the importer —
+the V2 card's (`keys`/`content`), converted by `characterBookToNative` from
+`common/memory.ts`, and Agnai's own (`keywords`/`entry`) from a native export — and both are
+then re-checked field by field, because every field the converter leaves optional is required
+by the server's book validator (`srv/api/memory/index.ts`) and a hand-written card is under
+no obligation to supply them. Entries with no keyword or no text are dropped: they could
+never fire. A book whose entries are all unusable is reported in the "not carried over"
+notice instead, so an empty book is never silently saved.
+
+The editor has no entry UI of its own — the character does not exist yet, so there is nothing
+to attach a book to. The book is held on the draft and written with the other deferred fields
+once the character has an id, and the notice says how many entries are coming.
 
 ## Export
 
@@ -81,7 +95,10 @@ Avatar URL resolution moved out of `CharacterAvatar.svelte` into `assetUrl()` in
   libraries the app uses:
   - A PNG card with an embedded `chara` chunk routes to the editor with the card's name,
     tags and alternate greetings applied.
-  - Its `character_book` is reported in the "not carried over" notice.
+  - Its `character_book` is announced in the import notice, counting only the entries that
+    survived (the fixture's keyword-less entry is dropped).
+  - Saving that draft sends the book as the new character's `characterBook`, and opening the
+    workspace's Memory book tab shows the entries the card carried.
   - An unsaved import is protected by the navigation guard.
   - The same card as `.json` fills the editor identically.
   - An unrecognised JSON file reports an error and does not navigate.

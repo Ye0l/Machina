@@ -110,6 +110,14 @@ export type StubState = {
   failedResponses: string[]
   chatMemory: Record<string, string | undefined>
   extraMessages: any[]
+  /** Chats invented per-test, e.g. to exercise the list's incremental rendering. */
+  extraChats: any[]
+  /** Bodies sent to POST /character/:id/update. */
+  characterUpdates: Array<{ id: string; body: any }>
+  /** Bodies sent to POST /chat/:id/send. */
+  sends: any[]
+  /** Per-character `characterBook`, served by GET /character/:id. */
+  personaBookFor: Record<string, any>
   reset(): void
 }
 
@@ -134,6 +142,10 @@ export async function createStubServer(port: number) {
     failedResponses: [],
     chatMemory: {},
     extraMessages: [],
+    extraChats: [],
+    characterUpdates: [],
+    sends: [],
+    personaBookFor: {},
     reset() {
       this.canAuth = true
       this.memoryBooks = []
@@ -145,6 +157,12 @@ export async function createStubServer(port: number) {
       this.failedResponses = []
       this.chatMemory = {}
       this.extraMessages = []
+      this.extraChats = []
+      this.characterUpdates = []
+      this.sends = []
+      this.personaBookFor = {}
+      characters.length = baseCharacterCount
+      for (const character of characters) delete (character as any).characterBook
     },
   }
 
@@ -162,6 +180,9 @@ export async function createStubServer(port: number) {
       greeting: 'Hm.',
     }),
   ]
+
+  /** Characters created during a test are trimmed back to these by `reset`. */
+  const baseCharacterCount = characters.length
 
   const chatList = [
     {
@@ -261,13 +282,50 @@ export async function createStubServer(port: number) {
         return json({ user, profile, presets: [] })
       }
 
+      if (path === '/api/character' && req.method === 'POST') {
+        const body = await readBody(req)
+        const created = character(`char-${characters.length + 1}`, body.name, '', {
+          ...body,
+          // The create endpoint takes the persona as a JSON string; the record holds an object.
+          persona: typeof body.persona === 'string' ? JSON.parse(body.persona) : body.persona,
+        })
+        characters.push(created)
+        return json(created)
+      }
+
       if (path === '/api/character') return json({ characters })
+
+      // Per-character chat list, which the character workspace renders incrementally.
+      const charChats = path.match(/^\/api\/chat\/([^/]+)\/chats$/)
+      if (charChats && req.method === 'GET') {
+        const owner = characters.find((c) => c._id === charChats[1])
+        if (!owner) return json({ message: 'Not found' }, 404)
+        return json({
+          character: owner,
+          chats: [
+            ...chatList.filter((c) => c.characterId === owner._id),
+            ...state.extraChats.filter((c) => c.characterId === owner._id),
+          ],
+        })
+      }
       if (path === '/api/chat' && req.method === 'GET') return json({ chats: chatList })
+
+      const charUpdate = path.match(/^\/api\/character\/([^/]+)\/update$/)
+      if (charUpdate && req.method === 'POST') {
+        const body = await readBody(req)
+        state.characterUpdates.push({ id: charUpdate[1], body })
+        const target = characters.find((c) => c._id === charUpdate[1])
+        if (!target) return json({ message: 'Not found' }, 404)
+        Object.assign(target, body)
+        return json(target)
+      }
 
       const charMatch = path.match(/^\/api\/character\/([^/]+)$/)
       if (charMatch) {
         const found = characters.find((c) => c._id === charMatch[1])
-        return found ? json(found) : json({ message: 'Not found' }, 404)
+        if (!found) return json({ message: 'Not found' }, 404)
+        const book = state.personaBookFor[charMatch[1]]
+        return json(book ? { ...found, characterBook: book } : found)
       }
 
       const chatMatch = path.match(/^\/api\/chat\/([^/]+)$/)
@@ -318,7 +376,7 @@ export async function createStubServer(port: number) {
       const sendMatch = path.match(/^\/api\/chat\/([^/]+)\/send$/)
       if (sendMatch && req.method === 'POST') {
         const body = await readBody(req)
-        const message = {
+        const message: any = {
           _id: body.messageId ?? `msg-${Date.now()}`,
           kind: 'chat-message',
           chatId: sendMatch[1],
@@ -328,6 +386,13 @@ export async function createStubServer(port: number) {
           updatedAt: now,
           ...(body.bot ? { characterId: 'char-1' } : { userId: 'user-1' }),
         }
+        // The server stamps an impersonated user message with the persona's id and name
+        // (srv/api/chat/message.ts:135,140), which is what the client must render as its own.
+        if (body.impersonate && !body.bot) {
+          message.characterId = body.impersonate._id
+          message.name = body.impersonate.name
+        }
+        state.sends.push(body)
         state.extraMessages.push(message)
         return json({ success: true, message })
       }
