@@ -8,16 +8,12 @@
     Settings2,
     Trash2,
     UserRound,
-    Volume2,
     X,
   } from '@lucide/svelte'
   import type { AppSchema } from '/common/types'
   import type { JsonField, JsonType } from '/common/prompt'
-  import type { VoiceSettings } from '/common/types/texttospeech-schema'
-  import type { ElevenLabsModel } from '/common/types/texttospeech-schema'
   import { chats, type CharacterDraft } from '/app/lib/chats.svelte'
   import { api } from '/app/lib/api'
-  import { session } from '/app/lib/session.svelte'
   import { i18n } from '/app/lib/i18n.svelte'
   import type { ImportedCharacter } from '/app/lib/character-port'
   import { pendingImport } from '/app/lib/pending-import'
@@ -93,37 +89,6 @@
   let insertPrompt = $state('')
   let insertDepth = $state('4')
 
-  // Voice settings (discriminated union by `service`).
-  let voiceDisabled = $state(false)
-  let voiceService = $state<string>('')
-  let vf = $state({
-    voiceId: '',
-    rate: '1',
-    pitch: '1',
-    stability: '0.5',
-    similarity: '0.75',
-    model: 'eleven_multilingual_v1' as ElevenLabsModel,
-    seed: '',
-  })
-
-  // Character image settings (practical generation fields).
-  let originalImageSettings = $state<AppSchema.Character['imageSettings']>()
-  let hadImage = $state(false)
-  let imageEnabled = $state(false)
-  let img = $state({
-    type: 'agnai',
-    width: '512',
-    height: '768',
-    steps: '28',
-    cfg: '7',
-    negative: '',
-    prefix: '',
-    suffix: '',
-    template: '',
-    autofix: false,
-    clipSkip: '',
-  })
-
   // JSON response schema (structured output).
   let hadJson = $state(false)
   let jsonEnabled = $state(false)
@@ -139,14 +104,6 @@
   )
   const dialoguePlaceholder = $derived(i18n.t('{{user}}: Hello\n{{char}}: ...'))
   const responsePlaceholder = $derived(i18n.t(`{{char}}'s reply formatting template`))
-
-  const VOICE_SERVICES: { value: string; label: string }[] = [
-    { value: '', label: 'Off' },
-    { value: 'webspeechsynthesis', label: 'Browser (Web Speech)' },
-    { value: 'elevenlabs', label: 'ElevenLabs' },
-    { value: 'novel', label: 'NovelAI' },
-    { value: 'agnaistic', label: 'Agnai' },
-  ]
 
   const JSON_TYPES: { value: JsonType['type']; label: string }[] = [
     { value: 'string', label: 'Text' },
@@ -205,92 +162,6 @@
     return Number.isFinite(n) ? n : fallback
   }
 
-  function loadVoice(voice?: VoiceSettings) {
-    voiceService = voice?.service ?? ''
-    vf.voiceId = voice && 'voiceId' in voice ? voice.voiceId : ''
-    vf.rate = voice && 'rate' in voice ? String(voice.rate ?? 1) : '1'
-    if (voice?.service === 'webspeechsynthesis') vf.pitch = String(voice.pitch ?? 1)
-    if (voice?.service === 'elevenlabs') {
-      vf.stability = String(voice.stability ?? 0.5)
-      vf.similarity = String(voice.similarityBoost ?? 0.75)
-      vf.model = voice.model ?? 'eleven_multilingual_v1'
-    }
-    if (voice && 'seed' in voice) vf.seed = String(voice.seed ?? '')
-  }
-
-  function buildVoice(): VoiceSettings {
-    switch (voiceService) {
-      case 'webspeechsynthesis':
-        return {
-          service: 'webspeechsynthesis',
-          voiceId: vf.voiceId,
-          pitch: num(vf.pitch, 1) as number,
-          rate: num(vf.rate, 1) as number,
-        }
-      case 'elevenlabs':
-        return {
-          service: 'elevenlabs',
-          voiceId: vf.voiceId,
-          model: vf.model,
-          stability: num(vf.stability, 0.5) as number,
-          similarityBoost: num(vf.similarity, 0.75) as number,
-          rate: num(vf.rate, 1) as number,
-        }
-      case 'novel':
-        return {
-          service: 'novel',
-          voiceId: vf.voiceId,
-          seed: vf.seed || undefined,
-          rate: num(vf.rate, 1) as number,
-        }
-      case 'agnaistic':
-        return {
-          service: 'agnaistic',
-          voiceId: vf.voiceId,
-          seed: num(vf.seed, undefined) as number | undefined,
-          rate: num(vf.rate, 1) as number,
-        }
-      default:
-        return { service: undefined }
-    }
-  }
-
-  function loadImageSettings(settings?: AppSchema.Character['imageSettings']) {
-    originalImageSettings = settings
-    if (!settings) return
-    img.type = settings.type ?? 'agnai'
-    img.width = settings.width != null ? String(settings.width) : '512'
-    img.height = settings.height != null ? String(settings.height) : '768'
-    img.steps = settings.steps != null ? String(settings.steps) : '28'
-    img.cfg = settings.cfg != null ? String(settings.cfg) : '7'
-    img.negative = settings.negative ?? ''
-    img.prefix = settings.prefix ?? ''
-    img.suffix = settings.suffix ?? ''
-    img.template = settings.template ?? ''
-    img.autofix = !!settings.autofix
-    img.clipSkip = settings.clipSkip != null ? String(settings.clipSkip) : ''
-  }
-
-  function buildImageSettings() {
-    const inherited = originalImageSettings ?? session.user?.images
-    return {
-      ...(inherited ?? {}),
-      type: img.type,
-      active: img.type,
-      imageProviderId: inherited?.imageProviderId ?? session.user?.imageProviderId ?? '',
-      width: num(img.width, 512),
-      height: num(img.height, 768),
-      steps: num(img.steps, 28),
-      cfg: num(img.cfg, 7),
-      negative: img.negative,
-      prefix: img.prefix || undefined,
-      suffix: img.suffix || undefined,
-      template: img.template || undefined,
-      autofix: img.autofix,
-      clipSkip: img.clipSkip ? num(img.clipSkip, undefined) : undefined,
-    }
-  }
-
   function buildJson() {
     return {
       schema: jsonSchema,
@@ -315,8 +186,6 @@
       creator,
       characterVersion,
       insert: { e: insertEnabled, p: insertPrompt, d: insertDepth },
-      voice: { s: voiceService, f: vf, d: voiceDisabled },
-      image: { e: imageEnabled, i: img },
       json: {
         e: jsonEnabled,
         s: jsonSchema,
@@ -428,17 +297,10 @@
       prefill = character.prefill ?? ''
       creator = character.creator ?? ''
       characterVersion = character.characterVersion ?? ''
-      voiceDisabled = !!character.voiceDisabled
-      loadVoice(character.voice)
-
       hadInsert = !!character.insert
       insertEnabled = hadInsert
       insertPrompt = character.insert?.prompt ?? ''
       insertDepth = character.insert ? String(character.insert.depth) : '4'
-
-      hadImage = !!character.imageSettings
-      imageEnabled = hadImage
-      loadImageSettings(character.imageSettings)
 
       hadJson = !!character.json
       jsonEnabled = hadJson
@@ -562,8 +424,6 @@
       characterVersion: characterVersion.trim(),
       systemPrompt: form.systemPrompt,
       postHistoryInstructions: form.postHistoryInstructions,
-      voice: buildVoice(),
-      voiceDisabled,
     }
 
     partial.insert = insertEnabled
@@ -571,7 +431,6 @@
       : hadInsert
       ? null
       : undefined
-    partial.imageSettings = imageEnabled ? buildImageSettings() : hadImage ? null : undefined
     partial.json = jsonEnabled ? buildJson() : hadJson ? null : undefined
 
     return partial
@@ -1036,165 +895,8 @@
               {i18n.t('Advanced')}
             </h2>
             <p class="mt-1 text-sm text-neutral-500">
-              {i18n.t('Voice, image, and structured output settings.')}
+              {i18n.t('Structured output and destructive actions.')}
             </p>
-          </div>
-
-          <div class="space-y-4 rounded-xl border border-neutral-800/80 bg-neutral-900/30 p-4">
-            <div class="flex items-center gap-2 text-neutral-200">
-              <Volume2 size={17} />
-              <h3 class="text-sm font-semibold">{i18n.t('Voice')}</h3>
-            </div>
-            <label class="flex items-center gap-2">
-              <input class="h-4 w-4" type="checkbox" bind:checked={voiceDisabled} />
-              <span class="text-sm text-neutral-300"
-                >{i18n.t('Disable voice for this character')}</span
-              >
-            </label>
-            <div class="grid gap-4 sm:grid-cols-2">
-              <label class="field-group">
-                <span class="field-label">{i18n.t('Service')}</span>
-                <select class="field" bind:value={voiceService}>
-                  {#each VOICE_SERVICES as service (service.value)}
-                    <option value={service.value}>{i18n.t(service.label)}</option>
-                  {/each}
-                </select>
-              </label>
-              <label class="field-group">
-                <span class="field-label">{i18n.t('Voice ID')}</span>
-                <input
-                  class="field"
-                  bind:value={vf.voiceId}
-                  placeholder={i18n.t('Provider voice identifier')}
-                />
-              </label>
-              <label class="field-group">
-                <span class="field-label">{i18n.t('Rate')}</span>
-                <input class="field" type="number" step="0.1" bind:value={vf.rate} />
-              </label>
-              {#if voiceService === 'webspeechsynthesis'}
-                <label class="field-group">
-                  <span class="field-label">{i18n.t('Pitch')}</span>
-                  <input class="field" type="number" step="0.1" bind:value={vf.pitch} />
-                </label>
-              {/if}
-              {#if voiceService === 'elevenlabs'}
-                <label class="field-group">
-                  <span class="field-label">{i18n.t('Model')}</span>
-                  <select class="field" bind:value={vf.model}>
-                    <option value="eleven_multilingual_v1">{i18n.t('Multilingual v1')}</option>
-                    <option value="eleven_monolingual_v1">{i18n.t('Monolingual v1')}</option>
-                  </select>
-                </label>
-                <label class="field-group">
-                  <span class="field-label">{i18n.t('Stability')}</span>
-                  <input
-                    class="field"
-                    type="number"
-                    step="0.05"
-                    min="0"
-                    max="1"
-                    bind:value={vf.stability}
-                  />
-                </label>
-                <label class="field-group">
-                  <span class="field-label">{i18n.t('Similarity')}</span>
-                  <input
-                    class="field"
-                    type="number"
-                    step="0.05"
-                    min="0"
-                    max="1"
-                    bind:value={vf.similarity}
-                  />
-                </label>
-              {/if}
-              {#if voiceService === 'novel' || voiceService === 'agnaistic'}
-                <label class="field-group">
-                  <span class="field-label">{i18n.t('Seed')}</span>
-                  <input class="field" bind:value={vf.seed} placeholder={i18n.t('Optional')} />
-                </label>
-              {/if}
-            </div>
-          </div>
-
-          <div class="space-y-4 rounded-xl border border-neutral-800/80 bg-neutral-900/30 p-4">
-            <label class="flex items-center gap-2">
-              <input class="h-4 w-4" type="checkbox" bind:checked={imageEnabled} />
-              <span class="text-sm font-semibold text-neutral-200"
-                >{i18n.t('Character image settings')}</span
-              >
-            </label>
-            {#if imageEnabled}
-              <div class="grid gap-4 sm:grid-cols-3">
-                <label class="field-group">
-                  <span class="field-label">{i18n.t('Provider')}</span>
-                  <select class="field" bind:value={img.type}>
-                    <option value="agnai">{i18n.t('Agnai')}</option>
-                    <option value="novel">{i18n.t('NovelAI')}</option>
-                    <option value="horde">{i18n.t('Horde')}</option>
-                    <option value="sd">{i18n.t('Stable Diffusion')}</option>
-                    <option value="swarm">{i18n.t('Swarm')}</option>
-                  </select>
-                </label>
-                <label class="field-group">
-                  <span class="field-label">{i18n.t('Width')}</span>
-                  <input class="field" type="number" step="64" bind:value={img.width} />
-                </label>
-                <label class="field-group">
-                  <span class="field-label">{i18n.t('Height')}</span>
-                  <input class="field" type="number" step="64" bind:value={img.height} />
-                </label>
-                <label class="field-group">
-                  <span class="field-label">{i18n.t('Steps')}</span>
-                  <input class="field" type="number" min="1" bind:value={img.steps} />
-                </label>
-                <label class="field-group">
-                  <span class="field-label">{i18n.t('CFG')}</span>
-                  <input class="field" type="number" step="0.5" bind:value={img.cfg} />
-                </label>
-                <label class="field-group">
-                  <span class="field-label">{i18n.t('Clip skip')}</span>
-                  <input
-                    class="field"
-                    type="number"
-                    min="0"
-                    bind:value={img.clipSkip}
-                    placeholder="0"
-                  />
-                </label>
-                <label class="field-group sm:col-span-2">
-                  <span class="field-label">{i18n.t('Prefix')}</span>
-                  <input
-                    class="field"
-                    bind:value={img.prefix}
-                    placeholder={i18n.t('Prepended to the prompt')}
-                  />
-                </label>
-                <label class="field-group">
-                  <span class="field-label">{i18n.t('Suffix')}</span>
-                  <input
-                    class="field"
-                    bind:value={img.suffix}
-                    placeholder={i18n.t('Appended to the prompt')}
-                  />
-                </label>
-                <label class="field-group sm:col-span-3">
-                  <span class="field-label">{i18n.t('Negative prompt')}</span>
-                  <!-- prettier-ignore -->
-                  <textarea class="field min-h-16 resize-y" bind:value={img.negative} placeholder={i18n.t('What to avoid')}></textarea>
-                </label>
-                <label class="field-group sm:col-span-3">
-                  <span class="field-label">{i18n.t('Template')}</span>
-                  <!-- prettier-ignore -->
-                  <textarea class="field min-h-20 resize-y font-mono text-[13px] leading-6" bind:value={img.template} placeholder={i18n.t('Optional generation template')}></textarea>
-                </label>
-                <label class="flex items-center gap-2 sm:col-span-3">
-                  <input class="h-4 w-4" type="checkbox" bind:checked={img.autofix} />
-                  <span class="text-sm text-neutral-300">{i18n.t('Autofix')}</span>
-                </label>
-              </div>
-            {/if}
           </div>
 
           <div class="space-y-4 rounded-xl border border-neutral-800/80 bg-neutral-900/30 p-4">

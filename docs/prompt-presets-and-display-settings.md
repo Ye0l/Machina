@@ -194,3 +194,13 @@ invisible — there is no other entry point for it, so nothing on screen suggest
 
 It now always renders, disabled, pointing at where personas are made. Personas themselves are
 documented in `docs/personas.md`.
+
+## Removed from the character editor
+
+Voice and per-character image-generation settings were deleted. Neither had a consumer in this
+client — nothing speaks a reply, and nothing generates an image — so they were controls that
+wrote fields no code here reads.
+
+The fields still exist on the server and on stored characters. They are simply no longer sent
+in the editor's deferred partial, and a partial update leaves untouched fields alone, so
+existing values survive rather than being cleared.

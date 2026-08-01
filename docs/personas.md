@@ -66,10 +66,9 @@ No message-path code was changed to make this work.
 - **The server-side persona routes have never run against MongoDB.** There is no Mongo in this
   environment; the browser tests drive a stub. The type checks and the route shape are
   verified, the storage layer is not.
-- **A persona cannot carry its own memory book.** The previous character-based version could,
-  because a character has `characterBook` — `common/prompt.ts` still injects
-  `impersonate.characterBook` and would pick one up if a persona ever gained the field. Adding
-  it means a field on the entity plus entry-editing UI, which was not part of this change.
+- A persona deliberately has no memory book. Lore belongs to the character being played, not
+  to the user playing along; `common/prompt.ts` still injects `impersonate.characterBook`,
+  which is now only reachable by a character.
 - Personas have no avatar yet. The field exists on the entity and on the converted character;
   nothing sets it.
 - Existing users who selected a character as their persona lose that selection: the stored id
