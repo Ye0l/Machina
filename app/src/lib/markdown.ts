@@ -24,13 +24,18 @@ function wrapWithQuoteElement(str: string) {
 
   return str.replace(
     /*
-     * <[\s\S]*?>      skip HTML tags
-     * ```[\s\S]*?```  skip fenced code blocks
-     * ``[\s\S]*?``    skip inline code
-     * `[\s\S]*?`      skip inline code
+     * <pre...</pre>   skip fenced code blocks whole
+     * <code...</code> skip inline code whole
+     * <[\s\S]*?>      skip any other HTML tag, so attribute values are not captured
      * (".+?")         capture quoted spans that are none of the above
+     *
+     * The code alternatives must come first, and must match markup rather than backticks:
+     * this runs on Showdown's *output*, where fenced blocks are already `<pre><code>` and
+     * inline code is `<code>`. The legacy client matched backticks here (` ``` `, `` ` ``),
+     * which by this stage can never match -- so quotes inside code blocks were being
+     * restyled as dialogue.
      */
-    /<[\s\S]*?>|```[\s\S]*?```|``[\s\S]*?``|`[\s\S]*?`|(".+?")/gm,
+    /<pre[\s\S]*?<\/pre>|<code[\s\S]*?<\/code>|<[\s\S]*?>|(".+?")/gm,
     (match: string, quoted?: string) => {
       if (!quoted) return match
       const inner = quoted.replace(/<em>([\s\S]*?)<\/em>/gm, (m, emphasis?: string) =>

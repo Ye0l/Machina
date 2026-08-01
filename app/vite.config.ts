@@ -19,7 +19,7 @@ const commonDir = repo('../common')
  * Both entry shapes must be handled -- `/common/x` from the app, and the relative imports
  * (`./types`) that shared modules use between themselves.
  */
-function preferCommonSources(): Plugin {
+export function preferCommonSources(): Plugin {
   const toSource = (base: string) => {
     if (/\.[a-z]+$/i.test(base)) return null
     for (const candidate of [`${base}.ts`, `${base}/index.ts`]) {

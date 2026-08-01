@@ -1,6 +1,9 @@
 /.parcel-cache
 /dist
-/node_modules
+# Unanchored: Vite/Vitest also create app/node_modules/.vite for their caches.
+node_modules
+/.playwright
+/playwright-report
 .pnpm-debug.log
 .env
 config.json

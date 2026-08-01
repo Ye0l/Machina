@@ -1,0 +1,396 @@
+import http from 'node:http'
+import { readFile } from 'node:fs/promises'
+import { existsSync, statSync } from 'node:fs'
+import { extname, join, resolve } from 'node:path'
+import { WebSocketServer, type WebSocket } from 'ws'
+
+/**
+ * A stand-in for `srv/`, so the browser tests can drive the real production bundle without
+ * MongoDB or a model provider.
+ *
+ * It mirrors the two things about `srv/app.ts` the client depends on: `/api` is served, and
+ * every other path falls back to `dist/index.html` so deep links resolve. It also accepts a
+ * WebSocket, because generation results reach the client over the socket rather than the
+ * HTTP response (`srv/api/chat/inference.ts`).
+ *
+ * Requests and bodies are recorded on `state` so tests can assert on what the client sent,
+ * including the assembled prompt -- which is the only way to check that memory books reach
+ * the model.
+ */
+
+// `__dirname`, not `import.meta`: the repository is CommonJS, so Playwright transpiles this
+// module to CJS before running it.
+const DIST = resolve(__dirname, '../../../dist')
+
+/** Smallest valid PNG: 1x1, opaque. Used as an avatar asset and as a card base. */
+export const BASE_PNG = Buffer.from(
+  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==',
+  'base64'
+)
+
+const now = new Date().toISOString()
+
+const user = {
+  _id: 'user-1',
+  kind: 'user',
+  username: 'tester',
+  hash: '',
+  admin: false,
+  novelApiKey: '',
+  novelModel: '',
+  novelVerified: false,
+  useLocalPipeline: false,
+  oobaUrl: '',
+  hordeModel: 'any',
+  hordeKey: '',
+  hordeName: '',
+  defaultAdapter: 'agnaistic',
+  koboldUrl: '',
+  thirdPartyFormat: 'kobold',
+  thirdPartyPassword: '',
+  oaiKey: '',
+  scaleApiKey: '',
+  claudeApiKey: '',
+  createdAt: now,
+  updatedAt: now,
+  providers: [],
+  defaultPreset: '',
+  ui: {},
+}
+
+const profile = { _id: 'profile-1', userId: 'user-1', kind: 'profile', handle: 'Tester' }
+
+/** Generic in `extra` so the caller's added fields stay on the returned type. */
+const character = <T extends object>(id: string, name: string, avatar: string, extra: T) => ({
+  _id: id,
+  kind: 'character',
+  userId: 'user-1',
+  name,
+  avatar,
+  favorite: false,
+  folder: '',
+  scenario: '',
+  sampleChat: '',
+  systemPrompt: '',
+  postHistoryInstructions: '',
+  alternateGreetings: [],
+  createdAt: now,
+  updatedAt: now,
+  ...extra,
+})
+
+/**
+ * One message exercising markdown rendering and the sanitiser: emphasis, bold, inline code,
+ * a quoted span with emphasis inside, a list -- plus two XSS attempts that must neither
+ * execute nor survive into the DOM.
+ */
+export const MARKDOWN_SAMPLE = [
+  'Some **bold** and *italic* and `inline code`.',
+  '',
+  '"A quoted line with *emphasis* inside." he said.',
+  '',
+  '- first item',
+  '- second item',
+  '',
+  '<img src=x onerror="window.__xss = 1">',
+  '<script>window.__xss = 1</script>',
+  '[link](https://example.com)',
+].join('\n')
+
+export type StubState = {
+  canAuth: boolean
+  memoryBooks: any[]
+  registrations: any[]
+  edits: Array<{ id: string; message: string }>
+  chatUpdates: Array<{ id: string; body: any }>
+  /** Prompts the client assembled and posted to /chat/inference-stream. */
+  prompts: string[]
+  apiCalls: string[]
+  /** Non-2xx responses served, so tests can assert none were unexpected. */
+  failedResponses: string[]
+  chatMemory: Record<string, string | undefined>
+  extraMessages: any[]
+  reset(): void
+}
+
+const MIME: Record<string, string> = {
+  '.html': 'text/html',
+  '.js': 'text/javascript',
+  '.css': 'text/css',
+  '.map': 'application/json',
+  '.json': 'application/json',
+  '.svg': 'image/svg+xml',
+}
+
+export async function createStubServer(port: number) {
+  const state: StubState = {
+    canAuth: true,
+    memoryBooks: [],
+    registrations: [],
+    edits: [],
+    chatUpdates: [],
+    prompts: [],
+    apiCalls: [],
+    failedResponses: [],
+    chatMemory: {},
+    extraMessages: [],
+    reset() {
+      this.canAuth = true
+      this.memoryBooks = []
+      this.registrations = []
+      this.edits = []
+      this.chatUpdates = []
+      this.prompts = []
+      this.apiCalls = []
+      this.failedResponses = []
+      this.chatMemory = {}
+      this.extraMessages = []
+    },
+  }
+
+  const characters = [
+    character('char-1', 'Aria', '/assets/aria.png', {
+      description: 'A test character',
+      tags: ['test'],
+      persona: { kind: 'text', attributes: { text: ['calm'] } },
+      greeting: 'Hello there.',
+    }),
+    character('char-2', 'Borin', '', {
+      description: 'Second character',
+      tags: [],
+      persona: { kind: 'text', attributes: { text: ['gruff'] } },
+      greeting: 'Hm.',
+    }),
+  ]
+
+  const chatList = [
+    {
+      _id: 'chat-1',
+      name: 'Aria conversation',
+      characterId: 'char-1',
+      updatedAt: now,
+      genPreset: '',
+    },
+    { _id: 'chat-2', name: 'Borin talk', characterId: 'char-2', updatedAt: now, genPreset: '' },
+  ]
+
+  const chatDetail = (id: string) => {
+    const summary = chatList.find((c) => c._id === id)
+    if (!summary) return null
+    const char = characters.find((c) => c._id === summary.characterId)!
+
+    return {
+      chat: {
+        _id: id,
+        kind: 'chat',
+        userId: 'user-1',
+        memoryId: state.chatMemory[id],
+        characterId: summary.characterId,
+        name: summary.name,
+        greeting: char.greeting,
+        scenario: '',
+        sampleChat: '',
+        overrides: char.persona,
+        createdAt: now,
+        updatedAt: now,
+        memberIds: [],
+        messageCount: 1,
+        treeLeafId: 'msg-1',
+        genPreset: '',
+      },
+      messages: [
+        {
+          _id: 'msg-1',
+          kind: 'chat-message',
+          chatId: id,
+          characterId: summary.characterId,
+          msg: `Greetings from ${char.name}.`,
+          retries: [],
+          createdAt: now,
+          updatedAt: now,
+        },
+        {
+          _id: 'msg-2',
+          kind: 'chat-message',
+          chatId: id,
+          userId: 'user-1',
+          msg: MARKDOWN_SAMPLE,
+          retries: [],
+          createdAt: now,
+          updatedAt: now,
+        },
+        ...state.extraMessages.filter((m) => m.chatId === id),
+      ],
+      character: char,
+      characters: [char],
+      members: [profile],
+    }
+  }
+
+  let liveSocket: WebSocket | null = null
+
+  const readBody = (req: http.IncomingMessage) =>
+    new Promise<any>((done) => {
+      let raw = ''
+      req.on('data', (c) => (raw += c))
+      req.on('end', () => done(JSON.parse(raw || '{}')))
+    })
+
+  const server = http.createServer(async (req, res) => {
+    const path = new URL(req.url!, `http://127.0.0.1:${port}`).pathname
+
+    const json = (body: unknown, status = 200) => {
+      if (status >= 400) state.failedResponses.push(`${status} ${path}`)
+      res.writeHead(status, { 'Content-Type': 'application/json' })
+      res.end(JSON.stringify(body))
+    }
+
+    if (path.startsWith('/api')) {
+      state.apiCalls.push(`${req.method} ${path}`)
+
+      if (path === '/api/settings')
+        return json({ canAuth: state.canAuth, adapters: [], version: '' })
+
+      if (path === '/api/user/register' && req.method === 'POST') {
+        state.registrations.push(await readBody(req))
+        return json({ token: 'stub-token', user, profile })
+      }
+
+      if (path === '/api/user/init') {
+        if (!req.headers.authorization) return json({ message: 'Unauthorized' }, 401)
+        return json({ user, profile, presets: [] })
+      }
+
+      if (path === '/api/character') return json({ characters })
+      if (path === '/api/chat' && req.method === 'GET') return json({ chats: chatList })
+
+      const charMatch = path.match(/^\/api\/character\/([^/]+)$/)
+      if (charMatch) {
+        const found = characters.find((c) => c._id === charMatch[1])
+        return found ? json(found) : json({ message: 'Not found' }, 404)
+      }
+
+      const chatMatch = path.match(/^\/api\/chat\/([^/]+)$/)
+      if (chatMatch && req.method === 'GET') {
+        const detail = chatDetail(chatMatch[1])
+        return detail ? json(detail) : json({ message: 'Chat not found' }, 404)
+      }
+      if (chatMatch && req.method === 'PUT') {
+        const body = await readBody(req)
+        state.chatUpdates.push({ id: chatMatch[1], body })
+        state.chatMemory[chatMatch[1]] = body.memoryId || undefined
+        return json({ success: true })
+      }
+
+      const editMatch = path.match(/^\/api\/chat\/([^/]+)\/message$/)
+      if (editMatch && req.method === 'PUT') {
+        const body = await readBody(req)
+        state.edits.push({ id: editMatch[1], message: body.message })
+        return json({ _id: editMatch[1], msg: body.message })
+      }
+
+      if (path === '/api/memory' && req.method === 'GET') return json({ books: state.memoryBooks })
+      if (path === '/api/memory' && req.method === 'POST') {
+        const body = await readBody(req)
+        const book = {
+          _id: `book-${state.memoryBooks.length + 1}`,
+          kind: 'memory',
+          userId: 'user-1',
+          ...body,
+        }
+        state.memoryBooks = [book, ...state.memoryBooks]
+        return json(book)
+      }
+
+      const bookMatch = path.match(/^\/api\/memory\/([^/]+)$/)
+      if (bookMatch && req.method === 'PUT') {
+        const body = await readBody(req)
+        state.memoryBooks = state.memoryBooks.map((b) =>
+          b._id === bookMatch[1] ? { ...b, ...body } : b
+        )
+        return json({ success: true })
+      }
+      if (bookMatch && req.method === 'DELETE') {
+        state.memoryBooks = state.memoryBooks.filter((b) => b._id !== bookMatch[1])
+        return json({ success: true })
+      }
+
+      const sendMatch = path.match(/^\/api\/chat\/([^/]+)\/send$/)
+      if (sendMatch && req.method === 'POST') {
+        const body = await readBody(req)
+        const message = {
+          _id: body.messageId ?? `msg-${Date.now()}`,
+          kind: 'chat-message',
+          chatId: sendMatch[1],
+          msg: body.text,
+          retries: [],
+          createdAt: now,
+          updatedAt: now,
+          ...(body.bot ? { characterId: 'char-1' } : { userId: 'user-1' }),
+        }
+        state.extraMessages.push(message)
+        return json({ success: true, message })
+      }
+
+      if (path === '/api/chat/inference-stream' && req.method === 'POST') {
+        const body = await readBody(req)
+        state.prompts.push(body.prompt ?? '')
+        // The client resolves on the socket event, not this response.
+        setTimeout(() => {
+          liveSocket?.send(
+            JSON.stringify({
+              type: 'inference',
+              requestId: body.requestId,
+              response: 'Stub reply.',
+            })
+          )
+        }, 30)
+        return json({ success: true })
+      }
+
+      return json({ message: 'stub' })
+    }
+
+    // An avatar asset, so the PNG card export has a real image to embed into.
+    if (path === '/assets/aria.png') {
+      res.writeHead(200, { 'Content-Type': 'image/png' })
+      return res.end(BASE_PNG)
+    }
+
+    const filePath = join(DIST, path)
+    if (path !== '/' && existsSync(filePath) && statSync(filePath).isFile()) {
+      res.writeHead(200, { 'Content-Type': MIME[extname(filePath)] ?? 'application/octet-stream' })
+      return res.end(await readFile(filePath))
+    }
+
+    // SPA fallback, the same shape as srv/app.ts.
+    res.writeHead(200, { 'Content-Type': 'text/html' })
+    res.end(await readFile(join(DIST, 'index.html')))
+  })
+
+  const wss = new WebSocketServer({ server })
+  wss.on('connection', (socket) => {
+    liveSocket = socket
+    socket.send(JSON.stringify({ type: 'connected', uid: 'sock-1' }))
+    socket.on('message', (raw) => {
+      try {
+        const msg = JSON.parse(raw.toString())
+        if (msg.type === 'login') socket.send(JSON.stringify({ type: 'login', success: true }))
+      } catch {
+        // Not a frame we care about.
+      }
+    })
+  })
+
+  await new Promise<void>((done) => server.listen(port, done))
+
+  return {
+    origin: `http://127.0.0.1:${port}`,
+    state,
+    close: () =>
+      new Promise<void>((done) => {
+        wss.close()
+        server.close(() => done())
+      }),
+  }
+}

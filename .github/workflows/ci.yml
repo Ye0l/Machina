@@ -1,0 +1,63 @@
+name: CI
+
+on:
+  push:
+    branches: [dev]
+  pull_request:
+
+# A new push to the same branch supersedes an in-flight run.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    name: Format, types and tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          # Matches the `engines.node` range in package.json.
+          node-version: 22
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      # Prettier, tsc (client/server/tests), svelte-check, the mocha suite for common/ and
+      # srv/, and the Vitest suite for the client's pure logic.
+      - run: pnpm run check
+
+  e2e:
+    name: Browser tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      # Only Chromium is configured in playwright.config.ts.
+      - run: pnpm exec playwright install --with-deps chromium
+
+      # Builds dist/ first; the stub server in tests/e2e serves it.
+      - run: pnpm run test:e2e
+
+      - if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-traces
+          path: .playwright/
+          retention-days: 7

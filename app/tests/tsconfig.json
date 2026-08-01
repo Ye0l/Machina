@@ -1,0 +1,33 @@
+{
+  // Separate from `app/tsconfig.json` on purpose: these files run in Node (fs, http, ws,
+  // `require`, `__dirname`), and pulling node types into the client project would let
+  // browser code reference Node globals by accident.
+  "extends": "@tsconfig/svelte/tsconfig.json",
+  "compilerOptions": {
+    "target": "ESNext",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "strict": true,
+    "noEmit": true,
+    "skipLibCheck": true,
+    "allowSyntheticDefaultImports": true,
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+    "verbatimModuleSyntax": false,
+    "types": ["node"],
+    "baseUrl": "../..",
+    "paths": {
+      "/common/*": ["./common/*"],
+      "/app/*": ["./app/src/*"]
+    }
+  },
+  "include": [
+    "./**/*.ts",
+    "../playwright.config.ts",
+    "../vitest.config.ts",
+    // Module declarations the code under test relies on: the PNG helpers (client) and the
+    // shared layer's globals.
+    "../src/ambient.d.ts",
+    "../../common/ambient.d.ts"
+  ]
+}
