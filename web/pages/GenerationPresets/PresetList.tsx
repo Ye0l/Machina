@@ -9,6 +9,7 @@ import { exportPreset, presetStore, toastStore, userStore } from '../../store'
 import { capitalize, setComponentPageTitle, tryParseImport } from '../../shared/util'
 import { getPresetLabel, getServiceName, sortByLabel } from '/web/shared/adapter'
 import FileInput, { FileInputResult, getFileAsString } from '/web/shared/FileInput'
+import { importRisuPreset, isRisuPresetFilename } from '/web/shared/risu-preset'
 import { validateBody } from '/common/valid'
 import { Page } from '/web/Layout'
 import TextInput from '/web/shared/TextInput'
@@ -190,8 +191,13 @@ const ImportPreset: Component<{ close: () => void; success: () => void }> = (pro
     }
 
     try {
-      const content = await getFileAsString(files[0])
-      const parsed = tryParseImport(content)
+      const selected = files[0]
+      const parsed = isRisuPresetFilename(selected.file.name)
+        ? await importRisuPreset(
+            new Uint8Array(await selected.file.arrayBuffer()),
+            selected.file.name
+          )
+        : tryParseImport(await getFileAsString(selected))
 
       const { errors, original } = validateBody(importValid, parsed, { notThrow: true })
       if (errors.length) {
@@ -210,7 +216,12 @@ const ImportPreset: Component<{ close: () => void; success: () => void }> = (pro
 
   return (
     <Modal show close={props.close} title="Import Preset">
-      <FileInput fieldName="file" label="Preset JSON" onUpdate={onChange} />
+      <FileInput
+        fieldName="file"
+        label="Preset JSON or RisuAI .risup"
+        accept=".json,.preset,.risup,.risupreset,application/json"
+        onUpdate={onChange}
+      />
     </Modal>
   )
 }
