@@ -14,6 +14,19 @@ permissions:
   contents: read
 
 jobs:
+  dispatch-risu-integration:
+    if: github.event_name == 'push'
+    name: Dispatch Risu integration
+    runs-on: ubuntu-latest
+    permissions:
+      actions: write
+      contents: read
+    steps:
+      - name: Run one-off integration workflow
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run finish-risup-temp.yml --ref dev
+
   check:
     name: Format, types and tests
     runs-on: ubuntu-latest
