@@ -51,8 +51,12 @@ export type ImportedCharacter = {
 /** An asset lifted out of a `.charx`, held until the character exists to attach it to. */
 export type ImportedAsset = {
   name: string
-  /** A `data:` URL, which is what the asset upload route accepts. */
-  image: string
+  /**
+   * The raw image. Kept as a Blob rather than the `data:` URL the upload route wants, because
+   * base64 is a third larger again and a card can carry a whole emotion set; the conversion
+   * happens one asset at a time as each is uploaded.
+   */
+  blob: Blob
 }
 
 export type ExportFormat = 'native' | 'tavern' | 'ooba'
@@ -346,10 +350,12 @@ function readWebpCard(bytes: Uint8Array): string {
  * entry count is not a useful proxy for that -- a card with a full emotion set legitimately
  * holds hundreds of files -- so it is not capped at all.
  */
-const CHARX_MAX_ASSET_BYTES = 8 * 1024 * 1024
-const CHARX_MAX_TOTAL_BYTES = 64 * 1024 * 1024
-/** Far more than any real card, and short of anything that could exhaust a tab. */
-const CHARX_MAX_ASSETS = 512
+/*
+ * No count or size caps. This is a single-user, self-hosted app: an archive is something you
+ * chose to import, not attacker-supplied input, and capping it only ever cost people assets
+ * they wanted. The one real ceiling is the server's JSON body limit, which the upload has to
+ * fit through -- raise `JSON_SIZE_LIMIT` if a card carries unusually large images.
+ */
 const EMBEDDED_SCHEME = 'embeded://'
 
 /** The V3 icon named `main` is the avatar, not something the character shows mid-reply. */
@@ -357,8 +363,7 @@ const isAvatarAsset = (asset: any) =>
   String(asset?.type ?? '').toLowerCase() === 'icon' &&
   String(asset?.name ?? '').toLowerCase() === 'main'
 
-const dataUrlFromBytes = (bytes: Uint8Array, ext: string) =>
-  `data:image/${ext === 'jpg' ? 'jpeg' : ext || 'png'};base64,${base64FromBytes(bytes)}`
+const imageType = (ext: string) => `image/${ext === 'jpg' ? 'jpeg' : ext || 'png'}`
 
 async function readCharx(file: File): Promise<ImportedCharacter> {
   const zip = await JSZip.loadAsync(await file.arrayBuffer())
@@ -376,8 +381,6 @@ async function readCharx(file: File): Promise<ImportedCharacter> {
 
   const assets: ImportedAsset[] = []
   let avatar: File | undefined
-  let totalBytes = 0
-
   /*
    * Counted apart rather than lumped together, because they are different problems and the
    * user can only act on the difference: an external URI is how the card was authored, a
@@ -385,19 +388,12 @@ async function readCharx(file: File): Promise<ImportedCharacter> {
    */
   let external = 0
   let missing = 0
-  let oversized = 0
-  let overflow = 0
 
   for (const asset of declared) {
     const uri = String(asset?.uri ?? '')
     if (!uri.startsWith(EMBEDDED_SCHEME)) {
       // `ccdefault:`, `http://` and `data:` are legal in V3 and are not in the archive.
       external++
-      continue
-    }
-
-    if (assets.length >= CHARX_MAX_ASSETS) {
-      overflow++
       continue
     }
 
@@ -409,14 +405,6 @@ async function readCharx(file: File): Promise<ImportedCharacter> {
     }
 
     const bytes = new Uint8Array(await entry.async('arraybuffer'))
-    if (
-      bytes.byteLength > CHARX_MAX_ASSET_BYTES ||
-      totalBytes + bytes.byteLength > CHARX_MAX_TOTAL_BYTES
-    ) {
-      oversized++
-      continue
-    }
-    totalBytes += bytes.byteLength
 
     const ext = String(asset?.ext ?? path.split('.').pop() ?? 'png').toLowerCase()
 
@@ -431,15 +419,13 @@ async function readCharx(file: File): Promise<ImportedCharacter> {
       continue
     }
 
-    assets.push({ name, image: dataUrlFromBytes(bytes, ext) })
+    assets.push({ name, blob: new Blob([bytes as BlobPart], { type: imageType(ext) }) })
   }
 
   // The archive carried its images, so the V3 notice no longer applies to what came through.
   const unsupported = parsed.unsupported.filter((item) => item !== 'Character Card V3 assets')
   if (external) unsupported.push(`${external} asset(s) stored outside the archive`)
   if (missing) unsupported.push(`${missing} asset(s) missing from the archive`)
-  if (oversized) unsupported.push(`${oversized} asset(s) too large to import`)
-  if (overflow) unsupported.push(`${overflow} asset(s) past the ${CHARX_MAX_ASSETS} limit`)
 
   return { ...parsed, unsupported, avatar, assets: assets.length ? assets : undefined }
 }

@@ -4,14 +4,25 @@
 # against a locally-run server (`pnpm run up`). Use this file to run the built app.
 #
 #   cp .env.selfhost.example .env   # then edit it
-#   pnpm run docker:up
+#   pnpm run docker:up               # runs the published image
+#   pnpm run docker:build            # builds this checkout instead
 #
 # The project name differs from the development stack's so the two can coexist.
 name: agnai-selfhost
 
 services:
   app:
-    # Swap for `image: ghcr.io/ye0l/agnai:dev` to run a published image instead of building.
+    # Both keys on purpose, so neither deployment style needs this file edited:
+    #
+    #   docker compose ... up -d            pulls the published image (pull_policy: always,
+    #                                       so an updated :dev is picked up without a
+    #                                       separate `pull` -- a plain `up -d` reuses a
+    #                                       cached tag otherwise)
+    #   docker compose ... up -d --build    builds from this checkout and tags it as below
+    #
+    # `pnpm run docker:up` does the first, `pnpm run docker:build` the second.
+    image: ghcr.io/ye0l/agnai:${TAG:-dev}
+    pull_policy: always
     build:
       context: .
       args:
@@ -38,6 +49,10 @@ services:
       REDIS_PORT: '6379'
       PORT: '3001'
       LOG_LEVEL: ${LOG_LEVEL:-info}
+      # The real ceiling on an imported asset: uploads travel as base64 in a JSON body, and
+      # base64 is a third larger than the file. The stock 10 turns a ~7MB image into a 413.
+      JSON_SIZE_LIMIT: ${JSON_SIZE_LIMIT:-64}
+      IMAGE_SIZE_LIMIT: ${IMAGE_SIZE_LIMIT:-64}
     ports:
       - '${PORT:-3001}:3001'
     volumes:
