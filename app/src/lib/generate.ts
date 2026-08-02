@@ -1,5 +1,6 @@
 import type { AppSchema } from '/common/types'
 import { withAssetInstruction } from '/common/assets'
+import { expandRisuHistoryRanges } from '/common/risu-import'
 import { renderRisuPreset } from '/common/risu-toggles'
 import type { ChatDetailResponse, SendMessageBody, SendMessageResponse } from './contracts'
 import { createPromptParts } from '/common/prompt'
@@ -53,14 +54,21 @@ const newId = () => crypto.randomUUID()
 type ChatWithRisuToggles = AppSchema.Chat & { risuToggleValues?: Record<string, string> }
 
 /**
- * Risu toggle macros are a view of a preset, not a mutation of it. Resolve them immediately
- * before prompt assembly so the editor and exported preset keep the original source intact.
+ * Risu toggle macros and chat ranges are views of a preset, not mutations of it. Resolve them
+ * immediately before prompt assembly so the editor and exported preset keep the source intact.
  */
 function runtimePreset(
   preset: Partial<AppSchema.GenSettings> | undefined,
-  chat: AppSchema.Chat
+  chat: AppSchema.Chat,
+  messages: AppSchema.ChatMessage[],
+  names: { user: string; bot: string }
 ): Partial<AppSchema.GenSettings> | undefined {
-  return renderRisuPreset(preset, (chat as ChatWithRisuToggles).risuToggleValues)
+  const rendered = renderRisuPreset(preset, (chat as ChatWithRisuToggles).risuToggleValues)
+  if (!rendered?.gaslight) return rendered
+  return {
+    ...rendered,
+    gaslight: expandRisuHistoryRanges(rendered.gaslight, messages, names),
+  }
 }
 
 export async function sendMessage(
@@ -92,7 +100,10 @@ export async function sendMessage(
   handlers.onUserMessage?.(userMessage.message)
 
   const messages = [...detail.messages, userMessage.message]
-  const settings = runtimePreset(preset, chat)
+  const settings = runtimePreset(preset, chat, messages, {
+    user: impersonate?.name ?? profile.handle,
+    bot: char.name,
+  })
 
   // Model families tokenise differently and the count drives prompt trimming, so honour
   // the preset's tokenizer instead of the built-in cl100k default.
@@ -178,7 +189,10 @@ export async function generateLastReply(
   if (!parent) return undefined
 
   control.requestId = newId()
-  const settings = runtimePreset(preset, chat)
+  const settings = runtimePreset(preset, chat, messages, {
+    user: impersonate?.name ?? profile.handle,
+    bot: char.name,
+  })
 
   if (settings?.tokenizer) await prepareTokenizer(settings.tokenizer)
   const encoder = await getEncoder()
