@@ -341,8 +341,15 @@ function readWebpCard(bytes: Uint8Array): string {
  * the import, not the tab. Only files an asset entry names are read at all, so a path outside
  * the archive's own listing can never be reached.
  */
-const CHARX_MAX_ENTRIES = 256
+/**
+ * The zip-bomb defence is a cap on what is actually decompressed, per file and in total. The
+ * entry count is not a useful proxy for that -- a card with a full emotion set legitimately
+ * holds hundreds of files -- so it is not capped at all.
+ */
 const CHARX_MAX_ASSET_BYTES = 8 * 1024 * 1024
+const CHARX_MAX_TOTAL_BYTES = 64 * 1024 * 1024
+/** Far more than any real card, and short of anything that could exhaust a tab. */
+const CHARX_MAX_ASSETS = 512
 const EMBEDDED_SCHEME = 'embeded://'
 
 /** The V3 icon named `main` is the avatar, not something the character shows mid-reply. */
@@ -356,42 +363,60 @@ const dataUrlFromBytes = (bytes: Uint8Array, ext: string) =>
 async function readCharx(file: File): Promise<ImportedCharacter> {
   const zip = await JSZip.loadAsync(await file.arrayBuffer())
 
-  const names = Object.keys(zip.files)
-  if (names.length > CHARX_MAX_ENTRIES) {
-    throw new Error(`The archive has too many files (${names.length})`)
-  }
+  const entries = Object.entries(zip.files).filter(([, entry]) => !entry.dir)
+  const byPath = new Map(entries.map(([path, entry]) => [path, entry]))
 
   // The spec fixes the name, but archives in the wild vary in case and leading path.
-  const cardName = names.find((name) => /(^|\/)card\.json$/i.test(name))
-  if (!cardName) throw new Error('The archive has no card.json')
+  const cardPath = entries.find(([path]) => /(^|\/)card\.json$/i.test(path))?.[0]
+  if (!cardPath) throw new Error('The archive has no card.json')
 
-  const card = JSON.parse(await zip.files[cardName].async('string'))
+  const card = JSON.parse(await byPath.get(cardPath)!.async('string'))
   const parsed = jsonToCharacter(card)
   const declared = ensureArray<any>(card.data?.assets)
+
   const assets: ImportedAsset[] = []
   let avatar: File | undefined
-  let skipped = 0
+  let totalBytes = 0
+
+  /*
+   * Counted apart rather than lumped together, because they are different problems and the
+   * user can only act on the difference: an external URI is how the card was authored, a
+   * missing file means the archive is broken, and a rejected one hit a limit here.
+   */
+  let external = 0
+  let missing = 0
+  let oversized = 0
+  let overflow = 0
 
   for (const asset of declared) {
     const uri = String(asset?.uri ?? '')
     if (!uri.startsWith(EMBEDDED_SCHEME)) {
       // `ccdefault:`, `http://` and `data:` are legal in V3 and are not in the archive.
-      skipped++
+      external++
+      continue
+    }
+
+    if (assets.length >= CHARX_MAX_ASSETS) {
+      overflow++
       continue
     }
 
     const path = uri.slice(EMBEDDED_SCHEME.length)
-    const entry = zip.files[path] ?? zip.files[names.find((n) => n.endsWith(path)) ?? '']
+    const entry = byPath.get(path) ?? entries.find(([candidate]) => candidate.endsWith(path))?.[1]
     if (!entry) {
-      skipped++
+      missing++
       continue
     }
 
     const bytes = new Uint8Array(await entry.async('arraybuffer'))
-    if (bytes.byteLength > CHARX_MAX_ASSET_BYTES) {
-      skipped++
+    if (
+      bytes.byteLength > CHARX_MAX_ASSET_BYTES ||
+      totalBytes + bytes.byteLength > CHARX_MAX_TOTAL_BYTES
+    ) {
+      oversized++
       continue
     }
+    totalBytes += bytes.byteLength
 
     const ext = String(asset?.ext ?? path.split('.').pop() ?? 'png').toLowerCase()
 
@@ -402,7 +427,7 @@ async function readCharx(file: File): Promise<ImportedCharacter> {
 
     const name = String(asset?.name ?? '').trim()
     if (!name) {
-      skipped++
+      missing++
       continue
     }
 
@@ -411,7 +436,10 @@ async function readCharx(file: File): Promise<ImportedCharacter> {
 
   // The archive carried its images, so the V3 notice no longer applies to what came through.
   const unsupported = parsed.unsupported.filter((item) => item !== 'Character Card V3 assets')
-  if (skipped) unsupported.push(`${skipped} asset(s) stored outside the archive`)
+  if (external) unsupported.push(`${external} asset(s) stored outside the archive`)
+  if (missing) unsupported.push(`${missing} asset(s) missing from the archive`)
+  if (oversized) unsupported.push(`${oversized} asset(s) too large to import`)
+  if (overflow) unsupported.push(`${overflow} asset(s) past the ${CHARX_MAX_ASSETS} limit`)
 
   return { ...parsed, unsupported, avatar, assets: assets.length ? assets : undefined }
 }
