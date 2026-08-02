@@ -123,19 +123,17 @@ character has an id — the same deferred pattern the memory book uses, for the 
 are counted and reported in the import notice rather than fetched: importing a card should not
 make requests to whatever host the card names.
 
-**An archive is attacker-supplied input**, so what gets decompressed is capped: 8 MB per asset
-and 64 MB across the import, which is the actual defence against a zip bomb. Only files an
-asset entry names are read at all, so a path outside the archive's own listing is unreachable.
+**No size or count caps.** There were three — per asset, per import, and a cap on the number
+of assets — and every one of them cost a self-hoster images they had chosen to import. This is
+a single-user app: an archive is something you picked, not attacker-supplied input.
 
-The entry count is deliberately _not_ capped. It was, at 256, and that was wrong twice over: a
-card with a full emotion set legitimately holds hundreds of files, and the count included
-directory entries. Hitting it failed the whole import. Nothing about the number of entries
-predicts the cost of reading the few an asset names.
+The one real ceiling is the server's JSON body limit. Uploads travel as base64 in a JSON body,
+and base64 is a third larger than the file, so the stock `JSON_SIZE_LIMIT` of 10 turns a ~7MB
+image into a 413. The self-host compose file sets it and `IMAGE_SIZE_LIMIT` to 64; raise them
+if a card is refused.
 
-The number of assets imported is capped at 512, and anything past it is reported rather than
-thrown. Assets that could not be imported are counted apart by reason — stored outside the
-archive, missing from it, too large, or past the limit — because the user can only act on the
-difference.
+Only files an asset entry names are read at all, so a path outside the archive's own listing
+is still unreachable.
 
 A bare V3 card — one that is not a `.charx` — still reports its assets as not carried over,
 because only the archive holds the files. That notice is now conditional on the card actually

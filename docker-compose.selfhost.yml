@@ -49,6 +49,10 @@ services:
       REDIS_PORT: '6379'
       PORT: '3001'
       LOG_LEVEL: ${LOG_LEVEL:-info}
+      # The real ceiling on an imported asset: uploads travel as base64 in a JSON body, and
+      # base64 is a third larger than the file. The stock 10 turns a ~7MB image into a 413.
+      JSON_SIZE_LIMIT: ${JSON_SIZE_LIMIT:-64}
+      IMAGE_SIZE_LIMIT: ${IMAGE_SIZE_LIMIT:-64}
     ports:
       - '${PORT:-3001}:3001'
     volumes:

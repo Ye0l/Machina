@@ -397,6 +397,16 @@
     field.type.maxLength = value ? Number(value) : undefined
   }
 
+  /** The upload route takes a base64 data URL, so an imported asset is converted on its way out. */
+  function blobToDataUrl(blob: Blob): Promise<string> {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader()
+      reader.onload = () => resolve(reader.result as string)
+      reader.onerror = () => reject(new Error(i18n.t('Could not read file')))
+      reader.readAsDataURL(blob)
+    })
+  }
+
   /** Convert any image file to a PNG base64 data URL (the only avatar format the API accepts). */
   function fileToPngDataUrl(file: File): Promise<string> {
     return new Promise((resolve, reject) => {
@@ -486,9 +496,13 @@
       }
 
       // One request each: the asset route stores a file per call. Sequential rather than
-      // parallel, because each response carries the whole asset list and the last write wins.
+      // parallel, because each response carries the whole asset list and the last write wins --
+      // and because it converts one image to base64 at a time rather than all of them at once.
       for (const asset of importedAssets) {
-        await api.post(`/character/${id}/assets`, { name: asset.name, image: asset.image })
+        await api.post(`/character/${id}/assets`, {
+          name: asset.name,
+          image: await blobToDataUrl(asset.blob),
+        })
       }
       importedAssets = []
 

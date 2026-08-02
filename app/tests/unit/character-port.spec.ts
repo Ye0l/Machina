@@ -426,7 +426,7 @@ describe('CHARX archives', () => {
     expect(result.name).toBe('Charx Hero')
     expect(result.assets).toHaveLength(1)
     expect(result.assets?.[0].name).toBe('smiling')
-    expect(result.assets?.[0].image.startsWith('data:image/png;base64,')).toBe(true)
+    expect(result.assets?.[0].blob.type).toBe('image/png')
     // The archive carried them, so the "not carried over" notice must not still claim otherwise.
     expect(result.unsupported).not.toContain('Character Card V3 assets')
   })
@@ -470,9 +470,9 @@ describe('CHARX archives', () => {
     expect(result.unsupported).toContain('1 asset(s) missing from the archive')
   })
 
-  it('imports an archive with far more files than a proxy entry cap would allow', async () => {
-    // The regression this guards: the entry count was capped at 256, so a card with a full
-    // emotion set failed outright. Only what is decompressed is limited now.
+  it('imports an archive with hundreds of files', async () => {
+    // The regression this guards: the entry count was once capped at 256, and a card with a
+    // full emotion set failed outright.
     const count = 400
     const assets = Array.from({ length: count }, (_, i) => ({
       type: 'emotion',
@@ -496,6 +496,35 @@ describe('CHARX archives', () => {
 
     const result = await parseCharacterFile(file)
     expect(result.assets).toHaveLength(1)
+  })
+
+  it('imports a large asset rather than refusing it on size', async () => {
+    // No size cap at all: the caps only ever cost a self-hoster assets they wanted, and the
+    // one real ceiling is the server's JSON body limit, which is configurable.
+    const big = new Uint8Array(9 * 1024 * 1024)
+    const file = await makeCharx(
+      v3([{ type: 'emotion', name: 'huge', uri: 'embeded://assets/huge.png', ext: 'png' }]),
+      { 'assets/huge.png': big }
+    )
+
+    const result = await parseCharacterFile(file)
+    expect(result.assets).toHaveLength(1)
+    expect(result.unsupported).toEqual([])
+  })
+
+  it('imports a whole emotion set without complaint', async () => {
+    const each = new Uint8Array(512 * 1024)
+    const assets = Array.from({ length: 200 }, (_, i) => ({
+      type: 'emotion',
+      name: `e${i}`,
+      uri: `embeded://assets/e${i}.png`,
+      ext: 'png',
+    }))
+    const files = Object.fromEntries(assets.map((_, i) => [`assets/e${i}.png`, each]))
+
+    const result = await parseCharacterFile(await makeCharx(v3(assets), files))
+    expect(result.assets).toHaveLength(200)
+    expect(result.unsupported).toEqual([])
   })
 
   it('rejects an archive with no card.json', async () => {
