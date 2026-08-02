@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { expandRisuHistoryRanges, isRisuPresetFilename } from '/common/risu-import'
 import type { AppSchema } from '/common/types'
 
+/** Minimal persisted message shape used by the range-expansion tests below. */
 const message = (msg: string, user: boolean, name?: string): AppSchema.ChatMessage =>
   ({
     _id: crypto.randomUUID(),
