@@ -1,0 +1,321 @@
+name: Finish Risu preset integration
+
+on:
+  push:
+    branches:
+      - feat/risu-prompt-toggles
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  implement:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/risu-prompt-toggles
+          fetch-depth: 0
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Bring over and adapt the Risu decoder
+        run: |
+          git fetch origin feature/risup-import
+          git show origin/feature/risup-import:web/shared/risu-preset.ts > common/risu-preset.ts
+          python3 <<'PY'
+          from pathlib import Path
+          import re
+
+          p = Path('common/risu-preset.ts')
+          s = p.read_text()
+          s = s.replace("import { AppSchema } from '/common/types/schema'", "import { AppSchema } from '/common/types/schema'\nimport { withRisuToggleConfig } from './risu-toggles'")
+          s = s.replace("  const toggles = parseToggleDefaults(preset.customPromptTemplateToggle)\n  const prompt = convertPromptTemplate(preset.promptTemplate, toggles)", "  const prompt = convertPromptTemplate(preset.promptTemplate, preset)")
+          s = s.replace("  return imported\n}\n\nfunction buildImportDescription", "  return withRisuToggleConfig(\n    imported,\n    firstString(preset.customPromptTemplateToggle),\n    prompt.template\n  ) as AppSchema.GenSettings\n}\n\nfunction buildImportDescription")
+          s = s.replace("    'RisuAI-only dynamic toggles were resolved to their first/default values.',\n    'Chat-range splitting, cache blocks, author notes, and module positions cannot be represented exactly in Agnai.',", "    'RisuAI dynamic toggles are preserved and evaluated per chat.',\n    'Chat ranges and author-note depth are converted to native Agnai prompt features.',\n    'Cache boundaries are flattened because Agnai currently sends a single prompt string; cached block content is preserved.',")
+          s = s.replace("function convertPromptTemplate(items: any[], toggles: ToggleValues) {", "function convertPromptTemplate(items: any[], preset: RisuPreset) {")
+          s = re.sub(r"\n  const chatIndexes = items[\s\S]*?  let prefill = ''", "\n  const positions = collectModulePositions(preset, items)\n  let prefill = ''", s, count=1)
+          s = s.replace("    const text = renderRisuText(firstString(item.text), toggles).trim()\n    const inner = renderRisuText(firstString(item.innerFormat), toggles)", "    const text = resolveModulePositions(firstString(item.text), positions).trim()\n    const inner = resolveModulePositions(firstString(item.innerFormat), positions)")
+          old = """      case 'chat':
+        if (index === historyIndex) {
+          pushBlock(blocks, role, [text, '{{history}}'].filter(Boolean).join('\\n\\n'))
+        } else if (text) {
+          pushBlock(blocks, role, text)
+        }
+        break
+
+      case 'authornote':
+        if (text || item.defaultText) warnings.add('author note omitted')
+        break
+
+      case 'cache':
+        warnings.add('cache block omitted')
+        break
+"""
+          new = """      case 'chat': {
+        const range = historyRange(item.rangeStart, item.rangeEnd)
+        pushBlock(blocks, role, [text, range].filter(Boolean).join('\\n\\n'))
+        break
+      }
+
+      case 'authornote': {
+        const note = text || resolveModulePositions(firstString(item.defaultText), positions)
+        if (note) {
+          const depth = Math.max(0, Math.min(99, positiveInt(item.depth, 4)))
+          pushBlock(blocks, role, `{{#insert =${depth}}}${note}{{/insert}}`)
+        }
+        break
+      }
+
+      case 'cache':
+        if (text) pushBlock(blocks, role, text)
+        warnings.add('cache boundary flattened')
+        break
+"""
+          if old not in s:
+              raise SystemExit('prompt block switch did not match')
+          s = s.replace(old, new)
+          marker = "function pushBlock(\n"
+          helpers = r'''function historyRange(start: unknown, end: unknown) {
+  const from = rangeBoundary(start, '0')
+  const to = rangeBoundary(end, 'end')
+  return `{{history:${from}:${to}}}`
+}
+
+function rangeBoundary(value: unknown, fallback: string) {
+  if (value === 'end') return 'end'
+  if (typeof value === 'number' && Number.isFinite(value)) return String(Math.trunc(value))
+  if (typeof value === 'string' && /^-?\d+$/.test(value.trim())) return value.trim()
+  return fallback
+}
+
+function collectModulePositions(preset: RisuPreset, items: any[]) {
+  const positions = new Map<string, string>()
+  const visit = (value: unknown, hintedKey = '') => {
+    if (!value) return
+    if (Array.isArray(value)) {
+      for (const item of value) visit(item)
+      return
+    }
+    if (typeof value !== 'object') return
+    const item = value as Record<string, any>
+    const key = firstString(item.position, item.slot, item.key, item.id, item.name, hintedKey)
+    const text = firstString(item.prompt, item.text, item.content, item.value)
+    if (key && text) positions.set(key.replace(/^position::/, ''), text)
+    for (const [childKey, child] of Object.entries(item)) {
+      if (child && typeof child === 'object') visit(child, childKey)
+    }
+  }
+
+  visit(preset.modules)
+  visit(preset.promptModules)
+  visit(preset.moduleData)
+  for (const item of items) {
+    const key = firstString(item?.position, item?.slot, item?.type2)
+    if (key && /^m\d+$/i.test(key) && firstString(item?.text)) positions.set(key, firstString(item.text))
+  }
+  return positions
+}
+
+function resolveModulePositions(input: string, positions: Map<string, string>) {
+  return input.replace(/\{\{position::([^{}]+)\}\}/gi, (_match, key) => positions.get(String(key).trim()) ?? '')
+}
+
+'''
+          s = s.replace(marker, helpers + marker, 1)
+          p.write_text(s)
+
+          # Range-aware history placeholders.
+          p = Path('common/prompt.ts')
+          s = p.read_text()
+          s = s.replace("  history: /{{history}}/gi,", "  history: /{{history(?::[^{}:]+:[^{}:]+)?}}/gi,")
+          s = s.replace("  const template = getTemplate(opts)\n\n  const lines = history || (await getPromptHistory(opts, encoder))", "  const lines = history || (await getPromptHistory(opts, encoder))\n  const template = expandHistoryRanges(getTemplate(opts), lines.map((line) => line.msg))")
+          insert = r'''
+export function expandHistoryRanges(template: string, lines: string[]) {
+  return template.replace(/{{history:([^{}:]+):([^{}:]+)}}/gi, (_match, rawStart, rawEnd) => {
+    const start = historyBoundary(String(rawStart), lines.length, 0)
+    const end = historyBoundary(String(rawEnd), lines.length, lines.length)
+    return lines.slice(Math.min(start, end), Math.max(start, end)).join('\n')
+  })
+}
+
+function historyBoundary(raw: string, length: number, fallback: number) {
+  const value = raw.trim().toLowerCase()
+  if (value === 'end') return length
+  const parsed = Number.parseInt(value, 10)
+  if (!Number.isFinite(parsed)) return fallback
+  return Math.max(0, Math.min(length, parsed < 0 ? length + parsed : parsed))
+}
+
+'''
+          s = s.replace("export async function createPromptParts(\n", insert + "export async function createPromptParts(\n", 1)
+          p.write_text(s)
+
+          # Persist temporary importer metadata through validation.
+          p = Path('common/presets.ts')
+          s = p.read_text().replace("  registered: 'any?',", "  registered: 'any?',\n  temporary: 'any?',")
+          p.write_text(s)
+
+          # Direct preset import store action.
+          p = Path('app/src/lib/settings.svelte.ts')
+          s = p.read_text()
+          method = r'''
+  async importPreset(imported: AppSchema.GenSettings, providerId: string): Promise<boolean> {
+    this.presetSaving = true
+    this.error = ''
+    try {
+      const provider = session.user?.providers?.find((item) => item._id === providerId)
+      if (!provider) throw new Error('Add or select a provider before importing a preset')
+      const model = imported.thirdPartyModel ?? imported.oaiModel ?? ''
+      const body = {
+        ...presetDefaults,
+        ...imported,
+        name: imported.name.trim() || 'RisuAI Preset',
+        service: serviceForProvider(provider),
+        providerId,
+        providerModels: { ...(imported.providerModels ?? {}), [providerId]: model },
+        presetMode: 'advanced' as const,
+        useAdvancedPrompt: 'no-validation' as const,
+        promptTemplateId: undefined,
+      }
+      const created = await api.post<AppSchema.UserGenPreset>('/user/presets', body)
+      session.presets = [...session.presets, created]
+      if (session.user && !session.user.defaultPreset) {
+        session.user = { ...session.user, defaultPreset: created._id }
+      }
+      return true
+    } catch (ex) {
+      this.error = ex instanceof Error ? ex.message : 'Failed to import preset'
+      return false
+    } finally {
+      this.presetSaving = false
+    }
+  }
+
+'''
+          s = s.replace("  async deletePreset(presetId: string): Promise<boolean> {", method + "  async deletePreset(presetId: string): Promise<boolean> {", 1)
+          p.write_text(s)
+
+          # Settings UI import button and handler.
+          p = Path('app/src/routes/Settings.svelte')
+          s = p.read_text()
+          s = s.replace("    Trash2,\n    Wifi,", "    Trash2,\n    Upload,\n    Wifi,")
+          s = s.replace("  import type { SettingsTab } from '/app/lib/router.svelte'", "  import type { SettingsTab } from '/app/lib/router.svelte'\n  import { importRisuPreset, isRisuPresetFilename } from '/common/risu-preset'")
+          state_anchor = "  let modelRequest = 0\n"
+          handler = r'''  let presetImportEl: HTMLInputElement | null = null
+  let importingPreset = $state(false)
+
+  async function importPresetFile(event: Event) {
+    const input = event.currentTarget as HTMLInputElement
+    const file = input.files?.[0]
+    input.value = ''
+    if (!file) return
+    if (!isRisuPresetFilename(file.name)) {
+      settings.error = i18n.t('Choose a .risup or .risupreset file.')
+      return
+    }
+    const providerId = providers[0]?._id
+    if (!providerId) {
+      settings.error = i18n.t('Add a provider before importing a preset.')
+      return
+    }
+
+    importingPreset = true
+    settings.clearError()
+    try {
+      const imported = await importRisuPreset(new Uint8Array(await file.arrayBuffer()), file.name)
+      await settings.importPreset(imported, providerId)
+    } catch (ex) {
+      settings.error = ex instanceof Error ? ex.message : i18n.t('Could not import the RisuAI preset.')
+    } finally {
+      importingPreset = false
+    }
+  }
+
+'''
+          s = s.replace(state_anchor, state_anchor + handler, 1)
+          old_buttons = r'''      {:else}
+        <button
+          class="button-primary"
+          type="button"
+          onclick={startAddPreset}
+          disabled={!providers.length}
+        >
+          <Plus size={17} />
+          {i18n.t('New preset')}
+        </button>
+      {/if}
+'''
+          new_buttons = r'''      {:else}
+        <input
+          bind:this={presetImportEl}
+          class="hidden"
+          type="file"
+          accept=".risup,.risupreset,application/octet-stream"
+          onchange={importPresetFile}
+        />
+        <button
+          class="button-secondary"
+          type="button"
+          disabled={!providers.length || importingPreset || settings.presetSaving}
+          onclick={() => presetImportEl?.click()}
+        >
+          <Upload size={17} />
+          {importingPreset ? i18n.t('Importing...') : i18n.t('Import RisuAI')}
+        </button>
+        <button
+          class="button-primary"
+          type="button"
+          onclick={startAddPreset}
+          disabled={!providers.length}
+        >
+          <Plus size={17} />
+          {i18n.t('New preset')}
+        </button>
+      {/if}
+'''
+          if old_buttons not in s:
+              raise SystemExit('settings header buttons did not match')
+          s = s.replace(old_buttons, new_buttons, 1)
+          p.write_text(s)
+
+          # Unit tests for history range splitting.
+          Path('app/tests/unit/history-ranges.spec.ts').write_text(r'''import { describe, expect, it } from 'vitest'
+import { expandHistoryRanges } from '/common/prompt'
+
+describe('RisuAI history ranges', () => {
+  const lines = ['m0', 'm1', 'm2', 'm3', 'm4']
+
+  it('splits old, recent, and last chat sections with negative boundaries', () => {
+    const template = [
+      '{{history:0:-3}}',
+      '--recent--',
+      '{{history:-3:-1}}',
+      '--last--',
+      '{{history:-1:end}}',
+    ].join('\n')
+
+    expect(expandHistoryRanges(template, lines)).toBe(
+      ['m0', 'm1', '--recent--', 'm2', 'm3', '--last--', 'm4'].join('\n')
+    )
+  })
+
+  it('clamps out-of-range boundaries', () => {
+    expect(expandHistoryRanges('{{history:-99:99}}', lines)).toBe(lines.join('\n'))
+  })
+})
+''')
+          PY
+      - run: pnpm exec prettier --write common/risu-preset.ts common/prompt.ts common/presets.ts app/src/lib/settings.svelte.ts app/src/routes/Settings.svelte app/tests/unit/history-ranges.spec.ts
+      - run: pnpm run check
+      - name: Commit implementation
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add common/risu-preset.ts common/prompt.ts common/presets.ts app/src/lib/settings.svelte.ts app/src/routes/Settings.svelte app/tests/unit/history-ranges.spec.ts
+          git commit -m "feat(app): complete RisuAI preset import and prompt mapping"
+          git push origin HEAD:feat/risu-prompt-toggles
