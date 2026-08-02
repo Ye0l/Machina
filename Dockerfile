@@ -37,10 +37,14 @@ WORKDIR /usr/src/agnai
 
 RUN corepack enable
 
+# ASSET_FOLDER must NOT be inside dist/. Vite emits the client bundle to dist/assets/ with
+# content-hashed filenames, so pointing uploads there -- and mounting a volume over it --
+# hides the bundle: index.html asks for a hash the volume does not have, the SPA fallback
+# answers with index.html, and the browser refuses it as the wrong MIME type. White screen.
 ENV NODE_ENV=production \
     LOG_LEVEL=info \
     DB_NAME=agnai \
-    ASSET_FOLDER=/usr/src/agnai/dist/assets
+    ASSET_FOLDER=/usr/src/agnai/assets
 
 COPY package.json pnpm-lock.yaml ./
 RUN pnpm install --frozen-lockfile --prod && pnpm store prune
@@ -53,7 +57,7 @@ COPY --from=build /usr/src/agnai/dist/ ./dist/
 COPY --from=build /usr/src/agnai/version.txt ./version.txt
 COPY db/ ./db/
 
-VOLUME [ "/usr/src/agnai/db", "/usr/src/agnai/assets", "/usr/src/agnai/dist/assets", "/usr/src/agnai/extras" ]
+VOLUME [ "/usr/src/agnai/db", "/usr/src/agnai/assets", "/usr/src/agnai/extras" ]
 
 EXPOSE 3001
 

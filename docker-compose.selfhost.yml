@@ -41,8 +41,9 @@ services:
     ports:
       - '${PORT:-3001}:3001'
     volumes:
-      # Uploaded avatars and images. Matches ASSET_FOLDER in the image.
-      - assets:/usr/src/agnai/dist/assets
+      # Uploaded avatars and images. Matches ASSET_FOLDER in the image, which is deliberately
+      # outside dist/ -- a volume over dist/assets would hide the client bundle.
+      - assets:/usr/src/agnai/assets
 
   mongo:
     image: mongo:8
