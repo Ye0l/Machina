@@ -1,5 +1,6 @@
 import type { AppSchema } from '/common/types'
 import { withAssetInstruction } from '/common/assets'
+import { renderRisuPreset } from '/common/risu-toggles'
 import type { ChatDetailResponse, SendMessageBody, SendMessageResponse } from './contracts'
 import { createPromptParts } from '/common/prompt'
 import { getEncoder, prepareTokenizer } from '/common/tokenize'
@@ -49,6 +50,19 @@ const STREAM_TIMEOUT_MS = 120_000
 
 const newId = () => crypto.randomUUID()
 
+type ChatWithRisuToggles = AppSchema.Chat & { risuToggleValues?: Record<string, string> }
+
+/**
+ * Risu toggle macros are a view of a preset, not a mutation of it. Resolve them immediately
+ * before prompt assembly so the editor and exported preset keep the original source intact.
+ */
+function runtimePreset(
+  preset: Partial<AppSchema.GenSettings> | undefined,
+  chat: AppSchema.Chat
+): Partial<AppSchema.GenSettings> | undefined {
+  return renderRisuPreset(preset, (chat as ChatWithRisuToggles).risuToggleValues)
+}
+
 export async function sendMessage(
   detail: ChatDetailResponse,
   user: AppSchema.User,
@@ -78,10 +92,11 @@ export async function sendMessage(
   handlers.onUserMessage?.(userMessage.message)
 
   const messages = [...detail.messages, userMessage.message]
+  const settings = runtimePreset(preset, chat)
 
   // Model families tokenise differently and the count drives prompt trimming, so honour
   // the preset's tokenizer instead of the built-in cl100k default.
-  if (preset?.tokenizer) await prepareTokenizer(preset.tokenizer)
+  if (settings?.tokenizer) await prepareTokenizer(settings.tokenizer)
   const encoder = await getEncoder()
 
   const prompt = await createPromptParts(
@@ -94,7 +109,7 @@ export async function sendMessage(
       replyAs: char,
       characters: Object.fromEntries(characters.map((c) => [c._id, c])),
       messages,
-      settings: preset,
+      settings,
       lastMessage: messages.at(-1)?.createdAt ?? '',
       chatEmbeds: [],
       userEmbeds: [],
@@ -116,7 +131,7 @@ export async function sendMessage(
     // Appended after assembly rather than through a placeholder: an asset the model was never
     // told about can never be shown, so this must not depend on the user editing a template.
     withAssetInstruction(prompt.template.parsed, char.assets),
-    preset,
+    settings,
     user,
     chat._id,
     handlers
@@ -163,8 +178,9 @@ export async function generateLastReply(
   if (!parent) return undefined
 
   control.requestId = newId()
+  const settings = runtimePreset(preset, chat)
 
-  if (preset?.tokenizer) await prepareTokenizer(preset.tokenizer)
+  if (settings?.tokenizer) await prepareTokenizer(settings.tokenizer)
   const encoder = await getEncoder()
 
   const prompt = await createPromptParts(
@@ -177,7 +193,7 @@ export async function generateLastReply(
       replyAs: char,
       characters: Object.fromEntries(characters.map((c) => [c._id, c])),
       messages,
-      settings: preset,
+      settings,
       lastMessage: messages.at(-1)?.createdAt ?? '',
       chatEmbeds: [],
       userEmbeds: [],
@@ -199,7 +215,7 @@ export async function generateLastReply(
     // Appended after assembly rather than through a placeholder: an asset the model was never
     // told about can never be shown, so this must not depend on the user editing a template.
     withAssetInstruction(prompt.template.parsed, char.assets),
-    preset,
+    settings,
     user,
     chat._id,
     handlers

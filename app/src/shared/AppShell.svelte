@@ -17,6 +17,7 @@
   import Settings from '/app/routes/Settings.svelte'
   import Chat from '/app/routes/Chat.svelte'
   import Sidebar from './Sidebar.svelte'
+  import RisuTogglePanel from './RisuTogglePanel.svelte'
 
   let {
     onEditorDirtyChange,
@@ -150,6 +151,8 @@
     </main>
   </div>
 </div>
+
+<RisuTogglePanel />
 
 {#if drawerOpen}
   <button

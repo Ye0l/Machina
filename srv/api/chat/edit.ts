@@ -7,6 +7,8 @@ import { personaValidator } from './common'
 import { AppSchema } from '/common/types'
 import { optional } from '/common/valid/types'
 
+type ChatWithRisuToggles = AppSchema.Chat & { risuToggleValues?: Record<string, string> }
+
 export const updateChat = handle(async ({ params, body, user, userId }) => {
   assertValid(
     {
@@ -28,6 +30,7 @@ export const updateChat = handle(async ({ params, body, user, userId }) => {
       imageSettings: 'any?',
       invisible: 'any?',
       invisibleChars: 'any?',
+      risuToggleValues: 'any?',
     },
     body,
     true
@@ -46,7 +49,8 @@ export const updateChat = handle(async ({ params, body, user, userId }) => {
     }
   }
 
-  const update: PartialUpdate<AppSchema.Chat> = {
+  const previousRisuValues = (prev as ChatWithRisuToggles).risuToggleValues
+  const update: PartialUpdate<ChatWithRisuToggles> = {
     name: body.name ?? prev.name,
     mode: body.mode ?? prev.mode,
     adapter: body.adapter ?? prev.adapter,
@@ -58,6 +62,7 @@ export const updateChat = handle(async ({ params, body, user, userId }) => {
     imageSettings: body.imageSettings,
     invisible: body.invisible ?? prev.invisible,
     invisibleChars: body.invisibleChars ?? prev.invisibleChars,
+    risuToggleValues: body.risuToggleValues ?? previousRisuValues,
   }
 
   if (body.useOverrides === false) {
@@ -111,7 +116,6 @@ export const swapMessage = handle(async ({ body, params, userId }) => {
   )
 
   const prev = await store.chats.getMessageAndChat(params.id)
-
   if (!prev || !prev.chat) throw errors.NotFound
   if (prev.chat?.userId !== userId) throw errors.Forbidden
 
@@ -129,6 +133,7 @@ export const swapMessage = handle(async ({ body, params, userId }) => {
 
   sendMany(prev.chat?.memberIds.concat(prev.chat.userId), {
     type: 'message-swapped',
+    ...update,
     chatId: prev.chat._id,
     messageId: params.id,
     imagePrompt: body.imagePrompt || prev.msg.imagePrompt,
@@ -159,7 +164,6 @@ export const updateMessageProps = handle(async ({ body, params, userId }) => {
   )
 
   const prev = await store.chats.getMessageAndChat(params.id)
-
   if (!prev || !prev.chat) throw errors.NotFound
   if (prev.chat?.userId !== userId) throw errors.Forbidden
 
