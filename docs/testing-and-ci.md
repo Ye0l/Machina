@@ -92,6 +92,28 @@ cannot have, and publishing from unreviewed code would be wrong regardless.
   that output and starting `node srv/start.js`: it registers every adapter and proceeds to
   database and network concerns, so no runtime dependency is misplaced in `devDependencies`.
 
+## Fixed after the first real deployment
+
+The container came up healthy and served a white screen, with the browser reporting a module
+script answered as `text/html`.
+
+`ASSET_FOLDER` pointed at `dist/assets`, which is exactly where Vite emits the client bundle,
+and the compose stack mounted a named volume there. The volume hid the bundle. Because the
+filenames are content-hashed, this survives a rebuild in the worst way: the volume keeps the
+previous build's files, the new `index.html` asks for a hash that is not in it, the SPA
+fallback answers with `index.html`, and the browser refuses it.
+
+Uploads now live at `/usr/src/agnai/assets` — outside `dist/`, and where the image already
+declared a volume. The same directory is mounted, so avatars uploaded before the fix are
+still there.
+
+`tests/docker-assets.spec.ts` reads the Dockerfile and the compose file and fails if either
+puts the upload folder or a volume back inside the bundle directory. Reverting the fix fails
+two of its five assertions.
+
+This is the class of bug that only appears when the thing actually runs, which is what the
+residual risk below has said all along.
+
 ## Residual risk and follow-ups
 
 - **The image is built by CI but has never been run.** There is no Docker daemon in the
