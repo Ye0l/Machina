@@ -65,9 +65,14 @@
 </script>
 
 {#if visible}
-  <div class="fixed bottom-5 left-5 z-30 flex max-w-[min(28rem,calc(100vw-2rem))] flex-col items-start gap-2">
+  <div
+    class="fixed bottom-5 left-5 z-30 flex max-w-[min(28rem,calc(100vw-2rem))] flex-col items-start gap-2"
+  >
     {#if message}
-      <p class="rounded-lg border border-neutral-700 bg-[#10151d]/95 px-3 py-2 text-xs text-neutral-200 shadow-xl backdrop-blur" aria-live="polite">
+      <p
+        class="rounded-lg border border-neutral-700 bg-[#10151d]/95 px-3 py-2 text-xs text-neutral-200 shadow-xl backdrop-blur"
+        aria-live="polite"
+      >
         {message}
       </p>
     {/if}

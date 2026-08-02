@@ -53,10 +53,10 @@
     route.name === 'character' || route.name === 'character-new'
       ? 'characters'
       : route.name === 'book'
-        ? 'books'
-        : route.name === 'persona'
-          ? 'personas'
-          : route.name
+      ? 'books'
+      : route.name === 'persona'
+      ? 'personas'
+      : route.name
   )
 
   function navigate(path: string) {

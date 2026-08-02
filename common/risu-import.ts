@@ -150,7 +150,13 @@ function convertPromptTemplate(items: any[], preset: RisuPreset): ConvertedPromp
         pushBlock(
           blocks,
           role,
-          [text, `{{history:${rangeBoundary(item.rangeStart, '0')}:${rangeBoundary(item.rangeEnd, 'end')}}}`]
+          [
+            text,
+            `{{history:${rangeBoundary(item.rangeStart, '0')}:${rangeBoundary(
+              item.rangeEnd,
+              'end'
+            )}}}`,
+          ]
             .filter(Boolean)
             .join('\n\n')
         )
@@ -261,7 +267,9 @@ export function expandRisuHistoryRanges(
 ) {
   const lines = messages
     .filter((message) => message.adapter !== 'image')
-    .map((message) => `${message.name || (message.userId ? names.user : names.bot)}: ${message.msg}`)
+    .map(
+      (message) => `${message.name || (message.userId ? names.user : names.bot)}: ${message.msg}`
+    )
 
   return template.replace(/{{history:([^{}:]+):([^{}:]+)}}/gi, (_match, rawStart, rawEnd) => {
     const start = historyBoundary(String(rawStart), lines.length, 0)
@@ -289,7 +297,10 @@ async function decompressGzip(data: Uint8Array) {
   if (typeof DecompressionStream === 'undefined') {
     throw new Error('This browser cannot decompress RisuAI presets')
   }
-  const buffer = data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength) as ArrayBuffer
+  const buffer = data.buffer.slice(
+    data.byteOffset,
+    data.byteOffset + data.byteLength
+  ) as ArrayBuffer
   const stream = new Blob([buffer]).stream().pipeThrough(new DecompressionStream('gzip'))
   return new Uint8Array(await new Response(stream).arrayBuffer())
 }
@@ -297,7 +308,10 @@ async function decompressGzip(data: Uint8Array) {
 async function decryptPayload(data: Uint8Array) {
   const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode('risupreset'))
   const key = await crypto.subtle.importKey('raw', digest, 'AES-GCM', false, ['decrypt'])
-  const encrypted = data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength) as ArrayBuffer
+  const encrypted = data.buffer.slice(
+    data.byteOffset,
+    data.byteOffset + data.byteLength
+  ) as ArrayBuffer
   const decrypted = await crypto.subtle.decrypt(
     { name: 'AES-GCM', iv: new Uint8Array(12) },
     key,

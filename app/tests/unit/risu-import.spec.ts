@@ -2,11 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { expandRisuHistoryRanges, isRisuPresetFilename } from '/common/risu-import'
 import type { AppSchema } from '/common/types'
 
-const message = (
-  msg: string,
-  user: boolean,
-  name?: string
-): AppSchema.ChatMessage =>
+const message = (msg: string, user: boolean, name?: string): AppSchema.ChatMessage =>
   ({
     _id: crypto.randomUUID(),
     kind: 'chat-message',
@@ -16,7 +12,7 @@ const message = (
     name,
     createdAt: '',
     updatedAt: '',
-  }) as AppSchema.ChatMessage
+  } as AppSchema.ChatMessage)
 
 describe('RisuAI preset import helpers', () => {
   it('recognises both Risu preset extensions', () => {
