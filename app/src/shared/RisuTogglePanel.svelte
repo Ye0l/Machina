@@ -35,9 +35,7 @@
   const interactiveDefinitions = $derived(
     activeDefinitions.filter((definition) => 'key' in definition)
   )
-  const selectedPreset = $derived(
-    session.presets.find((preset) => preset._id === selectedPresetId)
-  )
+  const selectedPreset = $derived(session.presets.find((preset) => preset._id === selectedPresetId))
   const selectedConfig = $derived(getRisuToggleConfig(selectedPreset))
 
   const text = (english: string, korean: string) => (i18n.locale === 'ko' ? korean : english)
@@ -81,7 +79,10 @@
       return
     }
     if (!templateDraft.trim()) {
-      message = text('Enter the toggle-aware prompt template.', '토글 매크로가 포함된 프롬프트 원문을 입력하세요.')
+      message = text(
+        'Enter the toggle-aware prompt template.',
+        '토글 매크로가 포함된 프롬프트 원문을 입력하세요.'
+      )
       return
     }
 
@@ -100,7 +101,10 @@
       session.presets = session.presets.map((item) => (item._id === updated._id ? updated : item))
       message = text('RisuAI toggles attached.', 'RisuAI 토글을 프리셋에 연결했습니다.')
     } catch (ex) {
-      message = ex instanceof Error ? ex.message : text('Could not save toggles.', '토글을 저장하지 못했습니다.')
+      message =
+        ex instanceof Error
+          ? ex.message
+          : text('Could not save toggles.', '토글을 저장하지 못했습니다.')
     } finally {
       saving = false
     }
@@ -110,7 +114,12 @@
     const preset = selectedPreset
     const config = getRisuToggleConfig(preset)
     if (!preset || !config || saving) return
-    if (!window.confirm(text('Remove RisuAI toggles from this preset?', '이 프리셋에서 RisuAI 토글을 제거할까요?'))) return
+    if (
+      !window.confirm(
+        text('Remove RisuAI toggles from this preset?', '이 프리셋에서 RisuAI 토글을 제거할까요?')
+      )
+    )
+      return
 
     saving = true
     message = ''
@@ -128,7 +137,10 @@
       templateDraft = updated.gaslight ?? config.template
       message = text('RisuAI toggles removed.', 'RisuAI 토글을 제거했습니다.')
     } catch (ex) {
-      message = ex instanceof Error ? ex.message : text('Could not remove toggles.', '토글을 제거하지 못했습니다.')
+      message =
+        ex instanceof Error
+          ? ex.message
+          : text('Could not remove toggles.', '토글을 제거하지 못했습니다.')
     } finally {
       saving = false
     }
@@ -159,7 +171,10 @@
         ...detail,
         chat: { ...detail.chat, risuToggleValues: previous } as ChatWithRisuToggles,
       }
-      message = ex instanceof Error ? ex.message : text('Could not save toggle.', '토글값을 저장하지 못했습니다.')
+      message =
+        ex instanceof Error
+          ? ex.message
+          : text('Could not save toggle.', '토글값을 저장하지 못했습니다.')
     }
   }
 
@@ -180,7 +195,8 @@
     {settingsMode
       ? text('Risu toggle setup', 'Risu 토글 설정')
       : text('Prompt toggles', '프롬프트 토글')}
-    {#if !settingsMode}<span class="text-xs text-violet-300">{interactiveDefinitions.length}</span>{/if}
+    {#if !settingsMode}<span class="text-xs text-violet-300">{interactiveDefinitions.length}</span
+      >{/if}
   </button>
 {/if}
 
@@ -194,7 +210,12 @@
       <h2 class="flex-1 text-sm font-semibold text-neutral-100">
         {text('RisuAI prompt toggles', 'RisuAI 프롬프트 토글')}
       </h2>
-      <button class="icon-button" type="button" onclick={() => (open = false)} aria-label={text('Close', '닫기')}>
+      <button
+        class="icon-button"
+        type="button"
+        onclick={() => (open = false)}
+        aria-label={text('Close', '닫기')}
+      >
         <X size={17} />
       </button>
     </header>
@@ -202,7 +223,11 @@
     <div class="space-y-4 overflow-y-auto p-4">
       <label class="field-group">
         <span class="field-label">{text('Preset', '프리셋')}</span>
-        <select class="field" value={selectedPresetId} onchange={(event) => selectPreset(event.currentTarget.value)}>
+        <select
+          class="field"
+          value={selectedPresetId}
+          onchange={(event) => selectPreset(event.currentTarget.value)}
+        >
           {#each session.presets as preset (preset._id)}
             <option value={preset._id}>{preset.name}</option>
           {/each}
@@ -226,7 +251,9 @@
       </label>
 
       <label class="field-group">
-        <span class="field-label">{text('Toggle-aware prompt source', '토글 매크로 포함 프롬프트 원문')}</span>
+        <span class="field-label"
+          >{text('Toggle-aware prompt source', '토글 매크로 포함 프롬프트 원문')}</span
+        >
         <textarea
           class="field min-h-64 resize-y font-mono text-xs leading-5"
           bind:value={templateDraft}
@@ -242,7 +269,9 @@
 
       {#if sourceDraft.trim()}
         <p class="text-xs text-neutral-400">
-          {text('Detected controls', '감지된 컨트롤')}: {parseRisuToggleSyntax(sourceDraft).filter((item) => 'key' in item).length}
+          {text('Detected controls', '감지된 컨트롤')}: {parseRisuToggleSyntax(sourceDraft).filter(
+            (item) => 'key' in item
+          ).length}
         </p>
       {/if}
 
@@ -251,12 +280,22 @@
 
     <footer class="flex flex-wrap justify-end gap-2 border-t border-neutral-800 px-4 py-3">
       {#if selectedConfig}
-        <button class="button-secondary text-red-200" type="button" disabled={saving} onclick={detachConfig}>
+        <button
+          class="button-secondary text-red-200"
+          type="button"
+          disabled={saving}
+          onclick={detachConfig}
+        >
           <Trash2 size={16} />
           {text('Remove', '제거')}
         </button>
       {/if}
-      <button class="button-primary" type="button" disabled={saving || !selectedPreset} onclick={saveConfig}>
+      <button
+        class="button-primary"
+        type="button"
+        disabled={saving || !selectedPreset}
+        onclick={saveConfig}
+      >
         <Save size={16} />
         {saving ? text('Saving...', '저장 중...') : text('Save', '저장')}
       </button>
@@ -269,13 +308,22 @@
     class="fixed bottom-20 right-5 z-40 max-h-[72vh] w-[min(25rem,calc(100vw-2rem))] overflow-y-auto rounded-xl border border-neutral-700 bg-[#10151d] shadow-2xl"
     aria-label={text('Prompt toggles', '프롬프트 토글')}
   >
-    <header class="sticky top-0 flex items-center gap-2 border-b border-neutral-800 bg-[#10151d] px-4 py-3">
+    <header
+      class="sticky top-0 flex items-center gap-2 border-b border-neutral-800 bg-[#10151d] px-4 py-3"
+    >
       <SlidersHorizontal size={17} class="text-violet-300" />
       <div class="min-w-0 flex-1">
         <h2 class="truncate text-sm font-semibold text-neutral-100">{activePreset?.name}</h2>
-        <p class="text-xs text-neutral-500">{text('Values are saved per chat.', '토글값은 채팅별로 저장됩니다.')}</p>
+        <p class="text-xs text-neutral-500">
+          {text('Values are saved per chat.', '토글값은 채팅별로 저장됩니다.')}
+        </p>
       </div>
-      <button class="icon-button" type="button" onclick={() => (open = false)} aria-label={text('Close', '닫기')}>
+      <button
+        class="icon-button"
+        type="button"
+        onclick={() => (open = false)}
+        aria-label={text('Close', '닫기')}
+      >
         <X size={17} />
       </button>
     </header>
@@ -285,7 +333,9 @@
         {#if definition.kind === 'group'}
           <h3 class="pt-1 text-sm font-semibold text-violet-200">{definition.label}</h3>
         {:else if definition.kind === 'divider'}
-          <div class="border-t border-neutral-800 pt-3 text-xs text-neutral-500">{definition.label}</div>
+          <div class="border-t border-neutral-800 pt-3 text-xs text-neutral-500">
+            {definition.label}
+          </div>
         {:else if definition.kind === 'select'}
           <label class="field-group">
             <span class="field-label">{definition.label}</span>
@@ -316,7 +366,8 @@
               type="checkbox"
               class="h-4 w-4 accent-violet-500"
               checked={currentValue(definition) === '1'}
-              onchange={(event) => setToggleValue(definition, event.currentTarget.checked ? '1' : '0')}
+              onchange={(event) =>
+                setToggleValue(definition, event.currentTarget.checked ? '1' : '0')}
             />
           </label>
         {/if}

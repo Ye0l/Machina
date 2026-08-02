@@ -234,7 +234,9 @@ function numeric(value: unknown): number {
   return Number.isFinite(parsed) ? parsed : 0
 }
 
-function topLevelEquality(expression: string): { left: string; right: string; negate: boolean } | undefined {
+function topLevelEquality(
+  expression: string
+): { left: string; right: string; negate: boolean } | undefined {
   let depth = 0
   for (let index = 0; index < expression.length; index++) {
     if (expression.startsWith('{{', index)) {
@@ -268,7 +270,11 @@ function evaluateQuestion(expression: string, values: Record<string, string>): b
 
   const comparison = topLevelEquality(body)
   const result = comparison
-    ? comparison.negate !== equal(evaluateRisuExpression(comparison.left, values), evaluateRisuExpression(comparison.right, values))
+    ? comparison.negate !==
+      equal(
+        evaluateRisuExpression(comparison.left, values),
+        evaluateRisuExpression(comparison.right, values)
+      )
     : truthy(evaluateRisuExpression(body, values))
 
   return negateResult ? !result : result
@@ -286,17 +292,35 @@ function evaluateRisuExpression(expression: string, values: Record<string, strin
     case 'all':
       return args.every((arg) => truthy(evaluateRisuExpression(arg, values)))
     case 'not_equal':
-      return !equal(evaluateRisuExpression(args[0] ?? '', values), evaluateRisuExpression(args[1] ?? '', values))
+      return !equal(
+        evaluateRisuExpression(args[0] ?? '', values),
+        evaluateRisuExpression(args[1] ?? '', values)
+      )
     case 'less':
-      return numeric(evaluateRisuExpression(args[0] ?? '', values)) < numeric(evaluateRisuExpression(args[1] ?? '', values))
+      return (
+        numeric(evaluateRisuExpression(args[0] ?? '', values)) <
+        numeric(evaluateRisuExpression(args[1] ?? '', values))
+      )
     case 'greater_equal':
-      return numeric(evaluateRisuExpression(args[0] ?? '', values)) >= numeric(evaluateRisuExpression(args[1] ?? '', values))
+      return (
+        numeric(evaluateRisuExpression(args[0] ?? '', values)) >=
+        numeric(evaluateRisuExpression(args[1] ?? '', values))
+      )
     case 'greater':
-      return numeric(evaluateRisuExpression(args[0] ?? '', values)) > numeric(evaluateRisuExpression(args[1] ?? '', values))
+      return (
+        numeric(evaluateRisuExpression(args[0] ?? '', values)) >
+        numeric(evaluateRisuExpression(args[1] ?? '', values))
+      )
     case 'less_equal':
-      return numeric(evaluateRisuExpression(args[0] ?? '', values)) <= numeric(evaluateRisuExpression(args[1] ?? '', values))
+      return (
+        numeric(evaluateRisuExpression(args[0] ?? '', values)) <=
+        numeric(evaluateRisuExpression(args[1] ?? '', values))
+      )
     case 'equal':
-      return equal(evaluateRisuExpression(args[0] ?? '', values), evaluateRisuExpression(args[1] ?? '', values))
+      return equal(
+        evaluateRisuExpression(args[0] ?? '', values),
+        evaluateRisuExpression(args[1] ?? '', values)
+      )
     case 'position':
       // Module insertion points are handled by RisuAI modules, not by a preset toggle.
       return ''
@@ -341,7 +365,8 @@ function renderInline(input: string, values: Record<string, string>): string {
 
     if (isRisuInlineExpression(tag.inner)) {
       const evaluated = evaluateRisuExpression(tag.inner, values)
-      output += typeof evaluated === 'boolean' ? (evaluated ? 'true' : 'false') : String(evaluated ?? '')
+      output +=
+        typeof evaluated === 'boolean' ? (evaluated ? 'true' : 'false') : String(evaluated ?? '')
     } else {
       output += tag.raw
     }
@@ -370,7 +395,8 @@ function renderRange(
 
   while (index < input.length) {
     const start = input.indexOf('{{', index)
-    if (start < 0) return { text: output + renderInline(input.slice(index), values), index: input.length }
+    if (start < 0)
+      return { text: output + renderInline(input.slice(index), values), index: input.length }
 
     output += renderInline(input.slice(index, start), values)
     const tag = readMustache(input, start)
