@@ -6,6 +6,7 @@ import { presetDefaults } from '/common/default-preset'
 import { defaultTemplate } from '/common/mode-templates'
 import { SIMPLE_ORDER } from '/common/prompt-order'
 import type { SummaryCategory } from '/common/summary'
+import { withDisplayRegexRules, type DisplayRegexRule } from '/common/display-regex'
 import { api } from './api'
 import { session } from './session.svelte'
 
@@ -209,6 +210,7 @@ export type PresetInput = {
   summaryCategories: Record<SummaryCategory, boolean>
   secondaryProviderId: string
   secondaryModel: string
+  displayRegexRules: DisplayRegexRule[]
 }
 
 export type ConnectionTestResult = { success: boolean; url: string }
@@ -328,6 +330,10 @@ class SettingsStore {
             ? { [input.secondaryProviderId]: input.secondaryModel.trim() }
             : {}),
         },
+        temporary: withDisplayRegexRules(
+          { temporary: existing?.temporary },
+          input.displayRegexRules
+        ).temporary,
       }
 
       if (existing) {
