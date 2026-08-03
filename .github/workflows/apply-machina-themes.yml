@@ -27,7 +27,9 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - name: Apply implementation
-        run: node scripts/apply-machina-themes.mjs
+        run: |
+          node scripts/apply-machina-themes.mjs
+          node scripts/add-context-usage.mjs
       - name: Format changed files
         run: |
           pnpm exec prettier --write app/src app/tests common/types/ui.ts app/tailwind.config.cjs app/index.html package.json
