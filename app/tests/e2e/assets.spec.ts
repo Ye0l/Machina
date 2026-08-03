@@ -72,6 +72,7 @@ test.describe('character assets', () => {
     const rendered = app.locator('button.chat-asset-frame img.chat-asset').first()
     await expect(rendered).toBeVisible()
     await expect(rendered).toHaveAttribute('alt', 'smiling')
+    await expect(rendered).toHaveCSS('object-fit', 'contain')
     await expect(
       rendered.locator('xpath=ancestor::div[contains(@class,"rendered-markdown")]')
     ).toHaveCount(0)
