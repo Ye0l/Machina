@@ -26,7 +26,9 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - name: Apply fix
-        run: node scripts/apply-risu-runtime-fix.mjs
+        run: |
+          node scripts/apply-risu-runtime-fix.mjs
+          node scripts/fix-risu-preview-test.mjs
       - name: Format
         run: pnpm exec prettier --write common/risu-toggles.ts app/src/lib/prompt-preview.ts app/src/lib/generate.ts app/src/routes/Settings.svelte app/tests/unit/prompt-preview.spec.ts app/tests/unit/risu-toggles.spec.ts app/tests/e2e/risu-runtime.spec.ts package.json
       - name: Validate
