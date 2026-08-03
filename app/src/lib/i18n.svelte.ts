@@ -141,7 +141,6 @@ const korean: Record<string, string> = {
   'No display regex rules.': '표시 정규식 규칙이 없습니다.',
   'Preview input': '미리보기 입력',
   'Preview output': '미리보기 결과',
-  Enabled: '활성화',
   'Maintain a story summary': '스토리 요약 유지',
   'Summary context budget': '요약 컨텍스트 예산',
   'Summary update threshold': '요약 갱신 주기 (메시지 수)',
