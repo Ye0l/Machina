@@ -139,7 +139,6 @@ const korean: Record<string, string> = {
   'Clear all': '전체 초기화',
   Setting: '세계관',
   Story: '플롯',
-  Characters: '등장인물',
   'Same as the main provider': '메인 프로바이더와 동일',
   'Keeps a running summary of the messages that have fallen out of the context window, and injects it as {{summary}}.':
     '컨텍스트 창에서 밀려난 메시지를 요약해 계속 유지하고, {{summary}} 자리에 넣습니다.',

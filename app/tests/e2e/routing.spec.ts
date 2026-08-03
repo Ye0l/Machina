@@ -9,6 +9,16 @@ test.describe('deep links', () => {
     expectNoPageErrors(app)
   })
 
+  test('shows the deployed build version and revision', async ({ app }) => {
+    await app.goto('/')
+    await waitForLibrary(app)
+
+    const version = app.locator('[data-testid="build-version"]:visible').first()
+    await expect(version).toBeVisible()
+    await expect(version).toContainText(/v1\.0\.27/)
+    await expect(version).toContainText('·')
+  })
+
   test('/chat/:id loads the chat on a cold load', async ({ app }) => {
     await app.goto('/chat/chat-1')
     await expect(app.getByText('Greetings from Aria.')).toBeVisible()

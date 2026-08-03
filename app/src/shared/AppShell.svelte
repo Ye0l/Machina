@@ -7,6 +7,7 @@
   import { promptTemplates } from '/app/lib/prompt-templates.svelte'
   import { i18n } from '/app/lib/i18n.svelte'
   import { router, routes } from '/app/lib/router.svelte'
+  import { APP_VERSION, BUILD_DETAILS, BUILD_LABEL } from '/app/lib/build'
   import CharacterEditor from '/app/routes/CharacterEditor.svelte'
   import CharacterWorkspace from '/app/routes/CharacterWorkspace.svelte'
   import Characters from '/app/routes/Characters.svelte'
@@ -80,16 +81,25 @@
     class="hidden h-full shrink-0 border-r border-neutral-800/80 bg-[#0d1118] transition-[width] duration-200 motion-reduce:transition-none md:block"
   >
     {#if sidebarCollapsed}
-      <div class="flex h-16 items-center justify-center border-b border-neutral-800/80">
-        <button
-          class="icon-button"
-          type="button"
-          aria-label={i18n.t('Expand sidebar')}
-          title={i18n.t('Expand sidebar')}
-          onclick={() => setSidebarCollapsed(false)}
-        >
-          <PanelLeftOpen size={19} />
-        </button>
+      <div class="flex h-full flex-col">
+        <div class="flex h-16 items-center justify-center border-b border-neutral-800/80">
+          <button
+            class="icon-button"
+            type="button"
+            aria-label={i18n.t('Expand sidebar')}
+            title={i18n.t('Expand sidebar')}
+            onclick={() => setSidebarCollapsed(false)}
+          >
+            <PanelLeftOpen size={19} />
+          </button>
+        </div>
+        <div class="mt-auto border-t border-neutral-800/80 p-2">
+          <span
+            class="block rounded-md bg-violet-500/15 px-1 py-1.5 text-center font-mono text-[9px] font-semibold text-violet-200"
+            data-testid="build-version"
+            title={BUILD_DETAILS}>v{APP_VERSION}</span
+          >
+        </div>
       </div>
     {:else}
       <Sidebar
@@ -115,6 +125,11 @@
         <Menu size={20} />
       </button>
       <span class="text-sm font-semibold tracking-wide text-white">Agnai</span>
+      <span
+        class="ml-auto rounded-md border border-violet-500/30 bg-violet-500/10 px-2 py-1 font-mono text-[10px] font-semibold text-violet-200"
+        data-testid="build-version"
+        title={BUILD_DETAILS}>{BUILD_LABEL}</span
+      >
     </header>
 
     <main class="min-h-0 min-w-0 flex-1 overflow-hidden">
