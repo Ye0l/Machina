@@ -330,7 +330,10 @@ class SettingsStore {
             ? { [input.secondaryProviderId]: input.secondaryModel.trim() }
             : {}),
         },
-        temporary: withDisplayRegexRules(existing ?? {}, input.displayRegexRules).temporary,
+        temporary: withDisplayRegexRules(
+          { temporary: existing?.temporary },
+          input.displayRegexRules
+        ).temporary,
       }
 
       if (existing) {
