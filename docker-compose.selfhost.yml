@@ -4,25 +4,23 @@
 # against a locally-run server (`pnpm run up`). Use this file to run the built app.
 #
 #   cp .env.selfhost.example .env   # then edit it
-#   pnpm run docker:up               # runs the published image
-#   pnpm run docker:build            # builds this checkout instead
+#   pnpm run docker:up               # runs the available image
+#   pnpm run docker:build            # builds this checkout and runs that local image
 #
 # The project name differs from the development stack's so the two can coexist.
 name: agnai-selfhost
 
 services:
   app:
-    # Both keys on purpose, so neither deployment style needs this file edited:
+    # Both keys are intentional:
     #
-    #   docker compose ... up -d            pulls the published image (pull_policy: always,
-    #                                       so an updated :dev is picked up without a
-    #                                       separate `pull` -- a plain `up -d` reuses a
-    #                                       cached tag otherwise)
-    #   docker compose ... up -d --build    builds from this checkout and tags it as below
+    #   docker compose ... up -d            uses the available :dev image, pulling it when absent
+    #   docker compose ... up -d --build    builds from this checkout and keeps that local image
     #
-    # `pnpm run docker:up` does the first, `pnpm run docker:build` the second.
+    # `always` must not be used here. The local build is tagged with the same image name, and an
+    # unconditional pull can replace it with the older registry image immediately before startup.
     image: ghcr.io/ye0l/agnai:${TAG:-dev}
-    pull_policy: always
+    pull_policy: missing
     build:
       context: .
       args:
