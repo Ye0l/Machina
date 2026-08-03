@@ -50,6 +50,7 @@ export type SendMessageBody = {
   kind?: string
   /** Source of the message's `characterId` and `name` (srv/api/chat/message.ts:108,135). */
   impersonate?: AppSchema.Character
+  meta?: unknown
 }
 
 export type SendMessageResponse = { success: boolean; message: AppSchema.ChatMessage }

@@ -2,6 +2,7 @@
   import { tick } from 'svelte'
   import {
     ArrowLeft,
+    Bug,
     Check,
     ChevronLeft,
     ChevronRight,
@@ -22,6 +23,11 @@
   import { i18n } from '/app/lib/i18n.svelte'
   import { isRouterClick, router, routes } from '/app/lib/router.svelte'
   import { renderMarkdown } from '/app/lib/markdown'
+  import {
+    readGenerationSummary,
+    type GenerationRequestDebug,
+    type GenerationSummary,
+  } from '/app/lib/generation-debug'
   import { applyPresetDisplayRegex } from '/common/display-regex'
   import { ASSET_TAG_PATTERN, findAsset } from '/common/assets'
   import { groupByFolder } from '/common/folders'
@@ -83,6 +89,10 @@
   let draft = $state('')
   let messageList: HTMLOListElement
   let expandedAsset = $state<{ name: string; src: string } | null>(null)
+  let generationDebug = $state<{
+    summary: GenerationSummary
+    request?: GenerationRequestDebug
+  } | null>(null)
 
   /** `userId` marks the sender, not `characterId`: an impersonated message carries both. */
   const fromUser = (message: AppSchema.ChatMessage) => !!message.userId
@@ -303,7 +313,8 @@
 <svelte:window
   onkeydown={(event) => {
     if (event.key !== 'Escape') return
-    if (expandedAsset) expandedAsset = null
+    if (generationDebug) generationDebug = null
+    else if (expandedAsset) expandedAsset = null
     else if (mobileHeaderOpen) mobileHeaderOpen = false
   }}
 />
@@ -616,9 +627,11 @@
     {#each chats.messages as message (message._id)}
       {@const isUser = fromUser(message)}
       {@const character = isUser ? undefined : characterOf(message.characterId)}
+      {@const generation = isUser ? undefined : readGenerationSummary(message)}
       {@const isLast = message._id === chats.messages.at(-1)?._id}
       <li
         class:flex-row-reverse={isUser}
+        class:hidden={chats.rerollingMessageId === message._id}
         class="mx-auto flex w-full {widthClass} items-start gap-3"
       >
         {#if showAvatars}
@@ -722,6 +735,25 @@
                 {/if}
               {/each}
             </div>
+          {/if}
+          {#if generation}
+            <button
+              class="mt-1 flex max-w-full items-center gap-1.5 truncate text-[10px] text-neutral-600 transition hover:text-neutral-400"
+              type="button"
+              data-testid={`generation-debug-${message._id}`}
+              aria-label={i18n.t('View generation request')}
+              title={i18n.t('View generation request')}
+              onclick={() =>
+                (generationDebug = {
+                  summary: generation,
+                  request: chats.generationRequest(message._id),
+                })}
+            >
+              <Bug size={11} />
+              <span class="truncate">
+                {generation.model} · {i18n.t('{count} tokens', { count: generation.outputTokens })}
+              </span>
+            </button>
           {/if}
           <div class="mt-1 flex min-h-7 items-center gap-1" class:justify-end={isUser}>
             {#if !isUser && message.retries?.length}
@@ -896,6 +928,73 @@
       </div>
     </form>
   </div>
+
+  {#if generationDebug}
+    <div
+      class="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-6"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="generation-request-title"
+    >
+      <button
+        class="absolute inset-0 bg-black/80 backdrop-blur-sm"
+        type="button"
+        aria-label={i18n.t('Close')}
+        onclick={() => (generationDebug = null)}
+      >
+        <span class="sr-only">{i18n.t('Close')}</span>
+      </button>
+      <section
+        class="relative z-10 flex max-h-[90vh] w-full max-w-5xl flex-col overflow-hidden rounded-xl border border-neutral-700 bg-[#0d1118] shadow-2xl"
+      >
+        <header class="flex shrink-0 items-center gap-3 border-b border-neutral-800 px-4 py-3">
+          <Bug size={17} class="text-violet-300" />
+          <div class="min-w-0 flex-1">
+            <h2 id="generation-request-title" class="text-sm font-semibold text-neutral-100">
+              {i18n.t('Generation request')}
+            </h2>
+            <p class="truncate text-xs text-neutral-500">
+              {generationDebug.summary.model} · {i18n.t('{count} tokens', {
+                count: generationDebug.summary.outputTokens,
+              })}
+            </p>
+          </div>
+          <button
+            class="icon-button"
+            type="button"
+            aria-label={i18n.t('Close')}
+            onclick={() => (generationDebug = null)}
+          >
+            <X size={18} />
+          </button>
+        </header>
+        <div class="min-h-0 flex-1 overflow-auto p-4">
+          {#if generationDebug.request}
+            <p class="mb-3 text-xs text-neutral-500">
+              {i18n.t(
+                'The actual inference payload is shown without account or authentication data.'
+              )}
+            </p>
+            <pre
+              class="whitespace-pre-wrap break-words rounded-lg border border-neutral-800 bg-black/30 p-3 font-mono text-xs leading-5 text-neutral-300"
+              data-testid="generation-request-body">{JSON.stringify(
+                generationDebug.request,
+                null,
+                2
+              )}</pre>
+          {:else}
+            <p
+              class="rounded-lg border border-dashed border-neutral-800 p-4 text-sm text-neutral-500"
+            >
+              {i18n.t(
+                'Request details are only kept for generations made in this browser session.'
+              )}
+            </p>
+          {/if}
+        </div>
+      </section>
+    </div>
+  {/if}
 
   {#if expandedAsset}
     <div

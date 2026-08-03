@@ -489,6 +489,12 @@ const korean: Record<string, string> = {
   'Hide preview': '미리보기 닫기',
   'Rendered with sample data': '예시 데이터로 렌더링한 결과',
   '{count} tokens': '{count} 토큰',
+  'View generation request': '생성 요청 보기',
+  'Generation request': '생성 요청',
+  'The actual inference payload is shown without account or authentication data.':
+    '계정 및 인증 정보를 제외한 실제 추론 요청 본문입니다.',
+  'Request details are only kept for generations made in this browser session.':
+    '요청 전문은 현재 브라우저 세션에서 생성한 답변에만 보관됩니다.',
   'Could not render the prompt.': '프롬프트를 렌더링하지 못했습니다.',
   'Delete template “{name}”?': '템플릿 “{name}”을(를) 삭제할까요?',
   'Global system prompt': '전역 시스템 프롬프트',

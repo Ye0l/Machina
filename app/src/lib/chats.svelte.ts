@@ -13,6 +13,15 @@ import type { ChatSummaries, SummaryCategory } from '/common/summary'
 import { api } from './api'
 import { books } from './books.svelte'
 import { cancelGeneration, generateLastReply, sendMessage, type SendControl } from './generate'
+import {
+  archiveVisibleVariant,
+  generationSummary,
+  readGenerationSummary,
+  readRetryGenerationSummaries,
+  rotateVariantState,
+  writeGenerationMeta,
+  type GenerationRequestStack,
+} from './generation-debug'
 import { personas } from './personas.svelte'
 import { toImpersonate } from '/common/persona'
 import { session } from './session.svelte'
@@ -55,6 +64,10 @@ class Chats {
   stopping = $state(false)
   /** Current visible position for messages with alternate responses. */
   variantPositions = $state<Record<string, number>>({})
+  /** Existing reply hidden while its replacement streams. */
+  rerollingMessageId = $state<string | undefined>()
+  /** Full inference requests are session-only to avoid duplicating the whole context in MongoDB. */
+  generationRequests = $state<Record<string, GenerationRequestStack>>({})
   private control: SendControl | undefined
 
   loading = $state(false)
@@ -224,6 +237,10 @@ class Chats {
     if (this.detail) this.detail = { ...this.detail, messages }
   }
 
+  generationRequest(messageId: string) {
+    return this.generationRequests[messageId]?.current
+  }
+
   async send(text: string) {
     const detail = this.detail
     const user = session.user
@@ -262,6 +279,12 @@ class Chats {
 
       // Re-read rather than splice locally: the server assigns ids, parents and timestamps.
       await this.openChat(detail.chat._id)
+      if (result.botMessage && result.debug) {
+        this.generationRequests = {
+          ...this.generationRequests,
+          [result.botMessage._id]: { current: result.debug.request, retries: [] },
+        }
+      }
       return result
     } catch (ex) {
       this.error = ex instanceof Error ? ex.message : 'Generation failed'
@@ -306,8 +329,7 @@ class Chats {
 
     const last = this.messages.at(-1)
     if (!last) return
-    // `userId`, not `characterId`: an impersonated user message carries both
-    // (srv/api/chat/message.ts:135), so a persona would otherwise look like a bot reply.
+    // `userId`, not `characterId`: an impersonated user message carries both.
     const rerolling = !last.userId
     const promptMessages = rerolling ? this.messages.slice(0, -1) : this.messages
     if (!promptMessages.length || !promptMessages.at(-1)?.userId) return
@@ -318,25 +340,29 @@ class Chats {
     this.stopping = false
     this.partial = ''
     this.error = ''
+    if (rerolling) this.rerollingMessageId = last._id
 
-    const preset = this.resolvePreset(detail.chat.genPreset)
+    // Resolve at click time from the live session preset. No request or settings from the old
+    // response are reused.
+    const preset = this.resolvePreset(this.detail?.chat.genPreset ?? detail.chat.genPreset)
 
     try {
-      const reply = await generateLastReply(
+      const result = await generateLastReply(
         { ...detail, messages: promptMessages },
         user,
         profile,
         preset,
         {
           onPartial: (value) => (this.partial = value),
-          onDone: () => (this.partial = ''),
+          // Keep the completed text visible as the streaming bubble until persistence finishes.
+          onDone: (value) => (this.partial = value),
           onError: (value) => (this.error = value),
         },
         control,
         this.memoryBook(),
         this.impersonate()
       )
-      if (!reply || control.stopped) return
+      if (!result || control.stopped) return
 
       if (rerolling) {
         const priorRetries = last.retries ?? []
@@ -347,29 +373,70 @@ class Chats {
         priorRetries.forEach((text, index) => {
           retries[(currentPosition + index + 1) % priorTotal] = text
         })
-        await api.put(`/chat/${last._id}/message-swap`, { msg: reply, retries })
+
+        const priorSummaries = readRetryGenerationSummaries(last)
+        const summarySlots = Array.from(
+          { length: priorRetries.length },
+          (_, index) => priorSummaries[index]
+        )
+        const retryGenerations = archiveVisibleVariant(
+          readGenerationSummary(last),
+          summarySlots,
+          currentPosition
+        )
+        const meta = writeGenerationMeta(
+          last.meta,
+          generationSummary(result.debug),
+          retryGenerations
+        )
+
+        const priorRequests = this.generationRequests[last._id] ?? {}
+        const requestSlots = Array.from(
+          { length: priorRetries.length },
+          (_, index) => priorRequests.retries?.[index]
+        )
+        const retryRequests = archiveVisibleVariant(
+          priorRequests.current,
+          requestSlots,
+          currentPosition
+        )
+
+        await api.put(`/chat/${last._id}/message-swap`, {
+          msg: result.text,
+          retries,
+          meta,
+        })
         this.setMessages(
           this.messages.map((message) =>
-            message._id === last._id ? { ...message, msg: reply, retries } : message
+            message._id === last._id ? { ...message, msg: result.text, retries, meta } : message
           )
         )
         this.variantPositions = {
           ...this.variantPositions,
           [last._id]: retries.length,
         }
+        this.generationRequests = {
+          ...this.generationRequests,
+          [last._id]: { current: result.debug.request, retries: retryRequests },
+        }
       } else {
         const char =
           detail.character ??
           detail.characters.find((character) => character._id === detail.chat.characterId)
         if (!char) throw new Error('Chat has no character')
-        await api.post<SendMessageResponse>(`/chat/${detail.chat._id}/send`, {
-          text: reply,
+        const created = await api.post<SendMessageResponse>(`/chat/${detail.chat._id}/send`, {
+          text: result.text,
           messageId: crypto.randomUUID(),
           parent: last._id,
           bot: true,
           impersonate: char,
+          meta: { generation: generationSummary(result.debug) },
         })
         await this.openChat(detail.chat._id)
+        this.generationRequests = {
+          ...this.generationRequests,
+          [created.message._id]: { current: result.debug.request, retries: [] },
+        }
       }
     } catch (ex) {
       this.error = ex instanceof Error ? ex.message : 'Retry failed'
@@ -378,6 +445,7 @@ class Chats {
       this.stopping = false
       this.partial = ''
       this.control = undefined
+      if (this.rerollingMessageId === last._id) this.rerollingMessageId = undefined
     }
   }
 
@@ -471,17 +539,44 @@ class Chats {
     const total = retries.length + 1
     const currentPosition = this.variantPositions[messageId] ?? 0
     const nextPosition = (currentPosition + direction + total) % total
-    const nextMsg = direction === 1 ? retries[0] : retries.at(-1)!
-    const nextRetries =
-      direction === 1 ? [...retries.slice(1), message.msg] : [message.msg, ...retries.slice(0, -1)]
-    const updated = { ...message, msg: nextMsg, retries: nextRetries }
+    const rotatedText = rotateVariantState(message.msg, retries, direction)
+
+    const persistedRetries = readRetryGenerationSummaries(message)
+    const summarySlots = Array.from(
+      { length: retries.length },
+      (_, index) => persistedRetries[index]
+    )
+    const rotatedSummary = rotateVariantState(
+      readGenerationSummary(message),
+      summarySlots,
+      direction
+    )
+    const meta = writeGenerationMeta(message.meta, rotatedSummary.current, rotatedSummary.retries)
+
+    const previousRequests = this.generationRequests[messageId]
+    const requestSlots = Array.from(
+      { length: retries.length },
+      (_, index) => previousRequests?.retries?.[index]
+    )
+    const rotatedRequests = rotateVariantState(previousRequests?.current, requestSlots, direction)
+    const updated = {
+      ...message,
+      msg: rotatedText.current ?? '',
+      retries: rotatedText.retries as string[],
+      meta,
+    }
 
     this.setMessages(this.messages.map((item) => (item._id === messageId ? updated : item)))
     this.variantPositions = { ...this.variantPositions, [messageId]: nextPosition }
+    this.generationRequests = {
+      ...this.generationRequests,
+      [messageId]: rotatedRequests,
+    }
     try {
       await api.put(`/chat/${messageId}/message-swap`, {
-        msg: nextMsg,
-        retries: nextRetries,
+        msg: updated.msg,
+        retries: updated.retries,
+        meta,
       })
     } catch (ex) {
       this.setMessages(this.messages.map((item) => (item._id === messageId ? message : item)))
@@ -489,6 +584,10 @@ class Chats {
         ...this.variantPositions,
         [messageId]: currentPosition,
       }
+      const requests = { ...this.generationRequests }
+      if (previousRequests) requests[messageId] = previousRequests
+      else delete requests[messageId]
+      this.generationRequests = requests
       this.error = ex instanceof Error ? ex.message : 'Failed to switch swipe'
     }
   }

@@ -111,7 +111,13 @@ export const updateMessage = handle(async ({ body, params, userId }) => {
 
 export const swapMessage = handle(async ({ body, params, userId }) => {
   assertValid(
-    { imagePrompt: 'string?', msg: 'string?', extras: ['string?'], retries: ['string?'] },
+    {
+      imagePrompt: 'string?',
+      msg: 'string?',
+      extras: ['string?'],
+      retries: ['string?'],
+      meta: 'any?',
+    },
     body
   )
 
@@ -124,6 +130,7 @@ export const swapMessage = handle(async ({ body, params, userId }) => {
     msg: body.msg ?? prev.msg.msg,
     retries: body.retries,
     extras: body.extras || prev.msg.extras,
+    meta: body.meta ?? prev.msg.meta,
   }
 
   const message = await store.msgs.editMessage(params.id, {
@@ -139,6 +146,7 @@ export const swapMessage = handle(async ({ body, params, userId }) => {
     imagePrompt: body.imagePrompt || prev.msg.imagePrompt,
     message: body.msg || prev.msg.msg,
     extras: body.extras || prev.msg.extras,
+    meta: body.meta ?? prev.msg.meta,
   })
 
   return message
