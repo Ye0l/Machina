@@ -186,7 +186,9 @@
 
 {#if settingsMode || (route.name === 'chat' && activeConfig && interactiveDefinitions.length)}
   <button
-    class="fixed bottom-5 right-5 z-30 flex items-center gap-2 rounded-full border border-violet-700/70 bg-violet-950/95 px-4 py-2.5 text-sm font-medium text-violet-100 shadow-xl backdrop-blur hover:bg-violet-900"
+    class="fixed right-4 z-30 flex items-center gap-2 rounded-full sm:right-5 {settingsMode
+      ? 'bottom-5'
+      : 'bottom-[calc(5.75rem+env(safe-area-inset-bottom))]'} border border-violet-700/70 bg-violet-950/95 px-4 py-2.5 text-sm font-medium text-violet-100 shadow-xl backdrop-blur hover:bg-violet-900"
     type="button"
     aria-expanded={open}
     onclick={() => (open = !open)}
@@ -305,7 +307,7 @@
 
 {#if open && route.name === 'chat' && activeConfig}
   <section
-    class="fixed bottom-20 right-5 z-40 max-h-[72vh] w-[min(25rem,calc(100vw-2rem))] overflow-y-auto rounded-xl border border-neutral-700 bg-[#10151d] shadow-2xl"
+    class="fixed bottom-[calc(9.5rem+env(safe-area-inset-bottom))] right-4 z-40 max-h-[calc(100vh-11rem)] w-[min(25rem,calc(100vw-2rem))] overflow-y-auto rounded-xl border border-neutral-700 bg-[#10151d] shadow-2xl sm:right-5"
     aria-label={text('Prompt toggles', '프롬프트 토글')}
   >
     <header

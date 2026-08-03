@@ -137,11 +137,13 @@ export async function sendMessage(
     encoder
   )
 
+  const request = inferencePrompt(prompt, messages)
   const reply = await stream(
     control.requestId,
     // Appended after assembly rather than through a placeholder: an asset the model was never
     // told about can never be shown, so this must not depend on the user editing a template.
-    withAssetInstruction(prompt.template.parsed, char.assets),
+    withAssetInstruction(request.prompt, char.assets),
+    request.messages,
     settings,
     user,
     chat._id,
@@ -224,11 +226,13 @@ export async function generateLastReply(
     encoder
   )
 
+  const request = inferencePrompt(prompt, messages)
   const reply = await stream(
     control.requestId,
     // Appended after assembly rather than through a placeholder: an asset the model was never
     // told about can never be shown, so this must not depend on the user editing a template.
-    withAssetInstruction(prompt.template.parsed, char.assets),
+    withAssetInstruction(request.prompt, char.assets),
+    request.messages,
     settings,
     user,
     chat._id,
@@ -240,6 +244,33 @@ export async function generateLastReply(
 }
 
 /**
+ * Prefer the structured role blocks produced by the template parser. Gemini rejects a request
+ * that contains only a system instruction, so imported Risu templates that placed chat history
+ * inside system blocks get the latest user turn appended as a real user message. The flat prompt
+ * remains available for completion-style adapters.
+ */
+function inferencePrompt(
+  assembled: Awaited<ReturnType<typeof createPromptParts>>,
+  history: AppSchema.ChatMessage[]
+) {
+  const prompt = (assembled.template.parsed || assembled.template.blockPrompt || '').trim()
+  const messages = assembled.template.blocks
+    .filter((block) => block.content.trim())
+    .map((block) => ({ role: block.role, content: block.content.trim() }))
+
+  if (!messages.some((block) => block.role === 'user')) {
+    const latest = [...history].reverse().find((message) => !!message.userId && message.msg.trim())
+    if (latest) messages.push({ role: 'user', content: latest.msg.trim() })
+  }
+
+  if (!prompt && !messages.length) {
+    throw new Error('The imported preset produced an empty inference request')
+  }
+
+  return { prompt, messages }
+}
+
+/**
  * `POST /chat/inference-stream` answers over the WebSocket as well as SSE
  * (`srv/api/chat/inference.ts` `wrapped`). The socket is used here so that the HTTP call
  * stays a plain JSON request.
@@ -247,6 +278,7 @@ export async function generateLastReply(
 async function stream(
   requestId: string,
   prompt: string,
+  messages: Array<{ role: string; content: string }>,
   settings: Partial<AppSchema.GenSettings> | undefined,
   user: AppSchema.User,
   chatId: string,
@@ -296,7 +328,7 @@ async function stream(
     )
 
     api
-      .post('/chat/inference-stream', { requestId, prompt, settings, user, chatId })
+      .post('/chat/inference-stream', { requestId, prompt, messages, settings, user, chatId })
       .catch((ex: unknown) => fail(ex instanceof Error ? ex.message : 'Request failed'))
   })
 }
