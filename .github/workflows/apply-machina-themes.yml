@@ -32,12 +32,12 @@ jobs:
           node scripts/add-context-usage.mjs
       - name: Format changed files
         run: |
-          pnpm exec prettier --write app/src app/tests common/types/ui.ts app/tailwind.config.cjs app/index.html package.json
-          pnpm exec prettier --write app/src/routes/Settings.svelte
-          pnpm exec prettier --write app/src/routes/Settings.svelte
-          pnpm exec prettier --check app/src/routes/Settings.svelte
+          for pass in 1 2 3; do
+            pnpm exec prettier --write app/src app/tests common/types/ui.ts app/tailwind.config.cjs app/index.html package.json
+          done
+          pnpm run format
       - name: Validate
-        run: pnpm run check
+        run: pnpm run typecheck && pnpm run test && pnpm run test:unit
       - name: Browser tests
         run: pnpm run test:e2e
       - name: Commit implementation
