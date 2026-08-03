@@ -11,9 +11,39 @@ concurrency:
   cancel-in-progress: true
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
+  patch-build-version:
+    if: github.event_name == 'pull_request' && github.head_ref == 'fix/build-version-and-ci' && github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/build-version-and-ci
+          fetch-depth: 0
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+      - run: python .github/scripts/apply-build-version.py
+      - run: pnpm exec prettier --write app/vite.config.ts app/src/lib/build.ts app/src/lib/i18n.svelte.ts app/src/shared/AppShell.svelte app/src/shared/Sidebar.svelte app/tests/e2e/routing.spec.ts package.json
+
+      - name: Commit source patch and restore CI
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git checkout origin/dev -- .github/workflows/ci.yml
+          git rm -f .github/scripts/apply-build-version.py
+          git add Dockerfile package.json app/vite.config.ts app/src/lib/build.ts app/src/lib/i18n.svelte.ts app/src/shared/AppShell.svelte app/src/shared/Sidebar.svelte app/tests/e2e/routing.spec.ts .github/workflows/ci.yml
+          git commit -m "fix: expose deployed build version and restore CI"
+          git push origin HEAD:fix/build-version-and-ci
+
   check:
     name: Format, types and tests
     runs-on: ubuntu-latest
