@@ -39,10 +39,9 @@ describe('display regex rules', () => {
   })
 
   it('stores rules inside temporary metadata without dropping other features', () => {
-    const preset = withDisplayRegexRules(
-      { temporary: { risuPromptToggles: { version: 1 } } },
-      [rule()]
-    )
+    const preset = withDisplayRegexRules({ temporary: { risuPromptToggles: { version: 1 } } }, [
+      rule(),
+    ])
 
     expect(preset.temporary?.risuPromptToggles).toEqual({ version: 1 })
     expect(getDisplayRegexRules(preset)).toEqual([rule()])

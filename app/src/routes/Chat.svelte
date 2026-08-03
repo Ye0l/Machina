@@ -22,6 +22,7 @@
   import { i18n } from '/app/lib/i18n.svelte'
   import { isRouterClick, router, routes } from '/app/lib/router.svelte'
   import { renderMarkdown } from '/app/lib/markdown'
+  import { applyPresetDisplayRegex } from '/common/display-regex'
   import { ASSET_TAG_PATTERN, findAsset } from '/common/assets'
   import { groupByFolder } from '/common/folders'
   import {
@@ -47,6 +48,9 @@
   }
 
   const detail = $derived(chats.detail!)
+  const activePreset = $derived(
+    session.presets.find((preset) => preset._id === detail.chat.genPreset)
+  )
   const ui = $derived(uiSettings.settings)
   const showAvatars = $derived(ui.chatAvatarMode !== false && ui.avatarSize !== 'hide')
   const avatarPx = $derived(
@@ -102,8 +106,12 @@
    * chat's headline character, and `{{user}}` to the active persona when there is one --
    * matching what `common/prompt.ts` puts in the prompt.
    */
-  const displayMessage = (text: string, speaker?: AppSchema.Character) =>
-    text
+  const displayMessage = (
+    text: string,
+    speaker?: AppSchema.Character,
+    transformBotOutput = false
+  ) => {
+    const resolved = text
       .replace(
         /\{\{user\}\}/gi,
         personas.selected?.name ||
@@ -112,6 +120,9 @@
           i18n.t('You')
       )
       .replace(/\{\{char\}\}/gi, speaker?.name || detail.character?.name || detail.chat.name)
+
+    return transformBotOutput ? applyPresetDisplayRegex(resolved, activePreset) : resolved
+  }
 
   type RenderedBodyPart =
     | { kind: 'text'; html: string }
@@ -123,8 +134,12 @@
    * RisuAI treats additional assets as media blocks rather than raw HTML inside Markdown;
    * doing the same also prevents Showdown/DOMPurify from swallowing or rewriting the image.
    */
-  const renderBody = (text: string, speaker?: AppSchema.Character): RenderedBodyPart[] => {
-    const displayed = displayMessage(text, speaker)
+  const renderBody = (
+    text: string,
+    speaker?: AppSchema.Character,
+    transformBotOutput = false
+  ): RenderedBodyPart[] => {
+    const displayed = displayMessage(text, speaker, transformBotOutput)
     const pattern = new RegExp(ASSET_TAG_PATTERN.source, ASSET_TAG_PATTERN.flags)
     const parts: RenderedBodyPart[] = []
     let cursor = 0
@@ -677,7 +692,7 @@
                 : 'rounded-tl-md'}"
               style:opacity={msgOpacity}
             >
-              {#each renderBody(message.msg, character) as part}
+              {#each renderBody(message.msg, character, !isUser) as part}
                 {#if part.kind === 'asset'}
                   <button
                     class="chat-asset-frame group block w-full max-w-[32rem] overflow-hidden rounded-xl border border-neutral-700/70 bg-black/40"
@@ -793,7 +808,7 @@
             class="chat-message-body space-y-2 rounded-2xl rounded-tl-md bg-[#151a23] px-4 py-3 leading-6 text-neutral-200"
             style:opacity={msgOpacity}
           >
-            {#each renderBody(chats.partial, detail.character) as part}
+            {#each renderBody(chats.partial, detail.character, true) as part}
               {#if part.kind === 'asset'}
                 <button
                   class="chat-asset-frame group block w-full max-w-[32rem] overflow-hidden rounded-xl border border-neutral-700/70 bg-black/40"

@@ -61,6 +61,12 @@
   } from '/common/summary'
   import { BUILTIN_TEMPLATE_IDS, promptTemplates } from '/app/lib/prompt-templates.svelte'
   import { renderPromptPreview, type PromptPreview } from '/app/lib/prompt-preview'
+  import {
+    applyDisplayRegexRules,
+    displayRegexError,
+    getDisplayRegexRules,
+    type DisplayRegexRule,
+  } from '/common/display-regex'
   import type { SettingsTab } from '/app/lib/router.svelte'
 
   // The visible tab is owned by the route (`/settings/:tab`) so it survives a reload and
@@ -233,6 +239,7 @@
     summaryCategories: Record<SummaryCategory, boolean>
     secondaryProviderId: string
     secondaryModel: string
+    displayRegexRules: DisplayRegexRule[]
   }
 
   const MODEL_FORMAT_OPTIONS = Object.keys(BUILTIN_FORMATS) as ModelFormat[]
@@ -279,6 +286,36 @@
   let preview = $state<PromptPreview | null>(null)
   let previewing = $state(false)
   let previewError = $state('')
+  let displayRegexPreviewSource = $state('<think>hidden thought</think>\nVisible response')
+  const displayRegexPreviewOutput = $derived(
+    applyDisplayRegexRules(displayRegexPreviewSource, presetForm.displayRegexRules)
+  )
+
+  const newDisplayRegexRule = (): DisplayRegexRule => ({
+    id: crypto.randomUUID(),
+    name: '',
+    enabled: true,
+    pattern: '',
+    flags: 'g',
+    replacement: '',
+  })
+
+  function addDisplayRegexRule() {
+    presetForm.displayRegexRules = [...presetForm.displayRegexRules, newDisplayRegexRule()]
+  }
+
+  function removeDisplayRegexRule(index: number) {
+    presetForm.displayRegexRules = presetForm.displayRegexRules.filter((_, at) => at !== index)
+  }
+
+  function moveDisplayRegexRule(index: number, delta: number) {
+    const target = index + delta
+    if (target < 0 || target >= presetForm.displayRegexRules.length) return
+    const next = presetForm.displayRegexRules.slice()
+    const [item] = next.splice(index, 1)
+    next.splice(target, 0, item)
+    presetForm.displayRegexRules = next
+  }
   /**
    * Model lookup for one provider/model pair. The preset form has two of them -- the roleplay model
    * and the secondary summariser model -- so the options list and the in-flight request counter
@@ -376,6 +413,7 @@
       summaryCategories: { world: true, plot: true, chars: true },
       secondaryProviderId: '',
       secondaryModel: '',
+      displayRegexRules: [],
     }
   }
 
@@ -428,6 +466,7 @@
       secondaryModel: preset.secondaryProviderId
         ? preset.secondaryProviderModels?.[preset.secondaryProviderId] ?? ''
         : '',
+      displayRegexRules: getDisplayRegexRules(preset),
     }
     presetNameError = ''
     presetPromptError = ''
@@ -642,6 +681,7 @@
       summaryCategories: presetForm.summaryCategories,
       secondaryProviderId: presetForm.secondaryProviderId,
       secondaryModel: presetForm.secondaryModel,
+      displayRegexRules: presetForm.displayRegexRules,
     }
     const existing = presets.find((p) => p._id === presetForm._id)
     if (await settings.savePreset(input, existing)) cancelPreset()
@@ -1533,6 +1573,141 @@
                               'Choose a discovered model or enter the exact model id manually.'
                           )}
                     </p>
+                  </div>
+                {/if}
+              </div>
+            </details>
+
+            <details
+              class="rounded-lg border border-neutral-800/80 bg-neutral-900/40 px-4 py-3"
+              data-testid="display-regex-settings"
+            >
+              <summary class="cursor-pointer text-sm font-medium text-neutral-200">
+                {i18n.t('Display regex')}
+              </summary>
+              <div class="mt-3 space-y-4">
+                <p class="field-hint">
+                  {i18n.t(
+                    'Transforms bot replies only while they are displayed. Stored messages, retries, summaries and prompts remain unchanged.'
+                  )}
+                </p>
+
+                {#each presetForm.displayRegexRules as rule, index (rule.id)}
+                  {@const ruleError = displayRegexError(rule)}
+                  <section
+                    class="space-y-3 rounded-lg border border-neutral-800 bg-[#0d1118]/60 p-3"
+                    data-testid="display-regex-rule"
+                  >
+                    <div class="flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        class="accent-violet-500"
+                        bind:checked={rule.enabled}
+                        aria-label={i18n.t('Enabled')}
+                      />
+                      <input
+                        class="field min-w-0 flex-1"
+                        type="text"
+                        bind:value={rule.name}
+                        placeholder={i18n.t('Rule name')}
+                        aria-label={i18n.t('Rule name')}
+                      />
+                      <button
+                        class="icon-button h-8 w-8"
+                        type="button"
+                        disabled={index === 0}
+                        aria-label={i18n.t('Move up')}
+                        title={i18n.t('Move up')}
+                        onclick={() => moveDisplayRegexRule(index, -1)}
+                      >
+                        <MoveUp size={15} />
+                      </button>
+                      <button
+                        class="icon-button h-8 w-8"
+                        type="button"
+                        disabled={index === presetForm.displayRegexRules.length - 1}
+                        aria-label={i18n.t('Move down')}
+                        title={i18n.t('Move down')}
+                        onclick={() => moveDisplayRegexRule(index, 1)}
+                      >
+                        <MoveDown size={15} />
+                      </button>
+                      <button
+                        class="icon-button h-8 w-8 text-neutral-500 hover:text-red-300"
+                        type="button"
+                        aria-label={i18n.t('Delete rule')}
+                        title={i18n.t('Delete rule')}
+                        onclick={() => removeDisplayRegexRule(index)}
+                      >
+                        <Trash2 size={15} />
+                      </button>
+                    </div>
+
+                    <div class="grid gap-3 sm:grid-cols-[minmax(0,1fr)_7rem]">
+                      <label class="field-group">
+                        <span class="field-label">{i18n.t('Pattern')}</span>
+                        <textarea
+                          class="field min-h-20 resize-y font-mono text-xs leading-5"
+                          bind:value={rule.pattern}
+                          spellcheck="false"
+                          placeholder="<think>[\s\S]*?</think>\s*"
+                        />
+                      </label>
+                      <label class="field-group">
+                        <span class="field-label">{i18n.t('Flags')}</span>
+                        <input
+                          class="field font-mono text-xs"
+                          type="text"
+                          bind:value={rule.flags}
+                          spellcheck="false"
+                          placeholder="gi"
+                        />
+                      </label>
+                    </div>
+
+                    <label class="field-group">
+                      <span class="field-label">{i18n.t('Replacement')}</span>
+                      <textarea
+                        class="field min-h-16 resize-y font-mono text-xs leading-5"
+                        bind:value={rule.replacement}
+                        spellcheck="false"
+                        placeholder="$1"
+                      />
+                    </label>
+                    {#if ruleError}
+                      <p class="text-xs text-red-300" role="alert">{ruleError}</p>
+                    {/if}
+                  </section>
+                {:else}
+                  <p
+                    class="rounded-lg border border-dashed border-neutral-800 px-3 py-4 text-center text-xs text-neutral-500"
+                  >
+                    {i18n.t('No display regex rules.')}
+                  </p>
+                {/each}
+
+                <button class="button-secondary" type="button" onclick={addDisplayRegexRule}>
+                  <Plus size={16} />
+                  {i18n.t('Add rule')}
+                </button>
+
+                {#if presetForm.displayRegexRules.length}
+                  <div class="grid gap-3 sm:grid-cols-2">
+                    <label class="field-group">
+                      <span class="field-label">{i18n.t('Preview input')}</span>
+                      <textarea
+                        class="field min-h-28 resize-y font-mono text-xs leading-5"
+                        bind:value={displayRegexPreviewSource}
+                        spellcheck="false"
+                        data-testid="display-regex-preview-input"
+                      />
+                    </label>
+                    <div class="field-group">
+                      <span class="field-label">{i18n.t('Preview output')}</span>
+                      <pre
+                        class="min-h-28 whitespace-pre-wrap break-words rounded-lg border border-neutral-800 bg-[#0d1118] px-3 py-2 font-mono text-xs leading-5 text-neutral-300"
+                        data-testid="display-regex-preview-output">{displayRegexPreviewOutput}</pre>
+                    </div>
                   </div>
                 {/if}
               </div>
