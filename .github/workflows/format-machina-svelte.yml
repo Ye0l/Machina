@@ -33,3 +33,4 @@ jobs:
           git add app/src/routes/Chat.svelte app/src/routes/Settings.svelte
           git commit -m "style: format Machina chat and settings views"
           git push origin HEAD:feat/machina-themes-scroll-v2
+# One-shot formatter trigger.
