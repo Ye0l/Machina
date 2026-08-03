@@ -1,3 +1,5 @@
+@import './themes.css';
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -15,8 +17,10 @@ body,
 body {
   margin: 0;
   overflow: hidden;
-  background: theme('colors.background');
-  color: #e5e7eb;
+  background: rgb(var(--app-bg));
+  background-image: var(--theme-background);
+  background-attachment: fixed;
+  color: rgb(var(--text-strong));
   font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   -webkit-font-smoothing: antialiased;
 }
@@ -33,7 +37,7 @@ button {
 }
 
 * {
-  scrollbar-color: #353b48 transparent;
+  scrollbar-color: rgb(var(--neutral-700)) transparent;
   scrollbar-width: thin;
 }
 
@@ -244,4 +248,33 @@ button {
   margin: 0.7em 0;
   border: 0;
   border-top: 1px solid theme('colors.neutral.700');
+}
+
+/* Machina semantic overrides for the few legacy arbitrary-color utilities. */
+.bg-\[\#0d1118\] {
+  background-color: rgb(var(--surface-panel)) !important;
+}
+
+.bg-\[\#151a23\] {
+  background-color: rgb(var(--surface-message)) !important;
+}
+
+.bg-\[\#0f131a\] {
+  background-color: rgb(var(--surface-input)) !important;
+}
+
+.button-primary,
+.bg-violet-600.text-white,
+.bg-purple-700 {
+  color: rgb(var(--accent-contrast)) !important;
+}
+
+html,
+body,
+.bg-background,
+.bg-background-lighter,
+.bg-\[\#0d1118\],
+.bg-\[\#151a23\],
+.bg-\[\#0f131a\] {
+  transition: background-color 140ms ease, color 140ms ease, border-color 140ms ease;
 }

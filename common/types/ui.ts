@@ -32,6 +32,31 @@ export const AVATAR_CORNERS = ['sm', 'md', 'lg', 'circle', 'none'] as const
 export const CHAT_WIDTHS = ['full', 'narrow', 'xl', '2xl', '3xl', 'fill'] as const
 
 export const UI_MODE = ['light', 'dark'] as const
+export const APP_THEMES = [
+  'default',
+  'agnoaster',
+  'gruvbox',
+  'automata',
+  'overdose',
+  'tokyo-night',
+  'nord',
+] as const
+export const APP_THEME_LABELS: Record<(typeof APP_THEMES)[number], string> = {
+  default: 'Default',
+  agnoaster: 'Agnoaster',
+  gruvbox: 'Gruvbox',
+  automata: 'Automata',
+  overdose: 'Overdose',
+  'tokyo-night': 'Tokyo Night',
+  nord: 'Nord Theme',
+}
+export const SCROLL_FOLLOW_MODES = ['always', 'when-at-bottom', 'never'] as const
+export const SCROLL_FOLLOW_LABELS: Record<(typeof SCROLL_FOLLOW_MODES)[number], string> = {
+  always: 'Always follow',
+  'when-at-bottom': 'Follow while at bottom',
+  never: 'Never follow',
+}
+
 export const UI_THEME = [
   'blue',
   'sky',
@@ -52,6 +77,12 @@ export const UI_THEME = [
 export type ThemeColor = (typeof UI_THEME)[number]
 export type ThemeBGColor = (typeof BG_THEME)[number]
 export type ThemeMode = (typeof UI_MODE)[number]
+export type AppTheme = (typeof APP_THEMES)[number]
+export type ScrollFollowMode = (typeof SCROLL_FOLLOW_MODES)[number]
+
+export function normalizeAppTheme(value: string | undefined): AppTheme {
+  return APP_THEMES.includes(value as AppTheme) ? (value as AppTheme) : 'default'
+}
 export type AvatarSize = (typeof AVATAR_SIZES)[number]
 export type AvatarCornerRadius = (typeof AVATAR_CORNERS)[number]
 export type ChatWidth = (typeof CHAT_WIDTHS)[number]
@@ -83,6 +114,8 @@ export type UISettings = {
   themeBg?: string
 
   mode: ThemeMode
+  scrollFollow: ScrollFollowMode
+  streamingOutput: boolean
 
   bgCustomGradient: string
 
@@ -134,6 +167,8 @@ export const uiGuard = {
   theme: 'string',
   themeBg: 'string?',
   mode: UI_MODE,
+  scrollFollow: SCROLL_FOLLOW_MODES,
+  streamingOutput: 'boolean',
 
   bgCustomGradient: 'string',
 
@@ -152,12 +187,14 @@ export const uiGuard = {
 } as const
 
 export const defaultUIsettings: UISettings = {
-  theme: 'sky',
+  theme: 'default',
   themeBg: 'truegray',
 
   bgCustomGradient: '',
 
   mode: 'dark',
+  scrollFollow: 'always',
+  streamingOutput: true,
   avatarSize: 'md',
   avatarCorners: 'circle',
   font: 'default',

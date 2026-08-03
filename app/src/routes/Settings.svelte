@@ -40,15 +40,23 @@
   } from '/app/lib/settings.svelte'
   import { uiSettings } from '/app/lib/ui-settings.svelte'
   import {
+    APP_THEMES,
+    APP_THEME_LABELS,
     AVATAR_CORNERS,
     AVATAR_SIZES,
     CHAT_WIDTHS,
     FONT_FACES,
+    SCROLL_FOLLOW_LABELS,
+    SCROLL_FOLLOW_MODES,
     UI_FONT,
+    normalizeAppTheme,
+    type AppTheme,
     type AvatarCornerRadius,
     type AvatarSize,
     type ChatWidth,
     type FontSetting,
+    type ScrollFollowMode,
+    type ThemeMode,
   } from '/common/types/ui'
   import type { ModelFormat } from '/common/presets/templates'
   import { BUILTIN_FORMATS } from '/common/presets/templates'
@@ -702,6 +710,10 @@
   /* ------------------------------------------------------------------- display */
 
   type DisplayForm = {
+    theme: AppTheme
+    mode: ThemeMode
+    scrollFollow: ScrollFollowMode
+    streamingOutput: boolean
     chatWidth: ChatWidth
     font: FontSetting
     fontSize: number
@@ -717,6 +729,10 @@
   function displayFormFromSettings(): DisplayForm {
     const ui = uiSettings.settings
     return {
+      theme: normalizeAppTheme(ui.theme),
+      mode: ui.mode === 'light' ? 'light' : 'dark',
+      scrollFollow: ui.scrollFollow ?? 'always',
+      streamingOutput: ui.streamingOutput !== false,
       chatWidth: ui.chatWidth ?? 'full',
       font: ui.font ?? 'default',
       fontSize: ui.fontSize ?? 14,
@@ -752,6 +768,10 @@
     displayMessage = ''
     try {
       const ok = await uiSettings.save({
+        theme: displayForm.theme,
+        mode: displayForm.mode,
+        scrollFollow: displayForm.scrollFollow,
+        streamingOutput: displayForm.streamingOutput,
         chatWidth: displayForm.chatWidth,
         font: displayForm.font,
         fontSize: displayForm.fontSize,
@@ -902,8 +922,28 @@
             </p>
           </div>
 
+          <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div class="field-group">
+              <label class="field-label" for="display-theme">{i18n.t('Color theme')}</label>
+              <select id="display-theme" class="field" bind:value={displayForm.theme}>
+                {#each APP_THEMES as theme (theme)}
+                  <option value={theme}>{APP_THEME_LABELS[theme]}</option>
+                {/each}
+              </select>
+            </div>
+            <div class="field-group">
+              <label class="field-label" for="display-mode">{i18n.t('Appearance mode')}</label>
+              <select id="display-mode" class="field" bind:value={displayForm.mode}>
+                <option value="dark">{i18n.t('Dark')}</option>
+                <option value="light">{i18n.t('Light')}</option>
+              </select>
+            </div>
+          </div>
+
           <div
             class="rounded-lg border border-neutral-800/80 bg-neutral-900/40 p-4"
+            data-theme={displayForm.theme}
+            data-mode={displayForm.mode}
             style:font-family={FONT_FACES[displayForm.font].face === 'unset'
               ? undefined
               : FONT_FACES[displayForm.font].face}
@@ -967,6 +1007,18 @@
               <select id="display-chat-width" class="field" bind:value={displayForm.chatWidth}>
                 {#each CHAT_WIDTHS as width (width)}
                   <option value={width}>{i18n.t(width[0].toUpperCase() + width.slice(1))}</option>
+                {/each}
+              </select>
+            </div>
+            <div class="field-group">
+              <label class="field-label" for="display-scroll-follow">{i18n.t('Scroll following')}</label>
+              <select
+                id="display-scroll-follow"
+                class="field"
+                bind:value={displayForm.scrollFollow}
+              >
+                {#each SCROLL_FOLLOW_MODES as mode (mode)}
+                  <option value={mode}>{i18n.t(SCROLL_FOLLOW_LABELS[mode])}</option>
                 {/each}
               </select>
             </div>
@@ -1060,6 +1112,20 @@
           </div>
 
           <div class="space-y-2">
+            <label class="flex items-center gap-2 text-sm text-neutral-300">
+              <input
+                type="checkbox"
+                class="accent-violet-500"
+                bind:checked={displayForm.streamingOutput}
+                aria-label={i18n.t('Streaming output')}
+              />
+              <span>
+                {i18n.t('Streaming output')}
+                <span class="ml-1 text-xs text-neutral-500">
+                  {i18n.t('Show partial output while the model is writing.')}
+                </span>
+              </span>
+            </label>
             <label class="flex items-center gap-2 text-sm text-neutral-300">
               <input
                 type="checkbox"

@@ -4,11 +4,23 @@
   import { chats } from '/app/lib/chats.svelte'
   import { i18n } from '/app/lib/i18n.svelte'
   import { router, routes } from '/app/lib/router.svelte'
+  import { uiSettings } from '/app/lib/ui-settings.svelte'
+  import { normalizeAppTheme } from '/common/types/ui'
   import AppShell from '/app/shared/AppShell.svelte'
   import Login from '/app/routes/Login.svelte'
 
   let ready = $state(boot())
   let editorDirty = $state(false)
+
+  $effect(() => {
+    const ui = uiSettings.settings
+    const mode = ui.mode === 'light' ? 'light' : 'dark'
+    const root = document.documentElement
+    root.dataset.theme = normalizeAppTheme(ui.theme)
+    root.dataset.mode = mode
+    root.classList.toggle('dark', mode === 'dark')
+    root.style.colorScheme = mode
+  })
 
   /** Routes that own an editor with unsaved-change protection. */
   const isEditorRoute = (name: string) =>

@@ -135,7 +135,7 @@
           <option value="" disabled hidden>{i18n.t('Export')}</option>
           <option value="card">{i18n.t('Tavern card (PNG)')}</option>
           <option value="tavern">{i18n.t('Tavern V2 (JSON)')}</option>
-          <option value="native">{i18n.t('Agnai (JSON)')}</option>
+          <option value="native">{i18n.t('Machina (JSON)')}</option>
           <option value="ooba">{i18n.t('TextGen (JSON)')}</option>
         </select>
       </div>
