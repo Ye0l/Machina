@@ -124,7 +124,9 @@ test.describe('character assets', () => {
 
     await app.goto('/chat/chat-1')
     await expect(app.locator('.rendered-markdown', { hasText: 'Look:' })).toContainText('Look:')
-    await expect(app.locator('.asset-tag-missing')).toContainText('{{asset::invented}}')
+    const unresolved = app.locator('.asset-tag-missing')
+    await expect(unresolved).toBeVisible()
+    await expect(unresolved).toContainText('{{asset::invented}}')
     await expect(app.locator('img.chat-asset')).toHaveCount(0)
   })
 })
