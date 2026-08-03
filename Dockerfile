@@ -25,9 +25,11 @@ COPY srv/ ./srv/
 COPY app/ ./app/
 
 # `build` emits the client into dist/, `build:server` compiles srv/ and common/ in place.
-RUN pnpm run build:all
-
+# Expose the image's source revision while Vite bundles the client, so the running UI can prove
+# exactly which checkout it came from.
 ARG SHA=unknown
+ENV BUILD_SHA=${SHA}
+RUN pnpm run build:all
 RUN echo "${SHA}" > /usr/src/agnai/version.txt
 
 # Runtime stage.

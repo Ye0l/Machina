@@ -1,12 +1,29 @@
 import { defineConfig, type Plugin } from 'vite'
 import { svelte } from '@sveltejs/vite-plugin-svelte'
 import { fileURLToPath } from 'node:url'
-import { existsSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
+import { execFileSync } from 'node:child_process'
 import { dirname, resolve as resolvePath } from 'node:path'
 
 const repo = (path: string) => fileURLToPath(new URL(path, import.meta.url))
 
 const commonDir = repo('../common')
+const packageVersion = String(JSON.parse(readFileSync(repo('../package.json'), 'utf8')).version)
+
+const localGitSha = () => {
+  try {
+    return execFileSync('git', ['rev-parse', '--short=7', 'HEAD'], {
+      cwd: repo('..'),
+      encoding: 'utf8',
+    }).trim()
+  } catch {
+    return 'unknown'
+  }
+}
+
+const rawBuildSha = (process.env.BUILD_SHA || process.env.GITHUB_SHA || localGitSha()).trim()
+const buildSha = /^[0-9a-f]{7,}$/i.test(rawBuildSha) ? rawBuildSha.slice(0, 7) : rawBuildSha
+const buildTime = process.env.BUILD_TIME || new Date().toISOString()
 
 /**
  * `tsc -p srv.tsconfig.json` emits .js beside the .ts sources in `common/` (gitignored,
@@ -50,6 +67,11 @@ export default defineConfig({
   // the repo root would otherwise look for `<repo>/index.html`.
   root: repo('.'),
   plugins: [preferCommonSources(), svelte()],
+  define: {
+    __APP_VERSION__: JSON.stringify(packageVersion),
+    __BUILD_SHA__: JSON.stringify(buildSha),
+    __BUILD_TIME__: JSON.stringify(buildTime),
+  },
   resolve: {
     /**
      * These aliases are absolute-looking prefixes, and Vite applies aliases to real

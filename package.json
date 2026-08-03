@@ -77,7 +77,7 @@
     "check": "pnpm run format && pnpm run typecheck && pnpm run test && pnpm run test:unit",
     "up": "if command -v docker >/dev/null 2>&1; then docker compose -p agnai up -d; else podman compose -p agnai up -d; fi",
     "docker:up": "if command -v docker >/dev/null 2>&1; then docker compose -f docker-compose.selfhost.yml up -d; else podman compose -f docker-compose.selfhost.yml up -d; fi",
-    "docker:build": "if command -v docker >/dev/null 2>&1; then docker compose -f docker-compose.selfhost.yml up -d --build; else podman compose -f docker-compose.selfhost.yml up -d --build; fi",
+    "docker:build": "SHA=$(git rev-parse --short=7 HEAD 2>/dev/null || echo selfhost); export SHA; if command -v docker >/dev/null 2>&1; then docker compose -f docker-compose.selfhost.yml up -d --build; else podman compose -f docker-compose.selfhost.yml up -d --build; fi",
     "docker:down": "if command -v docker >/dev/null 2>&1; then docker compose -f docker-compose.selfhost.yml down; else podman compose -f docker-compose.selfhost.yml down; fi",
     "docker:logs": "if command -v docker >/dev/null 2>&1; then docker compose -f docker-compose.selfhost.yml logs -f app; else podman compose -f docker-compose.selfhost.yml logs -f app; fi",
     "web": "vite --config app/vite.config.ts",

@@ -15,6 +15,7 @@
   import { i18n } from '/app/lib/i18n.svelte'
   import { session } from '/app/lib/session.svelte'
   import { isRouterClick, router, routes } from '/app/lib/router.svelte'
+  import { BUILD_DETAILS, BUILD_LABEL, BUILD_TIME } from '/app/lib/build'
 
   let {
     onClose,
@@ -158,6 +159,16 @@
         {/each}
       </div>
     </section>
+  </div>
+
+  <div
+    class="mx-3 mb-3 rounded-xl border border-violet-500/30 bg-violet-500/10 px-3 py-2 shadow-sm"
+    data-testid="build-version"
+    title={BUILD_DETAILS}
+  >
+    <p class="text-[10px] font-semibold uppercase tracking-[0.16em] text-violet-300">Build</p>
+    <p class="mt-0.5 truncate font-mono text-xs font-semibold text-violet-100">{BUILD_LABEL}</p>
+    <p class="mt-0.5 truncate font-mono text-[10px] text-neutral-500">{BUILD_TIME}</p>
   </div>
 
   <div class="flex shrink-0 items-center gap-3 border-t border-neutral-800/80 p-3">
