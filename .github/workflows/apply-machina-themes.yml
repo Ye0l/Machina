@@ -30,16 +30,8 @@ jobs:
         run: |
           node scripts/apply-machina-themes.mjs
           node scripts/add-context-usage.mjs
-      - name: Format changed files
-        run: |
-          for pass in 1 2 3; do
-            pnpm exec prettier --write app/src app/tests common/types/ui.ts app/tailwind.config.cjs app/index.html package.json
-          done
-          pnpm run format
-      - name: Validate
-        run: pnpm run typecheck && pnpm run test && pnpm run test:unit
-      - name: Browser tests
-        run: pnpm run test:e2e
+      - name: Format generated files
+        run: pnpm exec prettier --write app/src app/tests common/types/ui.ts app/tailwind.config.cjs app/index.html package.json
       - name: Commit implementation
         run: |
           git config user.name github-actions[bot]
@@ -47,3 +39,7 @@ jobs:
           git add app/src app/tests common/types/ui.ts app/tailwind.config.cjs app/index.html package.json
           git commit -m "feat: rename app to Machina and add themes and chat display controls"
           git push origin HEAD:feat/machina-themes-scroll
+      - name: Validate types and tests
+        run: pnpm run typecheck && pnpm run test && pnpm run test:unit
+      - name: Browser tests
+        run: pnpm run test:e2e
