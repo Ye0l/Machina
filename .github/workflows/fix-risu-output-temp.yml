@@ -3,7 +3,7 @@ name: Patch Risu output fixes
 on:
   push:
     branches:
-      - fix/risu-asset-tags
+      - dev
 
 permissions:
   contents: write
@@ -15,16 +15,44 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: fix/risu-asset-tags
+          ref: dev
           fetch-depth: 0
-      - name: Patch generation and toggle placement
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Patch Risu output fixes
         run: |
           python <<'PY'
           from pathlib import Path
 
+          path = Path('common/assets.ts')
+          text = path.read_text()
+          text = text.replace(
+              "export const ASSET_TAG_PATTERN = /\\{\\{\\s*asset\\s*:\\s*([^{}]+?)\\s*\\}\\}/gi",
+              "export const ASSET_TAG_PATTERN = /\\{\\{\\s*asset\\s*::?\\s*([^{}]+?)\\s*\\}\\}/gi",
+          )
+          text = text.replace(
+              "writing {{asset:name}} on its own line",
+              "writing {{asset::name}} on its own line",
+          )
+          path.write_text(text)
+
+          path = Path('app/tests/unit/assets.spec.ts')
+          text = path.read_text()
+          text = text.replace(
+              "expect(render('before {{asset:smiling}} after')).toBe('before [img:smiling.png] after')",
+              "expect(render('before {{asset::smiling}} after')).toBe('before [img:smiling.png] after')",
+              1,
+          )
+          text = text.replace("{{ asset : ANGRY FACE }}", "{{ asset :: ANGRY FACE }}")
+          text = text.replace("expect(instruction).toContain('{{asset:name}}')", "expect(instruction).toContain('{{asset::name}}')")
+          path.write_text(text)
+
           path = Path('app/src/lib/generate.ts')
           text = path.read_text()
-
           old = """  const reply = await stream(\n    control.requestId,\n    // Appended after assembly rather than through a placeholder: an asset the model was never\n    // told about can never be shown, so this must not depend on the user editing a template.\n    withAssetInstruction(prompt.template.parsed, char.assets),\n    settings,\n    user,\n    chat._id,\n    handlers\n  )"""
           new = """  const request = inferencePrompt(prompt, messages)\n  const reply = await stream(\n    control.requestId,\n    // Appended after assembly rather than through a placeholder: an asset the model was never\n    // told about can never be shown, so this must not depend on the user editing a template.\n    withAssetInstruction(request.prompt, char.assets),\n    request.messages,\n    settings,\n    user,\n    chat._id,\n    handlers\n  )"""
           if text.count(old) != 2:
@@ -58,18 +86,19 @@ jobs:
               raise SystemExit('toggle button marker not found')
           text = text.replace(old_button, new_button, 1)
 
-          old_chat_panel = 'class="fixed bottom-20 right-5 z-40 max-h-[72vh]'
-          new_chat_panel = 'class="fixed bottom-[calc(9.5rem+env(safe-area-inset-bottom))] right-4 z-40 max-h-[calc(100vh-11rem)] sm:right-5'
-          if old_chat_panel not in text:
+          old_panel = 'class="fixed bottom-20 right-5 z-40 max-h-[72vh]'
+          new_panel = 'class="fixed bottom-[calc(9.5rem+env(safe-area-inset-bottom))] right-4 z-40 max-h-[calc(100vh-11rem)] sm:right-5'
+          if old_panel not in text:
               raise SystemExit('chat panel marker not found')
-          text = text.replace(old_chat_panel, new_chat_panel, 1)
+          text = text.replace(old_panel, new_panel, 1)
           path.write_text(text)
           PY
-          pnpm exec prettier --write app/src/lib/generate.ts app/src/shared/RisuTogglePanel.svelte
+          pnpm exec prettier --write common/assets.ts app/tests/unit/assets.spec.ts app/src/lib/generate.ts app/src/shared/RisuTogglePanel.svelte
+          pnpm run check
       - name: Commit patch
         run: |
           git config user.name github-actions[bot]
           git config user.email 41898282+github-actions[bot]@users.noreply.github.com
-          git add app/src/lib/generate.ts app/src/shared/RisuTogglePanel.svelte
-          git commit -m "fix: preserve Risu roles and clear composer controls"
-          git push origin HEAD:fix/risu-asset-tags
+          git add common/assets.ts app/tests/unit/assets.spec.ts app/src/lib/generate.ts app/src/shared/RisuTogglePanel.svelte
+          git commit -m "fix: render Risu assets and preserve Gemini message roles"
+          git push origin HEAD:dev
