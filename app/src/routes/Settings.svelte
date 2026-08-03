@@ -1015,7 +1015,9 @@
               </select>
             </div>
             <div class="field-group">
-              <label class="field-label" for="display-scroll-follow">{i18n.t('Scroll following')}</label>
+              <label class="field-label" for="display-scroll-follow"
+                >{i18n.t('Scroll following')}</label
+              >
               <select
                 id="display-scroll-follow"
                 class="field"

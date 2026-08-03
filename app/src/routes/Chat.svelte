@@ -996,16 +996,14 @@
               {generationDebug.summary.model} · {i18n.t('{count} tokens', {
                 count: generationDebug.summary.outputTokens,
               })}
-              {#if generationDebug.summary.inputTokens !== undefined &&
-                generationDebug.summary.contextLimit}
+              {#if generationDebug.summary.inputTokens !== undefined && generationDebug.summary.contextLimit}
                 · {i18n.t('{used} / {limit} context ({percent}%)', {
                   used: generationDebug.summary.inputTokens.toLocaleString(),
                   limit: generationDebug.summary.contextLimit.toLocaleString(),
                   percent: Math.min(
                     999,
                     Math.round(
-                      (generationDebug.summary.inputTokens /
-                        generationDebug.summary.contextLimit) *
+                      (generationDebug.summary.inputTokens / generationDebug.summary.contextLimit) *
                         100
                     )
                   ),
