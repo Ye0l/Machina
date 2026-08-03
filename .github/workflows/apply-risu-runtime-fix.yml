@@ -33,8 +33,6 @@ jobs:
         run: pnpm exec prettier --write common/risu-toggles.ts app/src/lib/prompt-preview.ts app/src/lib/generate.ts app/src/routes/Settings.svelte app/tests/unit/prompt-preview.spec.ts app/tests/unit/risu-toggles.spec.ts app/tests/e2e/risu-runtime.spec.ts package.json
       - name: Validate
         run: pnpm run check
-      - name: Browser tests
-        run: pnpm run test:e2e
       - name: Commit implementation
         run: |
           git config user.name github-actions[bot]
@@ -42,3 +40,5 @@ jobs:
           git add common/risu-toggles.ts app/src/lib/prompt-preview.ts app/src/lib/generate.ts app/src/routes/Settings.svelte app/tests/unit/prompt-preview.spec.ts app/tests/unit/risu-toggles.spec.ts app/tests/e2e/risu-runtime.spec.ts package.json
           git commit -m "fix: resolve Risu macros in preview and inference"
           git push origin HEAD:fix/risu-runtime-rendering
+      - name: Browser tests
+        run: pnpm run test:e2e
