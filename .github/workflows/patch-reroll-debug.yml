@@ -17,15 +17,31 @@ jobs:
         with:
           ref: fix/reroll-current-settings
           fetch-depth: 0
+      - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
       - name: Apply patch
-        run: node scripts/patch-reroll-debug.mjs
-      - name: Format
-        run: corepack enable && pnpm exec prettier --write app/src/lib/generate.ts app/src/lib/contracts.ts app/src/lib/chats.svelte.ts app/src/routes/Chat.svelte app/src/lib/i18n.svelte.ts app/tests/e2e/stub-server.ts app/tests/e2e/reroll-debug.spec.ts srv/api/chat/edit.ts package.json
-      - name: Commit patch
+        id: apply
+        continue-on-error: true
+        run: node scripts/patch-reroll-debug.mjs 2>&1 | tee .patch-reroll-error.log
+      - name: Commit patch error
+        if: steps.apply.outcome == 'failure'
         run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add .patch-reroll-error.log
+          git commit -m "chore: record reroll patch error"
+          git push
+      - name: Format
+        if: steps.apply.outcome == 'success'
+        run: pnpm exec prettier --write app/src/lib/generate.ts app/src/lib/contracts.ts app/src/lib/chats.svelte.ts app/src/routes/Chat.svelte app/src/lib/i18n.svelte.ts app/tests/e2e/stub-server.ts app/tests/e2e/reroll-debug.spec.ts srv/api/chat/edit.ts package.json
+      - name: Commit patch
+        if: steps.apply.outcome == 'success'
+        run: |
+          rm -f .patch-reroll-error.log
           if git diff --quiet; then
             exit 0
           fi
