@@ -5,51 +5,33 @@ on:
     branches: [dev]
   pull_request:
 
+# A new push to the same branch supersedes an in-flight run.
 concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
-  patch-risu-asset-display:
-    if: github.event_name == 'pull_request' && github.head_ref == 'fix/risu-asset-display' && github.actor != 'github-actions[bot]'
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          ref: fix/risu-asset-display
-          fetch-depth: 0
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: pnpm
-      - run: pnpm install --frozen-lockfile
-      - run: python .github/scripts/patch-risu-asset-display.py
-      - run: pnpm exec prettier --write app/src/routes/Chat.svelte app/src/routes/CharacterAssets.svelte app/tests/e2e/assets.spec.ts app/tests/e2e/messages.spec.ts
-      - name: Commit source patch and restore workflows
-        run: |
-          git config user.name github-actions[bot]
-          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
-          git checkout origin/dev -- .github/workflows/ci.yml
-          git rm -f .github/workflows/patch-risu-asset-display.yml .github/scripts/patch-risu-asset-display.py .trigger-risu-asset-display
-          git add app/src/routes/Chat.svelte app/src/routes/CharacterAssets.svelte app/tests/e2e/assets.spec.ts app/tests/e2e/messages.spec.ts .github/workflows/ci.yml
-          git commit -m "fix: render character assets as Risu-style media blocks"
-          git push origin HEAD:fix/risu-asset-display
-
   check:
     name: Format, types and tests
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
       - uses: pnpm/action-setup@v4
+
       - uses: actions/setup-node@v4
         with:
+          # Matches the `engines.node` range in package.json.
           node-version: 22
           cache: pnpm
+
       - run: pnpm install --frozen-lockfile
+
+      # Prettier, tsc (client/server/tests), svelte-check, the mocha suite for common/ and
+      # srv/, and the Vitest suite for the client's pure logic.
       - run: pnpm run check
 
   e2e:
@@ -57,14 +39,22 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
       - uses: pnpm/action-setup@v4
+
       - uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: pnpm
+
       - run: pnpm install --frozen-lockfile
+
+      # Only Chromium is configured in playwright.config.ts.
       - run: pnpm exec playwright install --with-deps chromium
+
+      # Builds dist/ first; the stub server in tests/e2e serves it.
       - run: pnpm run test:e2e
+
       - if: failure()
         uses: actions/upload-artifact@v4
         with:

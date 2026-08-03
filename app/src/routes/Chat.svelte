@@ -20,7 +20,7 @@
   import { i18n } from '/app/lib/i18n.svelte'
   import { isRouterClick, router, routes } from '/app/lib/router.svelte'
   import { renderMarkdown } from '/app/lib/markdown'
-  import { replaceAssetTags } from '/common/assets'
+  import { ASSET_TAG_PATTERN, findAsset } from '/common/assets'
   import { assetUrl } from '/app/lib/config'
   import { uiSettings } from '/app/lib/ui-settings.svelte'
   import { FONT_FACES } from '/common/types/ui'
@@ -70,6 +70,7 @@
   )
   let draft = $state('')
   let messageList: HTMLOListElement
+  let expandedAsset = $state<{ name: string; src: string } | null>(null)
 
   /** `userId` marks the sender, not `characterId`: an impersonated message carries both. */
   const fromUser = (message: AppSchema.ChatMessage) => !!message.userId
@@ -104,28 +105,40 @@
       )
       .replace(/\{\{char\}\}/gi, speaker?.name || detail.character?.name || detail.chat.name)
 
-  const escapeAttribute = (value: string) =>
-    value.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;')
+  type RenderedBodyPart =
+    | { kind: 'text'; html: string }
+    | { kind: 'asset'; name: string; src: string }
 
   /**
-   * `{{asset:name}}` becomes the image it names. An unknown name is left as written rather
-   * than silently deleted: the model naming an asset that does not exist is worth seeing.
-   *
-   * The markup goes in before the markdown pass, so it lands in the same sanitiser as
-   * everything else -- nothing here is trusted on its own.
+   * Asset tags are split out before Markdown rendering and become native Svelte image nodes.
+   * RisuAI treats additional assets as media blocks rather than raw HTML inside Markdown;
+   * doing the same also prevents Showdown/DOMPurify from swallowing or rewriting the image.
    */
-  const renderAssets = (text: string, speaker?: AppSchema.Character) =>
-    replaceAssetTags(text, speaker?.assets, (asset, name) =>
-      asset
-        ? `<img class="chat-asset" src="${escapeAttribute(
-            assetUrl(asset.uri)
-          )}" alt="${escapeAttribute(name)}" />`
-        : `{{asset:${name}}}`
-    )
+  const renderBody = (text: string, speaker?: AppSchema.Character): RenderedBodyPart[] => {
+    const displayed = displayMessage(text, speaker)
+    const pattern = new RegExp(ASSET_TAG_PATTERN.source, ASSET_TAG_PATTERN.flags)
+    const parts: RenderedBodyPart[] = []
+    let cursor = 0
 
-  /** Placeholders are substituted before rendering, so what is shown matches the prompt. */
-  const renderBody = (text: string, speaker?: AppSchema.Character) =>
-    renderMarkdown(renderAssets(displayMessage(text, speaker), speaker))
+    const pushText = (value: string) => {
+      if (value) parts.push({ kind: 'text', html: renderMarkdown(value) })
+    }
+
+    for (const match of displayed.matchAll(pattern)) {
+      const index = match.index ?? 0
+      pushText(displayed.slice(cursor, index))
+
+      const name = (match[1] ?? '').trim()
+      const asset = findAsset(speaker?.assets, name)
+      if (asset) parts.push({ kind: 'asset', name, src: assetUrl(asset.uri) })
+      else pushText(match[0])
+
+      cursor = index + match[0].length
+    }
+
+    pushText(displayed.slice(cursor))
+    return parts.length ? parts : [{ kind: 'text', html: renderMarkdown(displayed) }]
+  }
 
   /* ------------------------------------------------------------------- editing */
 
@@ -240,6 +253,12 @@
     router.go(routes.characters())
   }
 </script>
+
+<svelte:window
+  onkeydown={(event) => {
+    if (event.key === 'Escape' && expandedAsset) expandedAsset = null
+  }}
+/>
 
 <div
   class="flex h-full min-h-0 flex-col"
@@ -384,7 +403,7 @@
             <div class="rounded-2xl bg-[#151a23] p-2 {isUser ? 'rounded-tr-md' : 'rounded-tl-md'}">
               <!-- prettier-ignore -->
               <textarea
-                class="field max-h-72 min-h-24 w-full resize-y py-2 leading-6"
+                class="field h-[min(32rem,60vh)] min-h-72 w-full resize-y py-3 leading-6"
                 bind:value={editDraft}
                 onkeydown={handleEditKeydown}
                 aria-label={i18n.t('Edit message')}
@@ -413,16 +432,40 @@
               </div>
             </div>
           {:else}
-            <div
-              class:bg-violet-600={isUser}
-              class:text-white={isUser}
-              class="rendered-markdown rounded-2xl bg-[#151a23] px-4 py-3 leading-6 text-neutral-200 {isUser
-                ? 'rounded-tr-md'
-                : 'rounded-tl-md'}"
-              style:opacity={msgOpacity}
-            >
-              <!-- Sanitised in renderMarkdown via DOMPurify. -->
-              {@html renderBody(message.msg, character)}
+            <div class="space-y-2">
+              {#each renderBody(message.msg, character) as part}
+                {#if part.kind === 'asset'}
+                  <button
+                    class="chat-asset-frame group block w-[min(100%,32rem)] overflow-hidden rounded-xl border border-neutral-700/70 bg-black/40 shadow-lg"
+                    class:ml-auto={isUser}
+                    type="button"
+                    aria-label={i18n.t('Open image')}
+                    onclick={() => (expandedAsset = part)}
+                    style:opacity={msgOpacity}
+                  >
+                    <img
+                      class="chat-asset block max-h-[70vh] w-full object-contain transition-transform group-hover:scale-[1.01]"
+                      src={part.src}
+                      alt={part.name}
+                      loading="lazy"
+                      decoding="async"
+                    />
+                  </button>
+                {:else if part.html}
+                  <div
+                    class:bg-violet-600={isUser}
+                    class:text-white={isUser}
+                    class:ml-auto={isUser}
+                    class="rendered-markdown rounded-2xl bg-[#151a23] px-4 py-3 leading-6 text-neutral-200 {isUser
+                      ? 'rounded-tr-md'
+                      : 'rounded-tl-md'}"
+                    style:opacity={msgOpacity}
+                  >
+                    <!-- Sanitised in renderMarkdown via DOMPurify. -->
+                    {@html part.html}
+                  </div>
+                {/if}
+              {/each}
             </div>
           {/if}
           <div class="mt-1 flex min-h-7 items-center gap-1" class:justify-end={isUser}>
@@ -506,14 +549,33 @@
           <span class="mb-1 block text-xs text-neutral-500"
             >{detail.character?.name ?? i18n.t('Bot')}</span
           >
-          <div
-            class="rendered-markdown rounded-2xl rounded-tl-md bg-[#151a23] px-4 py-3 leading-6 text-neutral-200"
-            style:opacity={msgOpacity}
-          >
-            <!-- Sanitised in renderMarkdown; partial markup is closed off by the sanitiser. -->
-            {@html renderBody(chats.partial, detail.character)}<span
-              class="animate-pulse text-violet-300">▌</span
-            >
+          <div class="space-y-2">
+            {#each renderBody(chats.partial, detail.character) as part}
+              {#if part.kind === 'asset'}
+                <button
+                  class="chat-asset-frame group block w-[min(100%,32rem)] overflow-hidden rounded-xl border border-neutral-700/70 bg-black/40 shadow-lg"
+                  type="button"
+                  aria-label={i18n.t('Open image')}
+                  onclick={() => (expandedAsset = part)}
+                  style:opacity={msgOpacity}
+                >
+                  <img
+                    class="chat-asset block max-h-[70vh] w-full object-contain transition-transform group-hover:scale-[1.01]"
+                    src={part.src}
+                    alt={part.name}
+                    decoding="async"
+                  />
+                </button>
+              {:else if part.html}
+                <div
+                  class="rendered-markdown rounded-2xl rounded-tl-md bg-[#151a23] px-4 py-3 leading-6 text-neutral-200"
+                  style:opacity={msgOpacity}
+                >
+                  {@html part.html}
+                </div>
+              {/if}
+            {/each}
+            <span class="animate-pulse text-violet-300">▌</span>
           </div>
         </div>
       </li>
@@ -574,4 +636,29 @@
       </div>
     </form>
   </div>
+
+  {#if expandedAsset}
+    <div
+      class="fixed inset-0 z-[100] flex items-center justify-center bg-black/90 p-3 backdrop-blur-sm sm:p-6"
+      role="dialog"
+      aria-modal="true"
+      aria-label={expandedAsset.name}
+      onclick={() => (expandedAsset = null)}
+    >
+      <button
+        class="icon-button absolute right-4 top-4 z-10 h-11 w-11 bg-black/60 text-white hover:bg-black/80"
+        type="button"
+        aria-label={i18n.t('Close')}
+        onclick={() => (expandedAsset = null)}
+      >
+        <X size={22} />
+      </button>
+      <img
+        class="max-h-[94vh] max-w-[94vw] rounded-lg object-contain shadow-2xl"
+        src={expandedAsset.src}
+        alt={expandedAsset.name}
+        onclick={(event) => event.stopPropagation()}
+      />
+    </div>
+  {/if}
 </div>

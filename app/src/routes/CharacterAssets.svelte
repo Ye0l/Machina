@@ -9,7 +9,7 @@
    * Images the character can show mid-reply.
    *
    * The name is the whole interface to the model: it is told the names and asked to emit
-   * `{{asset:name}}`, which the chat swaps for the image. So the name is the field that gets
+   * `{{asset::name}}`, which the chat swaps for the image. So the name is the field that gets
    * the explanation, not the file.
    */
   let {
@@ -161,7 +161,7 @@
       <p class="text-xs text-neutral-500">
         {i18n.t('The character shows it by writing')}
         <code class="rounded bg-neutral-800 px-1 py-0.5 text-neutral-300"
-          >{`{{asset:${name.trim()}}}`}</code
+          >{`{{asset::${name.trim()}}}`}</code
         >
       </p>
     {/if}
@@ -178,7 +178,7 @@
           />
           <div class="flex items-center justify-between gap-2">
             <code class="min-w-0 truncate text-xs text-neutral-300"
-              >{`{{asset:${asset.name}}}`}</code
+              >{`{{asset::${asset.name}}}`}</code
             >
             <button
               class="icon-button h-8 w-8 shrink-0 text-neutral-600 hover:text-red-300"

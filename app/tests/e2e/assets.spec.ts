@@ -19,7 +19,7 @@ async function addAsset(app: Page, name: string) {
   })
   await app.fill('input[placeholder="e.g. smiling"]', name)
   await app.click('button:has-text("Add asset")')
-  await expect(app.locator(`main code:text-is("{{asset:${name}}}")`)).toBeVisible()
+  await expect(app.locator(`main code:text-is("{{asset::${name}}}")`)).toBeVisible()
 }
 
 test.describe('character assets', () => {
@@ -78,7 +78,7 @@ test.describe('character assets', () => {
     ]
 
     await app.goto('/chat/chat-1')
-    const rendered = app.locator('.rendered-markdown img.chat-asset')
+    const rendered = app.locator('button.chat-asset-frame img.chat-asset')
     await expect(rendered).toBeVisible()
     await expect(rendered).toHaveAttribute('alt', 'smiling')
   })

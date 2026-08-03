@@ -62,6 +62,18 @@ test.describe('message editing', () => {
     )
   })
 
+  test('message editor opens at media-block height', async ({ app }) => {
+    await app.goto('/chat/chat-1')
+    await app.locator('button[aria-label="Edit message"]').first().click()
+
+    const editor = app.locator('textarea[aria-label="Edit message"]')
+    await expect(editor).toBeVisible()
+    await expect(editor).toHaveCSS('min-height', '288px')
+    expect(
+      await editor.evaluate((element) => element.getBoundingClientRect().height)
+    ).toBeGreaterThan(400)
+  })
+
   test('Escape cancels and persists nothing', async ({ app, stub }) => {
     await app.press('textarea[aria-label="Edit message"]', 'Escape')
 
