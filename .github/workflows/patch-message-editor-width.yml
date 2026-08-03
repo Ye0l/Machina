@@ -1,0 +1,34 @@
+name: Patch message editor width
+
+on:
+  push:
+    branches:
+      - fix/message-editor-width
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/message-editor-width
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Apply patch
+        run: node scripts/patch-message-editor-width.mjs
+      - name: Commit patch
+        run: |
+          if git diff --quiet; then
+            exit 0
+          fi
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add app/src/routes/Chat.svelte app/tests/e2e/messages.spec.ts package.json
+          git commit -m "fix: keep message editor at chat width"
+          git push
