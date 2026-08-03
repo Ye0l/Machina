@@ -20,7 +20,10 @@ import type { AppSchema } from '/common/types'
  */
 
 export const IMPORT_EXTENSIONS = ['json', 'png', 'apng', 'jpg', 'jpeg', 'webp', 'charx'] as const
-export const IMPORT_ACCEPT = '.json,.png,.apng,.jpg,.jpeg,.webp,.charx'
+// iOS maps extension-only accept filters inconsistently and can leave only JSON selectable.
+// A nullish Svelte attribute is omitted, so the native picker shows every file and the parser
+// below remains the single source of truth for supported formats.
+export const IMPORT_ACCEPT: string | undefined = undefined
 
 /** The fields the Svelte character editor can represent. */
 export type ImportedCharacter = {
