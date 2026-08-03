@@ -55,6 +55,23 @@ describe('RisuAI prompt toggles', () => {
     expect(rendered).not.toContain('#if_pure')
   })
 
+  it('uses an explicitly marked select option as the imported default', () => {
+    const definitions = parseRisuToggleSyntax(
+      'voice=Voice=select=Off,Normal (기본),Strong\nlanguage=Language=select=기본,English'
+    )
+    expect(definitions[0]).toMatchObject({ defaultValue: '1' })
+    expect(definitions[1]).toMatchObject({ defaultValue: '0' })
+  })
+
+  it('evaluates symbolic Risu comparisons including Unicode operators', () => {
+    const template = [
+      '{{#if_pure {{? {{getglobalvar::toggle_mode}}<2}}}}LT{{/if}}',
+      '{{#if_pure {{? {{getglobalvar::toggle_mode}}≥1}}}}GE{{/if}}',
+      '{{#if_pure {{? {{getglobalvar::toggle_mode}}!=2}}}}NE{{/if}}',
+    ].join('|')
+    expect(renderRisuToggleMacros(template, source, { mode: '1' })).toBe('LT|GE|NE')
+  })
+
   it('evaluates negated Risu question expressions', () => {
     const template =
       '{{#if_pure {{? !{{getglobalvar::toggle_mode}}=0}}}}selected{{#else}}default{{/if}}'

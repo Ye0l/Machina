@@ -560,7 +560,11 @@
     try {
       // The attached template is what generates, so that is what gets previewed.
       const template = selectedTemplate?.template ?? presetForm.gaslight
+      const savedPreset = presets.find((preset) => preset._id === presetForm._id)
       preview = await renderPromptPreview(template, {
+        // Risu toggle metadata is kept in the saved preset's temporary object rather than in
+        // PresetForm. Preserve it while layering the editor's unsaved values on top.
+        ...(savedPreset ?? {}),
         ...presetForm,
         maxContextLength: presetForm.maxContext,
       })

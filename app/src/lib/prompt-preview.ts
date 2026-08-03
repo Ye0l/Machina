@@ -3,6 +3,8 @@ import { toBotMsg, toChar, toChat, toPersona, toProfile, toUser, toUserMsg } fro
 import { buildPromptPlaceholders } from '/common/prompt'
 import { parseTemplate } from '/common/template-parser'
 import { replaceTags } from '/common/presets/templates'
+import { expandRisuHistoryRanges } from '/common/risu-import'
+import { renderRisuTemplate } from '/common/risu-toggles'
 import { getEncoder } from '/common/tokenize'
 
 /**
@@ -38,7 +40,7 @@ const SAMPLE = (() => {
       : `${sender.handle}: ${message.msg}`
   )
 
-  return { char, replyAs, sender, user, chat, characters, lines }
+  return { char, replyAs, sender, user, chat, characters, history, lines }
 })()
 
 export type PromptPreview = {
@@ -56,7 +58,7 @@ export async function renderPromptPreview(
   encoder?: TokenCounter
 ): Promise<PromptPreview> {
   const count = encoder ?? (await getEncoder())
-  const { char, replyAs, sender, user, chat, characters, lines } = SAMPLE
+  const { char, replyAs, sender, user, chat, characters, history, lines } = SAMPLE
 
   const parts = await buildPromptPlaceholders(
     {
@@ -77,7 +79,16 @@ export async function renderPromptPreview(
     count
   )
 
-  let { parsed } = await parseTemplate(template, {
+  // The editor must show the same generation-time prompt as a real chat. Risu toggle
+  // macros are resolved before the ordinary prompt parser, then Risu history ranges are
+  // expanded against the sample conversation.
+  const toggled = renderRisuTemplate(template, settings)
+  const runtimeTemplate = expandRisuHistoryRanges(toggled, history, {
+    user: sender.handle,
+    bot: replyAs.name,
+  })
+
+  let { parsed } = await parseTemplate(runtimeTemplate, {
     char,
     replyAs,
     sender,
