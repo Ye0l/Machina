@@ -12,7 +12,7 @@ import type { AppSchema } from './types'
  */
 
 /** Global and case-insensitive: models are inconsistent about capitalising a tag. */
-export const ASSET_TAG_PATTERN = /\{\{\s*asset\s*:\s*([^{}]+?)\s*\}\}/gi
+export const ASSET_TAG_PATTERN = /\{\{\s*asset\s*::?\s*([^{}]+?)\s*\}\}/gi
 
 const normalise = (name: string) => name.trim().toLowerCase()
 
@@ -32,7 +32,7 @@ export function assetInstruction(assets: AppSchema.CharacterAsset[] | undefined)
   if (!names.length) return ''
 
   return [
-    `{{char}} can show an image by writing {{asset:name}} on its own line, using one of these names exactly:`,
+    `{{char}} can show an image by writing {{asset::name}} on its own line, using one of these names exactly:`,
     names.map((name) => `- ${name}`).join('\n'),
     'Only these names exist. Do not invent a name, describe the image in the tag, or write a URL.',
   ].join('\n')

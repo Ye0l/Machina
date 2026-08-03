@@ -20,12 +20,12 @@ const render = (text: string, list = assets) =>
 
 describe('asset tags', () => {
   it('replaces a tag with the asset it names', () => {
-    expect(render('before {{asset:smiling}} after')).toBe('before [img:smiling.png] after')
+    expect(render('before {{asset::smiling}} after')).toBe('before [img:smiling.png] after')
   })
 
   it('matches the name case-insensitively and ignores padding', () => {
     // Models are inconsistent about both, and neither changes which asset was meant.
-    expect(render('{{ asset : ANGRY FACE }}')).toBe('[img:angry.png]')
+    expect(render('{{ asset :: ANGRY FACE }}')).toBe('[img:angry.png]')
   })
 
   it('replaces every tag in a message, not just the first', () => {
@@ -76,7 +76,7 @@ describe('the prompt instruction', () => {
     const instruction = assetInstruction(assets)
     expect(instruction).toContain('- smiling')
     expect(instruction).toContain('- Angry Face')
-    expect(instruction).toContain('{{asset:name}}')
+    expect(instruction).toContain('{{asset::name}}')
   })
 
   it('is empty when there is nothing to show', () => {
