@@ -4,13 +4,16 @@ on:
   push:
     branches:
       - feat/machina-themes-scroll-v2
+  pull_request:
+    branches:
+      - dev
 
 permissions:
   contents: write
 
 jobs:
   rebuild:
-    if: github.actor != 'github-actions[bot]'
+    if: github.actor != 'github-actions[bot]' && (github.event_name == 'push' || github.head_ref == 'feat/machina-themes-scroll-v2')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
