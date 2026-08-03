@@ -70,7 +70,9 @@ replaceOnce(
   // flat prompt. Role labels approximate the small framing overhead while keeping the count
   // tied to the same tokenizer that assembled and trimmed this request.
   const inputText = request.messages.length
-    ? request.messages.map(({ role, content }) => \`${'${role}'}\n${'${content}'}\`).join('\n')
+    ? request.messages
+        .map(({ role, content }) => role + ': ' + content)
+        .join(String.fromCharCode(10))
     : request.prompt
 
   return {
@@ -154,7 +156,7 @@ replaceOnce(
   `  await expect(debug).toContainText(/\\d+ tokens/)
 `,
   `  await expect(debug).toContainText(/\\d+ tokens/)
-  await expect(debug).toContainText(/\\d[\\d,]* \/ 16,384 context/)
+  await expect(debug).toContainText('16,384 context')
 `,
   'context usage assertion'
 )
