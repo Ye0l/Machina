@@ -28,6 +28,8 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - name: Merge completed Machina work
         run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
           git fetch origin feat/machina-themes-scroll
           git merge --no-commit --no-ff origin/feat/machina-themes-scroll || true
           git checkout --ours app/src/lib/generate.ts app/src/routes/Settings.svelte package.json
@@ -36,14 +38,15 @@ jobs:
             echo 'Unresolved merge conflicts remain'
             exit 1
           fi
-      - name: Format
-        run: pnpm exec prettier --write app/src app/tests common/types/ui.ts app/tailwind.config.cjs app/index.html package.json
-      - name: Validate
-        run: pnpm run check
+      - name: Stabilize formatting
+        run: |
+          for pass in 1 2 3; do
+            pnpm exec prettier --write app/src app/tests common/types/ui.ts app/tailwind.config.cjs app/index.html package.json
+          done
+      - name: Validate types and tests
+        run: pnpm run typecheck && pnpm run test && pnpm run test:unit
       - name: Commit rebuilt branch
         run: |
-          git config user.name github-actions[bot]
-          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
           git add -A
           git commit -m "feat: rename app to Machina and add themes and chat controls"
           git push origin HEAD:feat/machina-themes-scroll-v2
