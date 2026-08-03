@@ -74,6 +74,15 @@ test.describe('message editing', () => {
     ).toBeGreaterThan(400)
   })
 
+  test('keeps the editor at the normal message width', async ({ app }) => {
+    const editor = app.locator('textarea[aria-label="Edit message"]')
+    const row = editor.locator('xpath=ancestor::li[1]')
+    const editorBox = await editor.boundingBox()
+    const rowBox = await row.boundingBox()
+
+    expect(editorBox?.width).toBeGreaterThan((rowBox?.width ?? 0) * 0.65)
+  })
+
   test('Escape cancels and persists nothing', async ({ app, stub }) => {
     await app.press('textarea[aria-label="Edit message"]', 'Escape')
 

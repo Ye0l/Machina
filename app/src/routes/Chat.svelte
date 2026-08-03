@@ -628,6 +628,7 @@
           {/if}
         {/if}
         <div
+          class:w-full={editingId === message._id}
           class="min-w-0 max-w-[88%] sm:max-w-[75%]"
           style:max-width={alternating > 0 ? `${Math.max(40, 88 - alternating)}%` : undefined}
         >
