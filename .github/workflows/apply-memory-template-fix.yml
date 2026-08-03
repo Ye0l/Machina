@@ -1,0 +1,37 @@
+name: Apply memory template hotfix
+
+on:
+  push:
+    branches:
+      - fix/memory-template-injection
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/memory-template-injection
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Apply fix
+        run: node scripts/apply-memory-template-fix.mjs
+      - name: Format
+        run: pnpm exec prettier --write common/prompt.ts app/tests/e2e/memory.spec.ts
+      - name: Validate
+        run: pnpm run typecheck && pnpm run test:unit && pnpm run test:e2e -- app/tests/e2e/memory.spec.ts
+      - name: Commit fix
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add common/prompt.ts app/tests/e2e/memory.spec.ts
+          git commit -m "fix: always include matched memory in generation templates"
+          git push origin HEAD:fix/memory-template-injection
