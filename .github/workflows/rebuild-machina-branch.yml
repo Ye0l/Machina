@@ -1,0 +1,46 @@
+name: Rebuild Machina branch
+
+on:
+  push:
+    branches:
+      - feat/machina-themes-scroll-v2
+
+permissions:
+  contents: write
+
+jobs:
+  rebuild:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/machina-themes-scroll-v2
+          fetch-depth: 0
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Merge completed Machina work
+        run: |
+          git fetch origin feat/machina-themes-scroll
+          git merge --no-commit --no-ff origin/feat/machina-themes-scroll || true
+          git checkout --ours app/src/lib/generate.ts app/src/routes/Settings.svelte package.json
+          node scripts/apply-machina-overlap.mjs
+          if git diff --name-only --diff-filter=U | grep .; then
+            echo 'Unresolved merge conflicts remain'
+            exit 1
+          fi
+      - name: Format
+        run: pnpm exec prettier --write app/src app/tests common/types/ui.ts app/tailwind.config.cjs app/index.html package.json
+      - name: Validate
+        run: pnpm run check
+      - name: Commit rebuilt branch
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add -A
+          git commit -m "feat: rename app to Machina and add themes and chat controls"
+          git push origin HEAD:feat/machina-themes-scroll-v2
