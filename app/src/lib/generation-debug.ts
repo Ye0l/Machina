@@ -5,7 +5,7 @@ export type GenerationRequestDebug = {
   chatId: string
   prompt: string
   messages: Array<{ role: string; content: string }>
-  settings?: Partial<AppSchema.GenSettings>
+  settings?: Record<string, unknown>
 }
 
 export type GenerationSummary = {
@@ -27,12 +27,39 @@ type MessageGenerationMeta = {
   retryGenerations?: Array<GenerationSummary | undefined>
 }
 
+const SECRET_FIELD =
+  /(?:^|[_-])(?:key|token|secret|password|authorization|credential)$|(?:api|access|auth|thirdParty|userThirdParty|sub)Key$|Token$|Secret$|Password$/i
+
 const asSummary = (value: unknown): GenerationSummary | undefined => {
   if (!value || typeof value !== 'object') return undefined
   const model = (value as { model?: unknown }).model
   const outputTokens = (value as { outputTokens?: unknown }).outputTokens
   if (typeof model !== 'string' || typeof outputTokens !== 'number') return undefined
   return { model, outputTokens }
+}
+
+/**
+ * The debug modal mirrors the inference settings, but never exposes credentials that may be
+ * nested inside provider-specific settings.
+ */
+export function redactGenerationSettings(
+  settings: Partial<AppSchema.GenSettings> | undefined
+): Record<string, unknown> | undefined {
+  if (!settings) return undefined
+
+  const redact = (value: unknown): unknown => {
+    if (Array.isArray(value)) return value.map(redact)
+    if (!value || typeof value !== 'object') return value
+
+    return Object.fromEntries(
+      Object.entries(value).map(([key, nested]) => [
+        key,
+        SECRET_FIELD.test(key) ? '[redacted]' : redact(nested),
+      ])
+    )
+  }
+
+  return redact(settings) as Record<string, unknown>
 }
 
 export function resolveGenerationModel(
@@ -72,7 +99,9 @@ export const generationSummary = (debug: GenerationDebug): GenerationSummary => 
   outputTokens: debug.outputTokens,
 })
 
-export function readGenerationSummary(message: AppSchema.ChatMessage): GenerationSummary | undefined {
+export function readGenerationSummary(
+  message: AppSchema.ChatMessage
+): GenerationSummary | undefined {
   return asSummary((message.meta as MessageGenerationMeta | undefined)?.generation)
 }
 
