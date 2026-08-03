@@ -19,6 +19,20 @@ test.describe('mobile layout', () => {
     await expect(app.locator('a:has-text("AI settings"):visible')).toHaveCount(0)
   })
 
+  test('uses a floating menu button instead of reserving header height', async ({ app }) => {
+    await app.goto('/')
+    await app.waitForSelector('h2:text-is("Aria")')
+
+    const trigger = app.getByTestId('mobile-menu-trigger')
+    await expect(trigger).toBeVisible()
+
+    const triggerBox = await trigger.boundingBox()
+    const mainBox = await app.locator('main').boundingBox()
+    expect(triggerBox?.height).toBeLessThanOrEqual(40)
+    expect(mainBox?.y).toBe(0)
+    expect(mainBox?.height).toBe(app.viewportSize()?.height)
+  })
+
   test('no view scrolls the page horizontally', async ({ app }) => {
     for (const path of ['/', '/settings/display', '/memory', '/character/new']) {
       await app.goto(path)
