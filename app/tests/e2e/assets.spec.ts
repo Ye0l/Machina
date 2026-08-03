@@ -19,7 +19,7 @@ async function addAsset(app: Page, name: string) {
   })
   await app.fill('input[placeholder="e.g. smiling"]', name)
   await app.click('button:has-text("Add asset")')
-  await expect(app.locator(`main code:text-is("{{asset:${name}}}")`)).toBeVisible()
+  await expect(app.locator(`main code:text-is("{{asset::${name}}}")`)).toBeVisible()
 }
 
 test.describe('character assets', () => {
@@ -61,6 +61,28 @@ test.describe('character assets', () => {
     expect(prompt).not.toContain('{{asset::name}}')
   })
 
+  test('renders an asset in the first message as a native media block', async ({ app }) => {
+    await addAsset(app, 'smiling')
+    await app.goto('/chat/chat-1')
+
+    await app.locator('button[aria-label="Edit message"]').first().click()
+    await app.locator('textarea[aria-label="Edit message"]').fill('Opening {{asset::smiling}}')
+    await app.click('button:has-text("Save")')
+
+    const rendered = app.locator('button.chat-asset-frame img.chat-asset').first()
+    await expect(rendered).toBeVisible()
+    await expect(rendered).toHaveAttribute('alt', 'smiling')
+    await expect(rendered).toHaveCSS('object-fit', 'contain')
+    await expect(
+      rendered.locator('xpath=ancestor::div[contains(@class,"rendered-markdown")]')
+    ).toHaveCount(0)
+
+    await rendered.click()
+    await expect(app.getByRole('dialog', { name: 'smiling' })).toBeVisible()
+    await app.keyboard.press('Escape')
+    await expect(app.getByRole('dialog', { name: 'smiling' })).toHaveCount(0)
+  })
+
   test('a tag in a reply renders as the image it names', async ({ app, stub }) => {
     await addAsset(app, 'smiling')
 
@@ -78,7 +100,7 @@ test.describe('character assets', () => {
     ]
 
     await app.goto('/chat/chat-1')
-    const rendered = app.locator('.rendered-markdown img.chat-asset')
+    const rendered = app.locator('button.chat-asset-frame img.chat-asset')
     await expect(rendered).toBeVisible()
     await expect(rendered).toHaveAttribute('alt', 'smiling')
   })
@@ -101,10 +123,8 @@ test.describe('character assets', () => {
     ]
 
     await app.goto('/chat/chat-1')
-    // Scoped by content: the greeting is the first rendered message in this chat.
-    await expect(app.locator('.rendered-markdown', { hasText: 'Look:' })).toContainText(
-      '{{asset:invented}}'
-    )
+    await expect(app.locator('.rendered-markdown', { hasText: 'Look:' })).toContainText('Look:')
+    await expect(app.locator('.asset-tag-missing')).toContainText('{{asset::invented}}')
     await expect(app.locator('img.chat-asset')).toHaveCount(0)
   })
 })
