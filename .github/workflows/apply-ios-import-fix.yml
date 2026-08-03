@@ -1,0 +1,56 @@
+name: Apply iOS character import fix
+
+on:
+  push:
+    branches: [fix/ios-character-import]
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/ios-character-import
+          fetch-depth: 0
+
+      - name: Patch import picker and tests
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          port = Path('app/src/lib/character-port.ts')
+          text = port.read_text()
+          old = "export const IMPORT_ACCEPT = '.json,.png,.apng,.jpg,.jpeg,.webp,.charx'"
+          new = """// iOS maps extension-only accept filters inconsistently and can leave only JSON selectable.\n// A nullish Svelte attribute is omitted, so the native picker shows every file and the parser\n// below remains the single source of truth for supported formats.\nexport const IMPORT_ACCEPT: string | undefined = undefined"""
+          assert old in text, 'IMPORT_ACCEPT declaration changed'
+          port.write_text(text.replace(old, new, 1))
+
+          spec = Path('app/tests/unit/character-port.spec.ts')
+          text = spec.read_text()
+          old_import = "  embedCardInPng,\n  jsonToCharacter,"
+          new_import = "  embedCardInPng,\n  IMPORT_ACCEPT,\n  jsonToCharacter,"
+          assert old_import in text, 'character-port test import changed'
+          text = text.replace(old_import, new_import, 1)
+          marker = "describe('jsonToCharacter', () => {"
+          test = """describe('character import picker', () => {\n  it('does not apply an iOS-hostile file type filter', () => {\n    expect(IMPORT_ACCEPT).toBeUndefined()\n  })\n})\n\n"""
+          assert marker in text, 'character-port test marker changed'
+          spec.write_text(text.replace(marker, test + marker, 1))
+
+          package = Path('package.json')
+          text = package.read_text()
+          assert '"version": "1.0.27"' in text, 'package version changed'
+          package.write_text(text.replace('"version": "1.0.27"', '"version": "1.0.28"', 1))
+
+          Path('.github/workflows/apply-ios-import-fix.yml').unlink()
+          PY
+
+      - name: Commit fix
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add app/src/lib/character-port.ts app/tests/unit/character-port.spec.ts package.json .github/workflows/apply-ios-import-fix.yml
+          git commit -m "fix: allow character card files on iOS"
+          git push origin HEAD:fix/ios-character-import
