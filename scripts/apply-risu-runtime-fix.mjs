@@ -395,3 +395,4 @@ pkg.version = '1.0.34'
 write(pkgPath, `${JSON.stringify(pkg, null, 2)}\n`)
 
 console.log('Risu runtime rendering patch applied')
+// Trigger after workflow creation.
