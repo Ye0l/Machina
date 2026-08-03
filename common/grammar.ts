@@ -144,6 +144,10 @@ Instruction "instruction" = "system_prompt"i { return "system_prompt" }
 Jailbreak "ujb" = ("ujb"i / "system_note"i / "jailbreak"i) { return "ujb" }
 Post "post" = "post"i { return "post" }
 Memory "memory" = "memory"i { return "memory" }
+SummaryWorld "summary-world" = ("summary_world"i / "world_summary"i) { return "summary_world" }
+SummaryPlot "summary-plot" = ("summary_plot"i / "plot_summary"i) { return "summary_plot" }
+SummaryChars "summary-chars" = ("summary_chars"i / "character_summary"i) { return "summary_chars" }
+Summary "summary" = ("story_summary"i / "summary"i) { return "summary" }
 Message "message" = ("msg"i / "message"i / "text"i) { return "message" }
 ChatAge "chat-age" = "chat_age"i { return "chat_age" }
 IdleDuration "idle-duration" = "idle_duration"i { return "idle_duration" }
@@ -182,6 +186,11 @@ Interp "interp"
   / Jailbreak
   / Post
   / Memory
+  // Longest first: Summary would otherwise match the "summary" prefix of the split holders
+  / SummaryWorld
+  / SummaryPlot
+  / SummaryChars
+  / Summary
   / Message
   / ChatAge
   / IdleDuration

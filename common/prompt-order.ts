@@ -81,6 +81,7 @@ export const SIMPLE_ORDER: NonNullable<AppSchema.GenSettings['promptOrder']> = [
   'personality',
   'chat_embed',
   'memory',
+  'summary',
   'example_dialogue',
   'history',
 ].map((placeholder) => ({ placeholder, enabled: true }))
@@ -90,6 +91,7 @@ export const formatHolders: Record<string, Record<string, string>> = {
     system_prompt: neat`<system>{{#if system_prompt}}{{value}}{{#else}}${defaultSystemPrompt}{{/else}}{{/if}}</system>`,
     scenario: neat`{{#if scenario}}The scenario of the conversation:\n{{scenario}}\n{{/if}}`,
     memory: neat`{{#if memory}}"{{char}}'s" memories:\n{{memory}}\n{{/if}}`,
+    summary: neat`{{#if summary}}The story so far:\n{{summary}}\n{{/if}}`,
     personality: neat`{{#if personality}}{{char}}'s personality:\n{{personality}}\n{{/if}}`,
     impersonating: neat`{{#if impersonating}}{{user}}'s personality:\n{{impersonating}}\n{{/if}}`,
     chat_embed: neat`{{#if chat_embed}}Relevant past conversation history:\n{{chat_embed}}\n{{/if}}`,

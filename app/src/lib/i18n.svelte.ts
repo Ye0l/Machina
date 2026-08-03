@@ -128,6 +128,32 @@ const korean: Record<string, string> = {
   'Discard changes': '변경사항 버리기',
   'Memory book': '메모리 북',
   'No memory book': '메모리 북 없음',
+  'Story summary': '스토리 요약',
+  'Maintain a story summary': '스토리 요약 유지',
+  'Summary context budget': '요약 컨텍스트 예산',
+  'Summary update threshold': '요약 갱신 주기 (메시지 수)',
+  'Summary categories': '요약 카테고리',
+  'Summary provider': '요약 프로바이더',
+  'Summary model': '요약 모델',
+  'No notes yet.': '아직 기록이 없습니다.',
+  'Clear all': '전체 초기화',
+  Setting: '세계관',
+  Story: '플롯',
+  Characters: '등장인물',
+  'Same as the main provider': '메인 프로바이더와 동일',
+  'Keeps a running summary of the messages that have fallen out of the context window, and injects it as {{summary}}.':
+    '컨텍스트 창에서 밀려난 메시지를 요약해 계속 유지하고, {{summary}} 자리에 넣습니다.',
+  'The summary is rewritten once this many messages have dropped out of context.':
+    '컨텍스트에서 밀려난 메시지가 이 개수를 넘으면 요약을 다시 작성합니다. 낮출수록 최신이지만 호출이 잦아지고, 높일수록 그 메시지들이 요약에 들어갈 때까지 모델이 보지 못합니다.',
+  'Each category is summarised by its own request, all at once. Turning one off skips its request.':
+    '카테고리마다 별도 요청으로 동시에 요약합니다. 끄면 해당 요청을 건너뜁니다.',
+  'Summarising is background work, so it is usually worth pointing at a cheaper model than the one writing the roleplay.':
+    '요약은 백그라운드 작업이라 롤플레이용 모델보다 저렴한 모델을 쓰는 편이 낫습니다.',
+  'Pick a model, or summarising falls back to the main provider.':
+    '모델을 지정하지 않으면 요약도 메인 프로바이더로 처리됩니다.',
+  'Running notes on the messages that have fallen out of the context window. Turn it on and set its budget in the preset settings.':
+    '컨텍스트 창에서 밀려난 메시지의 기록입니다. 프리셋 설정에서 켜고 예산을 조정하세요.',
+  'Currently covers {count} messages.': '현재 메시지 {count}개를 포함합니다.',
   'Speak as': '내가 연기할 캐릭터',
   'Speak as yourself': '내 프로필로 말하기',
   Personas: '페르소나',

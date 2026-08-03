@@ -229,6 +229,14 @@ export interface GenSettings {
   providerModels?: Record<string, string>
   providerSettings?: Record<string, any>
 
+  /**
+   * Provider used for background work -- summarisation -- instead of the roleplay model above.
+   * Usually a cheaper model. Unset means background work reuses the main provider.
+   */
+  secondaryProviderId?: string
+  /** Keyed by `secondaryProviderId`, mirroring `providerModels`. */
+  secondaryProviderModels?: Record<string, string>
+
   oaiModel?: string
   novelModel?: string
   claudeModel?: string
@@ -258,6 +266,12 @@ export interface GenSettings {
   memoryReverseWeight?: boolean
   memoryChatEmbedLimit?: number
   memoryUserEmbedLimit?: number
+
+  summaryEnabled?: boolean
+  summaryContextLimit?: number
+  summaryThreshold?: number
+  /** Per-category opt-out. A missing entry is on; turning one off skips its inference call. */
+  summaryCategories?: Partial<Record<'world' | 'plot' | 'chars', boolean>>
 
   src?: string
 

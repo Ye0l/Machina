@@ -4,6 +4,8 @@ import type { GenerationPreset } from '../presets'
 import type { BaseImageSettings, ImageProviderSettings, ImageSettings } from './image-schema'
 import type { TTSSettings } from './texttospeech-schema'
 import type { UISettings } from './ui'
+// Type-only: `common/summary` imports this module back, and an erased import breaks the cycle.
+import type { ChatSummaries } from '../summary'
 import * as Saga from './saga'
 import * as Library from './library'
 import * as Preset from './presets'
@@ -276,6 +278,19 @@ export namespace AppSchema {
     userId: string
     memoryId?: string
     userEmbedId?: string
+
+    /**
+     * Rolling notes on the messages that have fallen out of the context window, kept as one set per
+     * category. The anchor below is shared: all categories cover the same messages.
+     */
+    summaries?: ChatSummaries
+    /** Single prose summary from before the split. Read as a fallback until the next run. */
+    summary?: string
+    /** `_id` of the newest message the summaries include */
+    summaryUpTo?: string
+    /** How many messages they cover. Fallback anchor when `summaryUpTo` is off the branch */
+    summaryCount?: number
+    summaryUpdatedAt?: string
 
     memberIds: string[]
     characters?: Record<string, boolean>

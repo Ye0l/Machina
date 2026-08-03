@@ -7,6 +7,7 @@ import { createPromptParts } from '/common/prompt'
 import { getEncoder, prepareTokenizer } from '/common/tokenize'
 import { api } from './api'
 import { socketAuthenticated, subscribe } from './socket'
+import { updateChatSummary, type SummaryResult } from './summary'
 
 /**
  * Browser-side generation, mirroring the legacy pipeline in
@@ -164,6 +165,8 @@ export async function sendMessage(
     impersonate: char,
   } satisfies SendMessageBody)
 
+  void summariseChat({ detail, user, profile, settings, messages, assembled: prompt, impersonate })
+
   return { userMessage: userMessage.message, botMessage: botMessage.message }
 }
 
@@ -240,6 +243,9 @@ export async function generateLastReply(
   )
 
   if (!reply || control.stopped) return undefined
+
+  void summariseChat({ detail, user, profile, settings, messages, assembled: prompt, impersonate })
+
   return reply
 }
 
@@ -282,7 +288,9 @@ async function stream(
   settings: Partial<AppSchema.GenSettings> | undefined,
   user: AppSchema.User,
   chatId: string,
-  handlers: StreamHandlers
+  handlers: StreamHandlers,
+  /** Names a lock separate from the chat's message lock, so background work runs alongside a reply */
+  lockScope?: string
 ) {
   // Results are pushed to the socket keyed by userId, so a request sent before the socket
   // has authenticated would stream into the void.
@@ -328,7 +336,63 @@ async function stream(
     )
 
     api
-      .post('/chat/inference-stream', { requestId, prompt, messages, settings, user, chatId })
+      .post('/chat/inference-stream', {
+        requestId,
+        prompt,
+        messages,
+        settings,
+        user,
+        chatId,
+        lockScope,
+      })
       .catch((ex: unknown) => fail(ex instanceof Error ? ex.message : 'Request failed'))
+  })
+}
+
+/**
+ * Folds the messages that just fell out of the context window into the chat's rolling summary.
+ *
+ * Takes the prompt that was already assembled for the reply: `linesAddedCount` is how many history
+ * lines survived the token fit, which is what makes "no longer visible to the model" measurable.
+ *
+ * Callers should not await this. The reply is already persisted and a second inference must never
+ * delay it; `updateChatSummary` swallows its own failures.
+ */
+export async function summariseChat(opts: {
+  detail: ChatDetailResponse
+  user: AppSchema.User
+  profile: AppSchema.Profile
+  settings: Partial<AppSchema.GenSettings> | undefined
+  messages: AppSchema.ChatMessage[]
+  assembled: Awaited<ReturnType<typeof createPromptParts>>
+  impersonate?: AppSchema.Character
+}): Promise<SummaryResult | undefined> {
+  const { detail } = opts
+  const char = detail.character ?? detail.characters.find((c) => c._id === detail.chat.characterId)
+  if (!char) return
+
+  return updateChatSummary({
+    chat: detail.chat,
+    char,
+    characters: detail.characters,
+    members: detail.members,
+    sender: opts.profile,
+    impersonate: opts.impersonate,
+    user: opts.user,
+    messages: opts.messages,
+    settings: opts.settings,
+    history: opts.assembled.lines,
+    linesAddedCount: opts.assembled.template.linesAddedCount,
+    infer: ({ prompt, settings, lockScope }) =>
+      stream(
+        newId(),
+        prompt,
+        [],
+        settings,
+        opts.user,
+        detail.chat._id,
+        { onPartial: () => {}, onDone: () => {}, onError: () => {} },
+        lockScope
+      ),
   })
 }

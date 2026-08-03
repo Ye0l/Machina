@@ -224,6 +224,25 @@ export type PresetConnection = {
   key?: string
 }
 
+/**
+ * Retargets a preset at its secondary provider so one request runs on the cheaper background model.
+ *
+ * Only the provider selection is rewritten -- sampling, budgets and templates stay as they are, and
+ * the server still resolves the URL and key from the user's own provider record by id, so this is
+ * safe to send from the browser. Returns the preset untouched when no secondary is configured.
+ */
+export function toSecondarySettings<T extends Partial<AppSchema.GenSettings>>(preset: T): T {
+  const id = preset.secondaryProviderId
+  const model = id ? preset.secondaryProviderModels?.[id] : undefined
+  if (!id || !model) return preset
+
+  return {
+    ...preset,
+    providerId: id,
+    providerModels: { ...preset.providerModels, [id]: model },
+  }
+}
+
 export function getPresetConnection(
   preset: Partial<AppSchema.GenSettings>,
   providers: AppSchema.Provider[] | undefined

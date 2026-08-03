@@ -14,7 +14,9 @@
     "esModuleInterop": true,
     "forceConsistentCasingInFileNames": true,
     "verbatimModuleSyntax": false,
-    "types": ["node"],
+    // `vite/client` alongside node for the `?worker` / `?url` import suffixes that the client
+    // modules under test use; without it those imports have no declaration.
+    "types": ["node", "vite/client"],
     "baseUrl": "../..",
     "paths": {
       "/common/*": ["./common/*"],
