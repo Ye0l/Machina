@@ -4,13 +4,16 @@ on:
   push:
     branches:
       - fix/reroll-current-settings
+  pull_request:
+    branches:
+      - dev
 
 permissions:
   contents: write
 
 jobs:
   patch:
-    if: github.actor != 'github-actions[bot]'
+    if: github.event_name == 'push' || github.head_ref == 'fix/reroll-current-settings'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -34,7 +37,7 @@ jobs:
           git config user.email 41898282+github-actions[bot]@users.noreply.github.com
           git add .patch-reroll-error.log
           git commit -m "chore: record reroll patch error"
-          git push
+          git push origin HEAD:fix/reroll-current-settings
       - name: Format
         if: steps.apply.outcome == 'success'
         run: pnpm exec prettier --write app/src/lib/generate.ts app/src/lib/contracts.ts app/src/lib/chats.svelte.ts app/src/routes/Chat.svelte app/src/lib/i18n.svelte.ts app/tests/e2e/stub-server.ts app/tests/e2e/reroll-debug.spec.ts srv/api/chat/edit.ts package.json
@@ -49,4 +52,4 @@ jobs:
           git config user.email 41898282+github-actions[bot]@users.noreply.github.com
           git add app/src/lib/generate.ts app/src/lib/contracts.ts app/src/lib/chats.svelte.ts app/src/routes/Chat.svelte app/src/lib/i18n.svelte.ts app/tests/e2e/stub-server.ts app/tests/e2e/reroll-debug.spec.ts srv/api/chat/edit.ts package.json
           git commit -m "feat: improve reroll and expose generation debug info"
-          git push
+          git push origin HEAD:fix/reroll-current-settings
