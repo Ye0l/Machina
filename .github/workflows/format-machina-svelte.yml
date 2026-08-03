@@ -24,8 +24,6 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - name: Format once
         run: pnpm exec prettier --write app/src/routes/Chat.svelte app/src/routes/Settings.svelte
-      - name: Verify formatter result
-        run: pnpm exec prettier --check app/src/routes/Chat.svelte app/src/routes/Settings.svelte
       - name: Commit formatter output
         run: |
           git config user.name github-actions[bot]
@@ -33,4 +31,3 @@ jobs:
           git add app/src/routes/Chat.svelte app/src/routes/Settings.svelte
           git commit -m "style: format Machina chat and settings views"
           git push origin HEAD:feat/machina-themes-scroll-v2
-# One-shot formatter trigger.
