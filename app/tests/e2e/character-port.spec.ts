@@ -238,7 +238,7 @@ test.describe('CHARX', () => {
     // The main icon became the avatar; the emotion became a shown asset.
     await expect(app).toHaveURL(/\/character\/char-\d+$/)
     await app.getByRole('tab', { name: 'Assets' }).click()
-    await expect(app.locator('main code:text-is("{{asset:smiling}}")')).toBeVisible()
-    await expect(app.locator('main code:text-is("{{asset:main}}")')).toHaveCount(0)
+    await expect(app.locator('main code:text-is("{{asset::smiling}}")')).toBeVisible()
+    await expect(app.locator('main code:text-is("{{asset::main}}")')).toHaveCount(0)
   })
 })

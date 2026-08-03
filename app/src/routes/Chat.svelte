@@ -131,7 +131,7 @@
       const name = (match[1] ?? '').trim()
       const asset = findAsset(speaker?.assets, name)
       if (asset) parts.push({ kind: 'asset', name, src: assetUrl(asset.uri) })
-      else pushText(match[0])
+      else pushText(match[0].replace(/\{/g, '&#123;').replace(/\}/g, '&#125;'))
 
       cursor = index + match[0].length
     }
@@ -639,26 +639,33 @@
 
   {#if expandedAsset}
     <div
-      class="fixed inset-0 z-[100] flex items-center justify-center bg-black/90 p-3 backdrop-blur-sm sm:p-6"
+      class="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-6"
       role="dialog"
       aria-modal="true"
       aria-label={expandedAsset.name}
-      onclick={() => (expandedAsset = null)}
+      tabindex="-1"
     >
       <button
-        class="icon-button absolute right-4 top-4 z-10 h-11 w-11 bg-black/60 text-white hover:bg-black/80"
+        class="absolute inset-0 bg-black/90 backdrop-blur-sm"
         type="button"
         aria-label={i18n.t('Close')}
         onclick={() => (expandedAsset = null)}
-      >
-        <X size={22} />
-      </button>
-      <img
-        class="max-h-[94vh] max-w-[94vw] rounded-lg object-contain shadow-2xl"
-        src={expandedAsset.src}
-        alt={expandedAsset.name}
-        onclick={(event) => event.stopPropagation()}
       />
+      <div class="relative z-10 flex max-h-[94vh] max-w-[94vw] items-center justify-center">
+        <button
+          class="icon-button absolute right-0 top-0 z-10 h-11 w-11 -translate-y-1/2 translate-x-1/2 bg-black/70 text-white hover:bg-black/90"
+          type="button"
+          aria-label={i18n.t('Close')}
+          onclick={() => (expandedAsset = null)}
+        >
+          <X size={22} />
+        </button>
+        <img
+          class="max-h-[94vh] max-w-[94vw] rounded-lg object-contain shadow-2xl"
+          src={expandedAsset.src}
+          alt={expandedAsset.name}
+        />
+      </div>
     </div>
   {/if}
 </div>
