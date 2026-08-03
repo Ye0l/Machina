@@ -20,18 +20,25 @@ test.describe('mobile layout', () => {
   })
 
   // Chat controls must not consume vertical space until the user explicitly asks for them.
-  test('keeps the mobile chat header compact until options are opened', async ({ app }) => {
+  test('does not reserve space for a mobile chat title header', async ({ app }) => {
     await app.goto('/chat/chat-1')
     await expect(app.getByText('Greetings from Aria.')).toBeVisible()
 
-    const header = app.getByTestId('chat-header')
-    const box = await header.boundingBox()
-    expect(box?.height).toBeLessThanOrEqual(52)
+    await expect(app.getByTestId('desktop-chat-header')).not.toBeVisible()
+    await expect(app.getByTestId('mobile-chat-options')).toBeVisible()
     await expect(app.locator('select[aria-label="Speak as"]:visible')).toHaveCount(0)
+
+    const chatBox = await app.getByTestId('chat-view').boundingBox()
+    const messagesBox = await app.locator('ol[aria-live="polite"]').boundingBox()
+    expect(messagesBox?.y).toBe(chatBox?.y)
 
     await app.getByTestId('mobile-chat-options').click()
     await expect(app.getByTestId('mobile-chat-controls')).toBeVisible()
     await expect(app.locator('select[aria-label="Speak as"]:visible')).toHaveCount(1)
+
+    const expandedMessagesBox = await app.locator('ol[aria-live="polite"]').boundingBox()
+    expect(expandedMessagesBox?.y).toBe(messagesBox?.y)
+    expect(expandedMessagesBox?.height).toBe(messagesBox?.height)
   })
 
   test('no view scrolls the page horizontally', async ({ app }) => {
