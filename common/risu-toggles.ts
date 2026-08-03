@@ -137,12 +137,18 @@ export function parseRisuToggleSyntax(source: string): RisuToggleDefinition[] {
 
     if (type === 'select') {
       const options = splitEscaped(parts.slice(3).join('='), ',').map((option) => option.trim())
+      const normalisedOptions = options.length ? options : ['']
+      const markedDefault = normalisedOptions.findIndex((option) =>
+        /(?:\(|\[|【)\s*(?:기본|default)\s*(?:\)|\]|】)/i.test(option)
+      )
       result.push({
         kind: 'select',
         key,
         label,
-        options: options.length ? options : [''],
-        defaultValue: '0',
+        options: normalisedOptions,
+        // Risu does not export the live global toggle state with a preset. Prefer an option
+        // explicitly marked as the default, otherwise use the first option just as Risu does.
+        defaultValue: String(markedDefault >= 0 ? markedDefault : 0),
       })
       continue
     }
@@ -266,9 +272,24 @@ function numeric(value: unknown): number {
   return Number.isFinite(parsed) ? parsed : 0
 }
 
-function topLevelEquality(
+type ComparisonOperator = '=' | '==' | '===' | '!=' | '!==' | '<' | '>' | '<=' | '>=' | '≤' | '≥'
+
+function topLevelComparison(
   expression: string
-): { left: string; right: string; negate: boolean } | undefined {
+): { left: string; right: string; operator: ComparisonOperator } | undefined {
+  const operators: ComparisonOperator[] = [
+    '!==',
+    '===',
+    '!=',
+    '==',
+    '<=',
+    '>=',
+    '≤',
+    '≥',
+    '<',
+    '>',
+    '=',
+  ]
   let depth = 0
   for (let index = 0; index < expression.length; index++) {
     if (expression.startsWith('{{', index)) {
@@ -281,13 +302,14 @@ function topLevelEquality(
       index++
       continue
     }
-    if (depth !== 0 || expression[index] !== '=') continue
+    if (depth !== 0) continue
 
-    const isNotEqual = expression[index - 1] === '!'
+    const operator = operators.find((candidate) => expression.startsWith(candidate, index))
+    if (!operator) continue
     return {
-      left: expression.slice(0, isNotEqual ? index - 1 : index),
-      right: expression.slice(index + 1),
-      negate: isNotEqual,
+      left: expression.slice(0, index),
+      right: expression.slice(index + operator.length),
+      operator,
     }
   }
 }
@@ -295,19 +317,41 @@ function topLevelEquality(
 function evaluateQuestion(expression: string, values: Record<string, string>): boolean {
   let body = expression.trim()
   let negateResult = false
-  if (body.startsWith('!')) {
+  if (body.startsWith('!') && !body.startsWith('!=')) {
     negateResult = true
     body = body.slice(1).trim()
   }
 
-  const comparison = topLevelEquality(body)
-  const result = comparison
-    ? comparison.negate !==
-      equal(
-        evaluateRisuExpression(comparison.left, values),
-        evaluateRisuExpression(comparison.right, values)
-      )
-    : truthy(evaluateRisuExpression(body, values))
+  const comparison = topLevelComparison(body)
+  let result: boolean
+  if (!comparison) {
+    result = truthy(evaluateRisuExpression(body, values))
+  } else {
+    const left = evaluateRisuExpression(comparison.left, values)
+    const right = evaluateRisuExpression(comparison.right, values)
+    switch (comparison.operator) {
+      case '!=':
+      case '!==':
+        result = !equal(left, right)
+        break
+      case '<':
+        result = numeric(left) < numeric(right)
+        break
+      case '>':
+        result = numeric(left) > numeric(right)
+        break
+      case '<=':
+      case '≤':
+        result = numeric(left) <= numeric(right)
+        break
+      case '>=':
+      case '≥':
+        result = numeric(left) >= numeric(right)
+        break
+      default:
+        result = equal(left, right)
+    }
+  }
 
   return negateResult ? !result : result
 }
@@ -493,6 +537,27 @@ export function renderRisuToggleMacros(
   return renderRange(template, resolved, 0, false).text
 }
 
+export function hasUnresolvedRisuMacros(template: string) {
+  return /{{\s*(?:#if_pure\b|getglobalvar::)/i.test(template)
+}
+
+/**
+ * Renders the supplied working template with a preset's Risu toggle definition. Unlike
+ * renderRisuPreset, this is suitable for an editor preview where the text may have unsaved edits.
+ */
+export function renderRisuTemplate(
+  template: string,
+  preset: RisuPreset | undefined,
+  values?: Record<string, string>
+) {
+  const config = getRisuToggleConfig(preset)
+  if (!config) return template
+  return renderRisuToggleMacros(template, config.source, {
+    ...(config.defaults ?? {}),
+    ...(values ?? {}),
+  })
+}
+
 /** Returns a generation-only clone. The stored preset and source template are untouched. */
 export function renderRisuPreset(
   preset: RisuPreset | undefined,
@@ -506,9 +571,6 @@ export function renderRisuPreset(
     presetMode: 'advanced',
     useAdvancedPrompt: 'no-validation',
     promptTemplateId: undefined,
-    gaslight: renderRisuToggleMacros(config.template, config.source, {
-      ...(config.defaults ?? {}),
-      ...(values ?? {}),
-    }),
+    gaslight: renderRisuTemplate(config.template, preset, values),
   }
 }

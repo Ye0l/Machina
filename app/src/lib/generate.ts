@@ -1,7 +1,7 @@
 import type { AppSchema } from '/common/types'
 import { withAssetInstruction } from '/common/assets'
 import { expandRisuHistoryRanges } from '/common/risu-import'
-import { renderRisuPreset } from '/common/risu-toggles'
+import { hasUnresolvedRisuMacros, renderRisuPreset } from '/common/risu-toggles'
 import type { ChatDetailResponse, SendMessageBody, SendMessageResponse } from './contracts'
 import { createPromptParts } from '/common/prompt'
 import { getEncoder, prepareTokenizer } from '/common/tokenize'
@@ -90,10 +90,13 @@ function runtimePreset(
 ): Partial<AppSchema.GenSettings> | undefined {
   const rendered = renderRisuPreset(preset, (chat as ChatWithRisuToggles).risuToggleValues)
   if (!rendered?.gaslight) return rendered
-  return {
-    ...rendered,
-    gaslight: expandRisuHistoryRanges(rendered.gaslight, messages, names),
+  const gaslight = expandRisuHistoryRanges(rendered.gaslight, messages, names)
+  if (hasUnresolvedRisuMacros(gaslight)) {
+    throw new Error(
+      'This preset still contains unresolved RisuAI macros. Re-import it or attach its Risu toggle definition in preset settings.'
+    )
   }
+  return { ...rendered, gaslight }
 }
 
 export async function sendMessage(
