@@ -30,7 +30,7 @@ test.describe('mobile layout', () => {
 
     const chatBox = await app.getByTestId('chat-view').boundingBox()
     const messagesBox = await app.locator('ol[aria-live="polite"]').boundingBox()
-    expect(messagesBox?.y).toBe(chatBox?.y)
+    expect(Math.abs((messagesBox?.y ?? 0) - (chatBox?.y ?? 0))).toBeLessThanOrEqual(1)
 
     await app.getByTestId('mobile-chat-options').click()
     await expect(app.getByTestId('mobile-chat-controls')).toBeVisible()

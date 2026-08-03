@@ -7,6 +7,7 @@ import { createPromptParts } from '/common/prompt'
 import { getEncoder, prepareTokenizer } from '/common/tokenize'
 import {
   generationSummary,
+  redactGenerationSettings,
   resolveGenerationModel,
   type GenerationDebug,
   type GenerationRequestDebug,
@@ -69,8 +70,8 @@ async function buildGenerationDebug(
     outputTokens: await countTokens(text),
     request: {
       ...request,
-      // This is the actual inference payload minus the user object, which contains credentials.
-      settings: settings ? structuredClone(settings) : undefined,
+      // Convert the Svelte proxy to plain data and recursively remove credentials.
+      settings: redactGenerationSettings(settings),
     },
   }
 }
