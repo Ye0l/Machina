@@ -61,7 +61,5 @@ test('rerolls with current settings while replacing the visible response immedia
   const dialog = app.getByRole('dialog', { name: 'Generation request' })
   await expect(dialog).toBeVisible()
   await expect(app.getByTestId('generation-request-body')).toContainText('current/model-v2')
-  await expect(app.getByTestId('generation-request-body')).toContainText('Fresh reroll reply.', {
-    useInnerText: false,
-  })
+  await expect(app.getByTestId('generation-request-body')).toContainText('Some **bold**')
 })

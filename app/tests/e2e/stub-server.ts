@@ -106,6 +106,10 @@ export type StubState = {
   chatUpdates: Array<{ id: string; body: any }>
   /** Prompts the client assembled and posted to /chat/inference-stream. */
   prompts: string[]
+  inferenceRequests: any[]
+  swaps: Array<{ id: string; body: any }>
+  inferenceDelayMs: number
+  inferenceResponse: string
   apiCalls: string[]
   /** Non-2xx responses served, so tests can assert none were unexpected. */
   failedResponses: string[]
@@ -155,6 +159,10 @@ export async function createStubServer(port: number) {
     edits: [],
     chatUpdates: [],
     prompts: [],
+    inferenceRequests: [],
+    swaps: [],
+    inferenceDelayMs: 30,
+    inferenceResponse: 'Stub reply.',
     apiCalls: [],
     failedResponses: [],
     chatMemory: {},
@@ -177,6 +185,10 @@ export async function createStubServer(port: number) {
       this.edits = []
       this.chatUpdates = []
       this.prompts = []
+      this.inferenceRequests = []
+      this.swaps = []
+      this.inferenceDelayMs = 30
+      this.inferenceResponse = 'Stub reply.'
       this.apiCalls = []
       this.failedResponses = []
       this.chatMemory = {}
@@ -486,6 +498,15 @@ export async function createStubServer(port: number) {
         return json({ success: true })
       }
 
+      const swapMatch = path.match(/^\/api\/chat\/([^/]+)\/message-swap$/)
+      if (swapMatch && req.method === 'PUT') {
+        const body = await readBody(req)
+        state.swaps.push({ id: swapMatch[1], body })
+        const target = state.extraMessages.find((message) => message._id === swapMatch[1])
+        if (target) Object.assign(target, body)
+        return json(target ?? { _id: swapMatch[1], ...body })
+      }
+
       const editMatch = path.match(/^\/api\/chat\/([^/]+)\/message$/)
       if (editMatch && req.method === 'PUT') {
         const body = await readBody(req)
@@ -530,6 +551,8 @@ export async function createStubServer(port: number) {
           retries: [],
           createdAt: now,
           updatedAt: now,
+          parent: body.parent,
+          meta: body.meta,
           ...(body.bot ? { characterId: 'char-1' } : { userId: 'user-1' }),
         }
         // The server stamps an impersonated user message with the persona's id and name
@@ -546,16 +569,17 @@ export async function createStubServer(port: number) {
       if (path === '/api/chat/inference-stream' && req.method === 'POST') {
         const body = await readBody(req)
         state.prompts.push(body.prompt ?? '')
+        state.inferenceRequests.push(body)
         // The client resolves on the socket event, not this response.
         setTimeout(() => {
           liveSocket?.send(
             JSON.stringify({
               type: 'inference',
               requestId: body.requestId,
-              response: 'Stub reply.',
+              response: state.inferenceResponse,
             })
           )
-        }, 30)
+        }, state.inferenceDelayMs)
         return json({ success: true })
       }
 
