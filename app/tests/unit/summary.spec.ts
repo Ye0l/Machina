@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { buildSummaryPrompt, getSummaryWindow, takeWithinBudget } from '/common/summary'
+import { normalizePromptOrder } from '/app/lib/settings.svelte'
+import { promptOrderToTemplate } from '/common/prompt-order'
 import type { AppSchema } from '/common/types'
 import type { HistoryLine } from '/common/types/inference'
 
@@ -84,6 +86,22 @@ describe('takeWithinBudget', () => {
     })
 
     expect(taken).toEqual(['a very long line'])
+  })
+})
+
+// normalizePromptOrder drops any section it does not know about, so a placeholder missing from
+// PROMPT_SECTION_IDS never reaches the template no matter what the shared layer does with it
+describe('summary prompt section', () => {
+  it('survives prompt order normalization', () => {
+    const order = normalizePromptOrder([{ placeholder: 'history', enabled: true }])
+
+    expect(order.map((item) => item.placeholder)).toContain('summary')
+  })
+
+  it('reaches the generated template', () => {
+    const template = promptOrderToTemplate('Universal', normalizePromptOrder())
+
+    expect(template).toContain('{{summary}}')
   })
 })
 

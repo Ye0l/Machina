@@ -128,6 +128,18 @@ const korean: Record<string, string> = {
   'Discard changes': '변경사항 버리기',
   'Memory book': '메모리 북',
   'No memory book': '메모리 북 없음',
+  'Story summary': '스토리 요약',
+  'Maintain a story summary': '스토리 요약 유지',
+  'Summary context budget': '요약 컨텍스트 예산',
+  'Summary update threshold': '요약 갱신 기준',
+  'No summary yet.': '아직 요약이 없습니다.',
+  'Keeps a running summary of the messages that have fallen out of the context window, and injects it as {{summary}}.':
+    '컨텍스트 창에서 밀려난 메시지를 요약해 계속 유지하고, {{summary}} 자리에 넣습니다.',
+  'The summary is rewritten once this many messages have dropped out of context.':
+    '컨텍스트에서 밀려난 메시지가 이 개수를 넘으면 요약을 다시 작성합니다.',
+  'A running summary of the messages that have fallen out of the context window. Turn it on and set its budget in the preset settings.':
+    '컨텍스트 창에서 밀려난 메시지의 요약입니다. 프리셋 설정에서 켜고 예산을 조정하세요.',
+  'Currently covers {count} messages.': '현재 메시지 {count}개를 포함합니다.',
   'Speak as': '내가 연기할 캐릭터',
   'Speak as yourself': '내 프로필로 말하기',
   Personas: '페르소나',

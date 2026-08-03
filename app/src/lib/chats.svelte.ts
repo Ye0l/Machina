@@ -400,6 +400,52 @@ class Chats {
     }
   }
 
+  /**
+   * Persists a hand-edited story summary.
+   *
+   * The anchor is left where it is: it records which messages the summary already covers, so
+   * moving it here would make the summariser skip everything between the old and new positions.
+   */
+  async setSummary(summary: string) {
+    const detail = this.detail
+    if (!detail || summary === (detail.chat.summary ?? '')) return
+
+    const previous = detail.chat
+    this.detail = { ...detail, chat: { ...detail.chat, summary } }
+    try {
+      await api.put(`/chat/${detail.chat._id}/summary`, {
+        summary,
+        summaryUpTo: detail.chat.summaryUpTo,
+        summaryCount: detail.chat.summaryCount,
+      })
+    } catch (ex) {
+      this.detail = { ...detail, chat: previous }
+      this.error = ex instanceof Error ? ex.message : 'Failed to update the story summary'
+    }
+  }
+
+  /** Drops the summary and its anchor, so the next run rebuilds it from the top of the chat. */
+  async clearSummary() {
+    const detail = this.detail
+    if (!detail) return
+
+    const previous = detail.chat
+    this.detail = {
+      ...detail,
+      chat: { ...detail.chat, summary: '', summaryUpTo: '', summaryCount: 0 },
+    }
+    try {
+      await api.put(`/chat/${detail.chat._id}/summary`, {
+        summary: '',
+        summaryUpTo: '',
+        summaryCount: 0,
+      })
+    } catch (ex) {
+      this.detail = { ...detail, chat: previous }
+      this.error = ex instanceof Error ? ex.message : 'Failed to clear the story summary'
+    }
+  }
+
   /** Persists the chat's generation preset (PUT /chat/:id/preset) and updates local state. */
   async setPreset(presetId: string) {
     const detail = this.detail

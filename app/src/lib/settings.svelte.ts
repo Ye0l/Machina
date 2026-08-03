@@ -151,6 +151,7 @@ export const PROMPT_SECTION_IDS = [
   'impersonating',
   'chat_embed',
   'memory',
+  'summary',
   'example_dialogue',
   'history',
   'ujb',
@@ -199,6 +200,9 @@ export type PresetInput = {
   prefill: string
   ignoreCharacterSystemPrompt: boolean
   ignoreCharacterUjb: boolean
+  summaryEnabled: boolean
+  summaryContextLimit: number
+  summaryThreshold: number
 }
 
 export type ConnectionTestResult = { success: boolean; url: string }
@@ -305,6 +309,9 @@ class SettingsStore {
         prefill: input.prefill,
         ignoreCharacterSystemPrompt: input.ignoreCharacterSystemPrompt,
         ignoreCharacterUjb: input.ignoreCharacterUjb,
+        summaryEnabled: input.summaryEnabled,
+        summaryContextLimit: input.summaryContextLimit,
+        summaryThreshold: input.summaryThreshold,
       }
 
       if (existing) {

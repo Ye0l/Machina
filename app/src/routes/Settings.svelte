@@ -52,6 +52,7 @@
   } from '/common/types/ui'
   import type { ModelFormat } from '/common/presets/templates'
   import { BUILTIN_FORMATS } from '/common/presets/templates'
+  import { SUMMARY_CONTEXT_LIMIT, SUMMARY_THRESHOLD } from '/common/summary'
   import { BUILTIN_TEMPLATE_IDS, promptTemplates } from '/app/lib/prompt-templates.svelte'
   import { renderPromptPreview, type PromptPreview } from '/app/lib/prompt-preview'
   import type { SettingsTab } from '/app/lib/router.svelte'
@@ -220,6 +221,9 @@
     prefill: string
     ignoreCharacterSystemPrompt: boolean
     ignoreCharacterUjb: boolean
+    summaryEnabled: boolean
+    summaryContextLimit: number
+    summaryThreshold: number
   }
 
   const MODEL_FORMAT_OPTIONS = Object.keys(BUILTIN_FORMATS) as ModelFormat[]
@@ -231,6 +235,7 @@
     impersonating: 'Impersonate Personality',
     chat_embed: 'Long-term Memory',
     memory: 'Memory',
+    summary: 'Story Summary',
     example_dialogue: 'Example Dialogue',
     history: 'Chat History',
     ujb: 'Jailbreak (UJB)',
@@ -244,6 +249,7 @@
     { value: 'personality', inserted: '{{personality}}' },
     { value: 'impersonating', inserted: '{{impersonating}}' },
     { value: 'memory', inserted: '{{memory}}' },
+    { value: 'summary', inserted: '{{summary}}' },
     { value: 'chat_embed', inserted: '{{chat_embed}}' },
     { value: 'example_dialogue', inserted: '{{example_dialogue}}' },
     { value: 'history', inserted: '{{history}}' },
@@ -325,6 +331,9 @@
       prefill: '',
       ignoreCharacterSystemPrompt: false,
       ignoreCharacterUjb: false,
+      summaryEnabled: false,
+      summaryContextLimit: SUMMARY_CONTEXT_LIMIT,
+      summaryThreshold: SUMMARY_THRESHOLD,
     }
   }
 
@@ -364,6 +373,9 @@
       prefill: preset.prefill ?? '',
       ignoreCharacterSystemPrompt: !!preset.ignoreCharacterSystemPrompt,
       ignoreCharacterUjb: !!preset.ignoreCharacterUjb,
+      summaryEnabled: !!preset.summaryEnabled,
+      summaryContextLimit: preset.summaryContextLimit ?? SUMMARY_CONTEXT_LIMIT,
+      summaryThreshold: preset.summaryThreshold ?? SUMMARY_THRESHOLD,
     }
     presetNameError = ''
     presetPromptError = ''
@@ -566,6 +578,9 @@
       prefill: presetForm.prefill,
       ignoreCharacterSystemPrompt: presetForm.ignoreCharacterSystemPrompt,
       ignoreCharacterUjb: presetForm.ignoreCharacterUjb,
+      summaryEnabled: presetForm.summaryEnabled,
+      summaryContextLimit: Number(presetForm.summaryContextLimit) || SUMMARY_CONTEXT_LIMIT,
+      summaryThreshold: Number(presetForm.summaryThreshold) || SUMMARY_THRESHOLD,
     }
     const existing = presets.find((p) => p._id === presetForm._id)
     if (await settings.savePreset(input, existing)) cancelPreset()
@@ -1309,6 +1324,62 @@
                 />
               </div>
             </div>
+
+            <details class="rounded-lg border border-neutral-800/80 bg-neutral-900/40 px-4 py-3">
+              <summary class="cursor-pointer text-sm font-medium text-neutral-200">
+                {i18n.t('Story summary')}
+              </summary>
+              <div class="mt-3 flex flex-col gap-3">
+                <label class="flex items-center gap-2 text-xs text-neutral-400">
+                  <input
+                    type="checkbox"
+                    class="accent-violet-500"
+                    bind:checked={presetForm.summaryEnabled}
+                  />
+                  <span>
+                    {i18n.t('Maintain a story summary')} —
+                    {i18n.t(
+                      'Keeps a running summary of the messages that have fallen out of the context window, and injects it as {{summary}}.'
+                    )}
+                  </span>
+                </label>
+                <div class="grid gap-3 sm:grid-cols-2">
+                  <div class="field-group">
+                    <label class="field-label" for="preset-summary-context">
+                      {i18n.t('Summary context budget')}
+                    </label>
+                    <input
+                      id="preset-summary-context"
+                      class="field"
+                      type="number"
+                      step="50"
+                      min="100"
+                      inputmode="numeric"
+                      bind:value={presetForm.summaryContextLimit}
+                    />
+                  </div>
+                  <div class="field-group">
+                    <label class="field-label" for="preset-summary-threshold">
+                      {i18n.t('Summary update threshold')}
+                    </label>
+                    <input
+                      id="preset-summary-threshold"
+                      class="field"
+                      type="number"
+                      step="1"
+                      min="2"
+                      inputmode="numeric"
+                      bind:value={presetForm.summaryThreshold}
+                    />
+                  </div>
+                </div>
+                <p class="text-xs text-neutral-500">
+                  {i18n.t(
+                    'The summary is rewritten once this many messages have dropped out of context.'
+                  )}
+                </p>
+              </div>
+            </details>
 
             <details class="rounded-lg border border-neutral-800/80 bg-neutral-900/40 px-4 py-3">
               <summary class="cursor-pointer text-sm font-medium text-neutral-200">

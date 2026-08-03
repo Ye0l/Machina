@@ -8,6 +8,7 @@
     Pencil,
     Plus,
     RotateCw,
+    ScrollText,
     Send,
     Square,
     Trash2,
@@ -147,6 +148,15 @@
   let editingId = $state<string | null>(null)
   let editDraft = $state('')
   let editSaving = $state(false)
+
+  let showSummary = $state(false)
+  let summaryDraft = $state('')
+  const chatSummary = $derived(detail?.chat.summary ?? '')
+
+  function toggleSummary() {
+    if (!showSummary) summaryDraft = chatSummary
+    showSummary = !showSummary
+  }
 
   /** Edits operate on the stored text, not the placeholder-substituted rendering. */
   const startEdit = (messageId: string, text: string) => {
@@ -360,6 +370,17 @@
       {/each}
     </select>
     <button
+      class="icon-button text-neutral-500 hover:text-neutral-200"
+      class:text-violet-400={showSummary}
+      type="button"
+      aria-label={i18n.t('Story summary')}
+      title={i18n.t('Story summary')}
+      aria-pressed={showSummary}
+      onclick={toggleSummary}
+    >
+      <ScrollText size={17} />
+    </button>
+    <button
       class="icon-button text-neutral-500 hover:text-red-300"
       type="button"
       aria-label={i18n.t('Delete chat')}
@@ -370,6 +391,51 @@
       <Trash2 size={17} />
     </button>
   </header>
+
+  {#if showSummary}
+    <section class="border-b border-neutral-800/80 bg-neutral-900/40 px-4 py-3">
+      <div class="flex flex-col gap-2">
+        <label class="field-label" for="chat-summary">{i18n.t('Story summary')}</label>
+        <p class="field-hint">
+          {i18n.t(
+            'A running summary of the messages that have fallen out of the context window. Turn it on and set its budget in the preset settings.'
+          )}
+          {#if detail.chat.summaryCount}
+            {i18n.t('Currently covers {count} messages.', {
+              count: String(detail.chat.summaryCount),
+            })}
+          {/if}
+        </p>
+        <textarea
+          id="chat-summary"
+          class="field min-h-32 resize-y text-sm"
+          bind:value={summaryDraft}
+          placeholder={i18n.t('No summary yet.')}
+        />
+        <div class="flex items-center gap-2">
+          <button
+            class="button-primary"
+            type="button"
+            disabled={summaryDraft === chatSummary}
+            onclick={() => chats.setSummary(summaryDraft)}
+          >
+            {i18n.t('Save')}
+          </button>
+          <button
+            class="button-secondary"
+            type="button"
+            disabled={!chatSummary && !summaryDraft}
+            onclick={async () => {
+              await chats.clearSummary()
+              summaryDraft = ''
+            }}
+          >
+            {i18n.t('Clear')}
+          </button>
+        </div>
+      </div>
+    </section>
+  {/if}
 
   <ol
     bind:this={messageList}
