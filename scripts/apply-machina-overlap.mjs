@@ -202,3 +202,4 @@ pkg.bin = { ...pkg.bin, machina: './srv/bin.js' }
 write(pkgPath, `${JSON.stringify(pkg, null, 2)}\n`)
 
 console.log('Machina overlap resolution applied')
+// Triggered after the rebuild workflow was available.
