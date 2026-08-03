@@ -29,7 +29,10 @@ jobs:
       - name: Apply patch
         id: apply
         continue-on-error: true
-        run: node scripts/patch-reroll-debug.mjs 2>&1 | tee .patch-reroll-error.log
+        shell: bash
+        run: |
+          set -o pipefail
+          node scripts/patch-reroll-debug-ui.mjs 2>&1 | tee .patch-reroll-error.log
       - name: Commit patch error
         if: steps.apply.outcome == 'failure'
         run: |
@@ -45,11 +48,11 @@ jobs:
         if: steps.apply.outcome == 'success'
         run: |
           rm -f .patch-reroll-error.log
-          if git diff --quiet; then
-            exit 0
-          fi
           git config user.name github-actions[bot]
           git config user.email 41898282+github-actions[bot]@users.noreply.github.com
           git add app/src/lib/generate.ts app/src/lib/contracts.ts app/src/lib/chats.svelte.ts app/src/routes/Chat.svelte app/src/lib/i18n.svelte.ts app/tests/e2e/stub-server.ts app/tests/e2e/reroll-debug.spec.ts srv/api/chat/edit.ts package.json
-          git commit -m "feat: improve reroll and expose generation debug info"
+          if git diff --cached --quiet; then
+            exit 0
+          fi
+          git commit -m "feat: finish reroll and generation debug UI"
           git push origin HEAD:fix/reroll-current-settings
