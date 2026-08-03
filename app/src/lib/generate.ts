@@ -5,6 +5,12 @@ import { renderRisuPreset } from '/common/risu-toggles'
 import type { ChatDetailResponse, SendMessageBody, SendMessageResponse } from './contracts'
 import { createPromptParts } from '/common/prompt'
 import { getEncoder, prepareTokenizer } from '/common/tokenize'
+import {
+  generationSummary,
+  resolveGenerationModel,
+  type GenerationDebug,
+  type GenerationRequestDebug,
+} from './generation-debug'
 import { api } from './api'
 import { socketAuthenticated, subscribe } from './socket'
 import { updateChatSummary, type SummaryResult } from './summary'
@@ -51,6 +57,23 @@ export async function cancelGeneration(requestId: string) {
 const STREAM_TIMEOUT_MS = 120_000
 
 const newId = () => crypto.randomUUID()
+
+async function buildGenerationDebug(
+  text: string,
+  request: Omit<GenerationRequestDebug, 'settings'>,
+  settings: Partial<AppSchema.GenSettings> | undefined,
+  countTokens: (text: string) => Promise<number>
+): Promise<GenerationDebug> {
+  return {
+    model: resolveGenerationModel(settings),
+    outputTokens: await countTokens(text),
+    request: {
+      ...request,
+      // This is the actual inference payload minus the user object, which contains credentials.
+      settings: settings ? structuredClone(settings) : undefined,
+    },
+  }
+}
 
 type ChatWithRisuToggles = AppSchema.Chat & { risuToggleValues?: Record<string, string> }
 
@@ -139,12 +162,18 @@ export async function sendMessage(
   )
 
   const request = inferencePrompt(prompt, messages)
-  const reply = await stream(
-    control.requestId,
+  const inferenceRequest = {
+    requestId: control.requestId,
+    chatId: chat._id,
     // Appended after assembly rather than through a placeholder: an asset the model was never
     // told about can never be shown, so this must not depend on the user editing a template.
-    withAssetInstruction(request.prompt, char.assets),
-    request.messages,
+    prompt: withAssetInstruction(request.prompt, char.assets),
+    messages: request.messages,
+  }
+  const reply = await stream(
+    inferenceRequest.requestId,
+    inferenceRequest.prompt,
+    inferenceRequest.messages,
     settings,
     user,
     chat._id,
@@ -155,6 +184,7 @@ export async function sendMessage(
   // a clean turn instead of a truncated bot message.
   if (!reply || control.stopped) return { userMessage: userMessage.message, botMessage: undefined }
 
+  const debug = await buildGenerationDebug(reply, inferenceRequest, settings, encoder)
   const botMessage = await api.post<SendMessageResponse>(`/chat/${chat._id}/send`, {
     text: reply,
     messageId: newId(),
@@ -163,11 +193,12 @@ export async function sendMessage(
     // `characterId`/`name` are taken from `impersonate` (srv/api/chat/message.ts:135,140);
     // without it the reply is stored unattributed and renders as the user's own message.
     impersonate: char,
+    meta: { generation: generationSummary(debug) },
   } satisfies SendMessageBody)
 
   void summariseChat({ detail, user, profile, settings, messages, assembled: prompt, impersonate })
 
-  return { userMessage: userMessage.message, botMessage: botMessage.message }
+  return { userMessage: userMessage.message, botMessage: botMessage.message, debug }
 }
 
 /**
@@ -230,12 +261,18 @@ export async function generateLastReply(
   )
 
   const request = inferencePrompt(prompt, messages)
-  const reply = await stream(
-    control.requestId,
+  const inferenceRequest = {
+    requestId: control.requestId,
+    chatId: chat._id,
     // Appended after assembly rather than through a placeholder: an asset the model was never
     // told about can never be shown, so this must not depend on the user editing a template.
-    withAssetInstruction(request.prompt, char.assets),
-    request.messages,
+    prompt: withAssetInstruction(request.prompt, char.assets),
+    messages: request.messages,
+  }
+  const reply = await stream(
+    inferenceRequest.requestId,
+    inferenceRequest.prompt,
+    inferenceRequest.messages,
     settings,
     user,
     chat._id,
@@ -244,9 +281,10 @@ export async function generateLastReply(
 
   if (!reply || control.stopped) return undefined
 
+  const debug = await buildGenerationDebug(reply, inferenceRequest, settings, encoder)
   void summariseChat({ detail, user, profile, settings, messages, assembled: prompt, impersonate })
 
-  return reply
+  return { text: reply, debug }
 }
 
 /**
