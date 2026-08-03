@@ -384,24 +384,6 @@ export const chatStore = createStore<ChatState>('chat', {
       }
     },
 
-    async *editChatSummary(
-      {},
-      chatId: string,
-      summary: string,
-      anchor: { summaryUpTo?: string; summaryCount?: number },
-      opts?: { quiet?: boolean }
-    ) {
-      const res = await chatsApi.editChatSummary(chatId, summary, anchor)
-      if (res.error) {
-        if (!opts?.quiet) toastStore.error(`Failed to update summary: ${res.error}`)
-        return
-      }
-
-      if (res.result) {
-        chatStore.setChat(chatId, res.result)
-      }
-    },
-
     async *createChat(
       { allChats },
       characterId: string,

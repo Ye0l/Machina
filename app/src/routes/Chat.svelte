@@ -23,6 +23,11 @@
   import { renderMarkdown } from '/app/lib/markdown'
   import { ASSET_TAG_PATTERN, findAsset } from '/common/assets'
   import { groupByFolder } from '/common/folders'
+  import {
+    SUMMARY_CATEGORIES,
+    SUMMARY_CATEGORY_LABELS,
+    type SummaryCategory,
+  } from '/common/summary'
   import { assetUrl } from '/app/lib/config'
   import { uiSettings } from '/app/lib/ui-settings.svelte'
   import { FONT_FACES } from '/common/types/ui'
@@ -150,12 +155,23 @@
   let editSaving = $state(false)
 
   let showSummary = $state(false)
+  let summaryTab = $state<SummaryCategory>('plot')
   let summaryDraft = $state('')
-  const chatSummary = $derived(detail?.chat.summary ?? '')
+
+  const activeSummary = $derived(detail?.chat.summaries?.[summaryTab] ?? '')
+  const hasAnySummary = $derived(
+    SUMMARY_CATEGORIES.some((category) => !!detail?.chat.summaries?.[category]) ||
+      !!detail?.chat.summary
+  )
 
   function toggleSummary() {
-    if (!showSummary) summaryDraft = chatSummary
+    if (!showSummary) summaryDraft = activeSummary
     showSummary = !showSummary
+  }
+
+  function selectSummaryTab(category: SummaryCategory) {
+    summaryTab = category
+    summaryDraft = detail?.chat.summaries?.[category] ?? ''
   }
 
   /** Edits operate on the stored text, not the placeholder-substituted rendering. */
@@ -394,43 +410,64 @@
 
   {#if showSummary}
     <section class="border-b border-neutral-800/80 bg-neutral-900/40 px-4 py-3">
-      <div class="flex flex-col gap-2">
-        <label class="field-label" for="chat-summary">{i18n.t('Story summary')}</label>
-        <p class="field-hint">
-          {i18n.t(
-            'A running summary of the messages that have fallen out of the context window. Turn it on and set its budget in the preset settings.'
-          )}
-          {#if detail.chat.summaryCount}
-            {i18n.t('Currently covers {count} messages.', {
-              count: String(detail.chat.summaryCount),
-            })}
-          {/if}
-        </p>
+      <div class="flex flex-col gap-3">
+        <div>
+          <span class="field-label">{i18n.t('Story summary')}</span>
+          <p class="field-hint">
+            {i18n.t(
+              'Running notes on the messages that have fallen out of the context window. Turn it on and set its budget in the preset settings.'
+            )}
+            {#if detail.chat.summaryCount}
+              {i18n.t('Currently covers {count} messages.', {
+                count: String(detail.chat.summaryCount),
+              })}
+            {/if}
+          </p>
+        </div>
+
+        <div class="flex gap-1" role="tablist">
+          {#each SUMMARY_CATEGORIES as category (category)}
+            <button
+              class="rounded-lg px-3 py-1.5 text-xs font-medium transition {summaryTab === category
+                ? 'bg-violet-500/10 text-violet-200'
+                : 'text-neutral-400 hover:bg-neutral-800/70 hover:text-neutral-100'}"
+              type="button"
+              role="tab"
+              aria-selected={summaryTab === category}
+              onclick={() => selectSummaryTab(category)}
+            >
+              {i18n.t(SUMMARY_CATEGORY_LABELS[category])}
+            </button>
+          {/each}
+        </div>
+
         <textarea
           id="chat-summary"
           class="field min-h-32 resize-y text-sm"
+          aria-label={i18n.t(SUMMARY_CATEGORY_LABELS[summaryTab])}
           bind:value={summaryDraft}
-          placeholder={i18n.t('No summary yet.')}
+          placeholder={i18n.t('No notes yet.')}
         />
+
         <div class="flex items-center gap-2">
           <button
             class="button-primary"
             type="button"
-            disabled={summaryDraft === chatSummary}
-            onclick={() => chats.setSummary(summaryDraft)}
+            disabled={summaryDraft === activeSummary}
+            onclick={() => chats.setSummary(summaryTab, summaryDraft)}
           >
             {i18n.t('Save')}
           </button>
           <button
             class="button-secondary"
             type="button"
-            disabled={!chatSummary && !summaryDraft}
+            disabled={!hasAnySummary}
             onclick={async () => {
-              await chats.clearSummary()
+              await chats.clearSummaries()
               summaryDraft = ''
             }}
           >
-            {i18n.t('Clear')}
+            {i18n.t('Clear all')}
           </button>
         </div>
       </div>

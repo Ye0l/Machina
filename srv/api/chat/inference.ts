@@ -110,6 +110,7 @@ export const inferenceStream = wrap(async (req, res) => {
       stop: ['string?'],
       messages: 'any?',
       requestId: 'string',
+      lockScope: 'string?',
       broadcast: optional({ type: 'string', id: 'string', payload: 'any' }),
     },
     body
@@ -190,7 +191,14 @@ export const inferenceStream = wrap(async (req, res) => {
     }
   }
 
-  const lockId = body.chatId ? body.chatId : userId ? userId : socketId
+  const lockTarget = body.chatId ? body.chatId : userId ? userId : socketId
+
+  /**
+   * The lock stops a chat from generating two messages at once. Requests that generate something
+   * other than the next message -- summarisation, analysis -- are not in that race and must not
+   * queue behind it, so they name their own scope and contend only with their own kind.
+   */
+  const lockId = body.lockScope ? `${lockTarget}:${body.lockScope}` : lockTarget
 
   await obtainLock(lockId, 10)
   registerInference(requestId, signal, userId)
@@ -259,8 +267,10 @@ export const inferenceStream = wrap(async (req, res) => {
     removeInference(requestId)
   }
 
-  wrapped({ type: 'inference', requestId, response })
+  // Released before the client is told the request finished: the caller may start its next
+  // request the moment this event lands, and would otherwise race the lock it is about to need.
   await releaseLock(lockId)
+  wrapped({ type: 'inference', requestId, response })
 
   if (isEventStream) {
     res.write(`data: [DONE]`)

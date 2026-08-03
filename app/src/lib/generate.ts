@@ -288,7 +288,9 @@ async function stream(
   settings: Partial<AppSchema.GenSettings> | undefined,
   user: AppSchema.User,
   chatId: string,
-  handlers: StreamHandlers
+  handlers: StreamHandlers,
+  /** Names a lock separate from the chat's message lock, so background work runs alongside a reply */
+  lockScope?: string
 ) {
   // Results are pushed to the socket keyed by userId, so a request sent before the socket
   // has authenticated would stream into the void.
@@ -334,7 +336,15 @@ async function stream(
     )
 
     api
-      .post('/chat/inference-stream', { requestId, prompt, messages, settings, user, chatId })
+      .post('/chat/inference-stream', {
+        requestId,
+        prompt,
+        messages,
+        settings,
+        user,
+        chatId,
+        lockScope,
+      })
       .catch((ex: unknown) => fail(ex instanceof Error ? ex.message : 'Request failed'))
   })
 }
@@ -373,11 +383,16 @@ export async function summariseChat(opts: {
     settings: opts.settings,
     history: opts.assembled.lines,
     linesAddedCount: opts.assembled.template.linesAddedCount,
-    infer: (prompt, settings) =>
-      stream(newId(), prompt, [], settings, opts.user, detail.chat._id, {
-        onPartial: () => {},
-        onDone: () => {},
-        onError: () => {},
-      }),
+    infer: ({ prompt, settings, lockScope }) =>
+      stream(
+        newId(),
+        prompt,
+        [],
+        settings,
+        opts.user,
+        detail.chat._id,
+        { onPartial: () => {}, onDone: () => {}, onError: () => {} },
+        lockScope
+      ),
   })
 }

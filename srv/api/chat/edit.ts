@@ -232,14 +232,24 @@ export const updateChatGenPreset = handle(async ({ params, userId, body }) => {
  * rolling summary would clear fields the caller did not send (`imageSettings`, overrides).
  */
 export const updateChatSummary = handle(async ({ params, userId, body }) => {
-  assertValid({ summary: 'string', summaryUpTo: 'string?', summaryCount: 'number?' }, body)
+  assertValid(
+    {
+      summaries: optional({ world: 'string?', plot: 'string?', chars: 'string?' }),
+      summaryUpTo: 'string?',
+      summaryCount: 'number?',
+    },
+    body
+  )
 
   const chat = await store.chats.getChatOnly(params.id)
   if (!chat) throw errors.NotFound
   if (chat.userId !== userId) throw errors.Forbidden
 
   await store.chats.update(params.id, {
-    summary: body.summary,
+    summaries: body.summaries || {},
+    // Cleared alongside the notes: the pre-split prose summary is only a read fallback, and leaving
+    // it behind would resurrect itself the moment every category is emptied again.
+    summary: '',
     summaryUpTo: body.summaryUpTo || '',
     summaryCount: body.summaryCount || 0,
     summaryUpdatedAt: new Date().toISOString(),

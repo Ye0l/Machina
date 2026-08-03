@@ -1,8 +1,6 @@
 import { Component } from 'solid-js'
 import RangeInput from '../RangeInput'
-import { Toggle } from '../Toggle'
 import { PresetTabProps } from '/web/store/preset-context'
-import { SUMMARY_CONTEXT_LIMIT, SUMMARY_THRESHOLD } from '/common/summary'
 
 export const MemorySettings: Component<PresetTabProps> = (props) => {
   return (
@@ -54,39 +52,6 @@ export const MemorySettings: Component<PresetTabProps> = (props) => {
           value={props.state.memoryDepth || 50}
           disabled={props.state.disabled}
           onChange={(ev) => props.setters.setState('memoryDepth', ev)}
-        />
-
-        <Toggle
-          fieldName="summaryEnabled"
-          label="Story Summary"
-          helperText="Maintain a running summary of the messages that have fallen out of the context window. Uses the Summary preset from your AI settings, and requires the Story Summary block in your prompt order."
-          value={props.state.summaryEnabled ?? false}
-          disabled={props.state.disabled}
-          onChange={(ev) => props.setters.setState('summaryEnabled', ev)}
-        />
-
-        <RangeInput
-          fieldName="summaryContextLimit"
-          label="Story Summary: Context Budget"
-          helperText="The maximum context budget (in tokens) for the story summary."
-          min={100}
-          max={4000}
-          step={50}
-          value={props.state.summaryContextLimit ?? SUMMARY_CONTEXT_LIMIT}
-          disabled={props.state.disabled}
-          onChange={(ev) => props.setters.setState('summaryContextLimit', ev)}
-        />
-
-        <RangeInput
-          fieldName="summaryThreshold"
-          label="Story Summary: Update Threshold"
-          helperText="How many messages must fall out of context before the summary is rewritten."
-          min={2}
-          max={100}
-          step={1}
-          value={props.state.summaryThreshold ?? SUMMARY_THRESHOLD}
-          disabled={props.state.disabled}
-          onChange={(ev) => props.setters.setState('summaryThreshold', ev)}
         />
       </div>
     </div>

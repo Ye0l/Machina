@@ -14,6 +14,12 @@ import { OPENAI_CONTEXTS } from './presets/openai'
 import { NOVEL_MODELS } from './presets/novel'
 import { extractReasoning } from './reasoning'
 import { runPresetParsers } from './chat'
+import {
+  joinSummaries,
+  SUMMARY_CATEGORIES,
+  SUMMARY_CONTEXT_LIMIT,
+  type ChatSummaries,
+} from './summary'
 export type JsonOutput = { values: any; response: string; history: string; imageCaption: string }
 export type TickHandler<T = JsonOutput> = (
   response: string,
@@ -50,7 +56,11 @@ export type PromptPlaceholders = {
   post: string[]
   prefill?: string
   memory?: string
+  /** The three summary notes as one labelled block */
   summary?: string
+  summaryWorld?: string
+  summaryPlot?: string
+  summaryChars?: string
   systemPrompt?: string
 
   /** User's impersonated personality */
@@ -138,6 +148,9 @@ const HOLDER_NAMES = {
   allPersonas: 'all_personalities',
   memory: 'memory',
   summary: 'summary',
+  summaryWorld: 'summary_world',
+  summaryPlot: 'summary_plot',
+  summaryChars: 'summary_chars',
   post: 'post',
   scenario: 'scenario',
   history: 'history',
@@ -158,6 +171,9 @@ export const HOLDERS = {
   scenario: /{{scenario}}/gi,
   memory: /{{memory}}/gi,
   summary: /{{summary}}/gi,
+  summaryWorld: /{{summary_world}}/gi,
+  summaryPlot: /{{summary_plot}}/gi,
+  summaryChars: /{{summary_chars}}/gi,
   persona: /{{personality}}/gi,
   allPersonas: /{{all_personalities}}/gi,
   post: /{{post}}/gi,
@@ -643,15 +659,37 @@ export async function buildPromptPlaceholders(
       parts.chatEmbeds = fit.map((l) => l.line)
     }
 
-    if (chat.summary && opts.settings?.summaryEnabled) {
-      // Filling from the bottom means an over-budget summary loses its oldest paragraphs first
-      const { adding: fit } = await fillPromptWithLines({
-        encoder,
-        tokenLimit: opts.settings?.summaryContextLimit || 1000,
-        context: '',
-        lines: chat.summary.split('\n').filter(removeEmpty),
-      })
-      parts.summary = fit.map((l) => l.line).join('\n')
+    if (opts.settings?.summaryEnabled) {
+      const limit = opts.settings?.summaryContextLimit || SUMMARY_CONTEXT_LIMIT
+
+      // Filling from the bottom means over-budget notes lose their oldest lines first
+      const trim = async (text: string, tokenLimit: number) => {
+        const { adding } = await fillPromptWithLines({
+          encoder,
+          tokenLimit,
+          context: '',
+          lines: text.split('\n').filter(removeEmpty),
+        })
+        return adding.map((l) => l.line).join('\n')
+      }
+
+      const fitted: ChatSummaries = {}
+      const share = Math.floor(limit / SUMMARY_CATEGORIES.length)
+
+      for (const category of SUMMARY_CATEGORIES) {
+        const text = chat.summaries?.[category]?.trim()
+        if (text) fitted[category] = await trim(text, share)
+      }
+
+      parts.summaryWorld = fitted.world
+      parts.summaryPlot = fitted.plot
+      parts.summaryChars = fitted.chars
+
+      // Chats summarised before the split get the whole budget for their single prose summary
+      const legacy =
+        !Object.keys(fitted).length && chat.summary ? await trim(chat.summary, limit) : undefined
+
+      parts.summary = joinSummaries(fitted, legacy) || undefined
     }
 
     return parts

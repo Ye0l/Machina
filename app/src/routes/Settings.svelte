@@ -52,7 +52,13 @@
   } from '/common/types/ui'
   import type { ModelFormat } from '/common/presets/templates'
   import { BUILTIN_FORMATS } from '/common/presets/templates'
-  import { SUMMARY_CONTEXT_LIMIT, SUMMARY_THRESHOLD } from '/common/summary'
+  import {
+    SUMMARY_CATEGORIES,
+    SUMMARY_CATEGORY_LABELS,
+    SUMMARY_CONTEXT_LIMIT,
+    SUMMARY_THRESHOLD,
+    type SummaryCategory,
+  } from '/common/summary'
   import { BUILTIN_TEMPLATE_IDS, promptTemplates } from '/app/lib/prompt-templates.svelte'
   import { renderPromptPreview, type PromptPreview } from '/app/lib/prompt-preview'
   import type { SettingsTab } from '/app/lib/router.svelte'
@@ -224,6 +230,9 @@
     summaryEnabled: boolean
     summaryContextLimit: number
     summaryThreshold: number
+    summaryCategories: Record<SummaryCategory, boolean>
+    secondaryProviderId: string
+    secondaryModel: string
   }
 
   const MODEL_FORMAT_OPTIONS = Object.keys(BUILTIN_FORMATS) as ModelFormat[]
@@ -270,45 +279,75 @@
   let preview = $state<PromptPreview | null>(null)
   let previewing = $state(false)
   let previewError = $state('')
-  let modelOptions = $state<string[]>([])
-  let modelLoading = $state(false)
-  let modelMessage = $state('')
-  let modelRequest = 0
+  /**
+   * Model lookup for one provider/model pair. The preset form has two of them -- the roleplay model
+   * and the secondary summariser model -- so the options list and the in-flight request counter
+   * cannot be shared.
+   */
+  class ModelPicker {
+    options = $state<string[]>([])
+    loading = $state(false)
+    message = $state('')
+    private request = 0
 
-  async function refreshModels() {
-    const provider = providers.find((item) => item._id === presetForm.providerId)
-    const request = ++modelRequest
-    modelOptions = []
-    modelMessage = ''
-    modelLoading = false
-    if (!provider?.url) {
-      modelMessage = i18n.t('Select a provider with an API URL.')
-      return
+    async refresh(providerId: string, model: { get: () => string; set: (value: string) => void }) {
+      const provider = providers.find((item) => item._id === providerId)
+      const request = ++this.request
+      this.options = []
+      this.message = ''
+      this.loading = false
+      if (!provider?.url) {
+        this.message = i18n.t('Select a provider with an API URL.')
+        return
+      }
+
+      this.loading = true
+      try {
+        const result = await settings.getProviderModels({
+          providerId: provider._id,
+          url: provider.url,
+          id: 'new',
+        })
+        if (request !== this.request) return
+        this.options = result.models
+        if (!model.get() && this.options.length) model.set(this.options[0])
+        this.message = this.options.length
+          ? i18n.t('{count} models loaded.', { count: this.options.length.toLocaleString() })
+          : i18n.t('No models returned. Enter a model id manually.')
+      } catch (ex) {
+        if (request !== this.request) return
+        this.message =
+          ex instanceof Error
+            ? `${ex.message} ${i18n.t('You can enter a model id manually.')}`
+            : i18n.t('Model lookup failed.')
+      } finally {
+        if (request === this.request) this.loading = false
+      }
     }
 
-    modelLoading = true
-    try {
-      const result = await settings.getProviderModels({
-        providerId: provider._id,
-        url: provider.url,
-        id: 'new',
-      })
-      if (request !== modelRequest) return
-      modelOptions = result.models
-      if (!presetForm.model && modelOptions.length) presetForm.model = modelOptions[0]
-      modelMessage = modelOptions.length
-        ? i18n.t('{count} models loaded.', { count: modelOptions.length.toLocaleString() })
-        : i18n.t('No models returned. Enter a model id manually.')
-    } catch (ex) {
-      if (request !== modelRequest) return
-      modelMessage =
-        ex instanceof Error
-          ? `${ex.message} ${i18n.t('You can enter a model id manually.')}`
-          : i18n.t('Model lookup failed.')
-    } finally {
-      if (request === modelRequest) modelLoading = false
+    reset() {
+      this.request++
+      this.loading = false
+      this.options = []
+      this.message = ''
     }
   }
+
+  const mainModels = new ModelPicker()
+  const secondaryModels = new ModelPicker()
+
+  const mainModelField = {
+    get: () => presetForm.model,
+    set: (value: string) => (presetForm.model = value),
+  }
+  const secondaryModelField = {
+    get: () => presetForm.secondaryModel,
+    set: (value: string) => (presetForm.secondaryModel = value),
+  }
+
+  const refreshModels = () => mainModels.refresh(presetForm.providerId, mainModelField)
+  const refreshSecondaryModels = () =>
+    secondaryModels.refresh(presetForm.secondaryProviderId, secondaryModelField)
 
   function emptyPresetForm(): PresetForm {
     const provider = providers[0]
@@ -334,6 +373,9 @@
       summaryEnabled: false,
       summaryContextLimit: SUMMARY_CONTEXT_LIMIT,
       summaryThreshold: SUMMARY_THRESHOLD,
+      summaryCategories: { world: true, plot: true, chars: true },
+      secondaryProviderId: '',
+      secondaryModel: '',
     }
   }
 
@@ -376,6 +418,16 @@
       summaryEnabled: !!preset.summaryEnabled,
       summaryContextLimit: preset.summaryContextLimit ?? SUMMARY_CONTEXT_LIMIT,
       summaryThreshold: preset.summaryThreshold ?? SUMMARY_THRESHOLD,
+      // A missing entry means on, so only an explicit `false` unticks a category
+      summaryCategories: {
+        world: preset.summaryCategories?.world !== false,
+        plot: preset.summaryCategories?.plot !== false,
+        chars: preset.summaryCategories?.chars !== false,
+      },
+      secondaryProviderId: preset.secondaryProviderId ?? '',
+      secondaryModel: preset.secondaryProviderId
+        ? preset.secondaryProviderModels?.[preset.secondaryProviderId] ?? ''
+        : '',
     }
     presetNameError = ''
     presetPromptError = ''
@@ -387,10 +439,8 @@
   function cancelPreset() {
     editingPreset = null
     presetNameError = ''
-    modelRequest++
-    modelLoading = false
-    modelOptions = []
-    modelMessage = ''
+    mainModels.reset()
+    secondaryModels.reset()
   }
 
   function onPresetProvider(providerId: string) {
@@ -398,6 +448,14 @@
     const provider = providers.find((item) => item._id === providerId)
     presetForm.model = provider ? findTemplate(provider.provider)?.model ?? '' : ''
     void refreshModels()
+  }
+
+  function onSecondaryProvider(providerId: string) {
+    presetForm.secondaryProviderId = providerId
+    const provider = providers.find((item) => item._id === providerId)
+    presetForm.secondaryModel = provider ? findTemplate(provider.provider)?.model ?? '' : ''
+    if (providerId) void refreshSecondaryModels()
+    else secondaryModels.reset()
   }
 
   function movePromptSection(index: number, delta: number) {
@@ -581,6 +639,9 @@
       summaryEnabled: presetForm.summaryEnabled,
       summaryContextLimit: Number(presetForm.summaryContextLimit) || SUMMARY_CONTEXT_LIMIT,
       summaryThreshold: Number(presetForm.summaryThreshold) || SUMMARY_THRESHOLD,
+      summaryCategories: presetForm.summaryCategories,
+      secondaryProviderId: presetForm.secondaryProviderId,
+      secondaryModel: presetForm.secondaryModel,
     }
     const existing = presets.find((p) => p._id === presetForm._id)
     if (await settings.savePreset(input, existing)) cancelPreset()
@@ -1260,26 +1321,26 @@
                   type="button"
                   aria-label={i18n.t('Refresh model list')}
                   title={i18n.t('Refresh model list')}
-                  disabled={modelLoading || !presetForm.providerId}
+                  disabled={mainModels.loading || !presetForm.providerId}
                   onclick={refreshModels}
                 >
-                  <RefreshCw class={modelLoading ? 'animate-spin' : ''} size={17} />
+                  <RefreshCw class={mainModels.loading ? 'animate-spin' : ''} size={17} />
                 </button>
               </div>
               <datalist id="provider-model-options">
-                {#each modelOptions as model (model)}
+                {#each mainModels.options as model (model)}
                   <option value={model}>{model}</option>
                 {/each}
               </datalist>
               <p
                 class="field-hint"
-                class:text-emerald-400={modelOptions.length > 0}
+                class:text-emerald-400={mainModels.options.length > 0}
                 aria-live="polite"
               >
-                {modelLoading
+                {mainModels.loading
                   ? i18n.t('Loading models...')
                   : i18n.t(
-                      modelMessage ||
+                      mainModels.message ||
                         'Choose a discovered model or enter the exact model id manually.'
                     )}
               </p>
@@ -1373,11 +1434,107 @@
                     />
                   </div>
                 </div>
-                <p class="text-xs text-neutral-500">
+                <p class="field-hint">
                   {i18n.t(
                     'The summary is rewritten once this many messages have dropped out of context.'
                   )}
                 </p>
+
+                <div class="field-group">
+                  <span class="field-label">{i18n.t('Summary categories')}</span>
+                  <div class="flex flex-wrap gap-x-5 gap-y-2">
+                    {#each SUMMARY_CATEGORIES as category (category)}
+                      <label class="flex items-center gap-2 text-xs text-neutral-400">
+                        <input
+                          type="checkbox"
+                          class="accent-violet-500"
+                          bind:checked={presetForm.summaryCategories[category]}
+                        />
+                        <span>{i18n.t(SUMMARY_CATEGORY_LABELS[category])}</span>
+                      </label>
+                    {/each}
+                  </div>
+                  <p class="field-hint">
+                    {i18n.t(
+                      'Each category is summarised by its own request, all at once. Turning one off skips its request.'
+                    )}
+                  </p>
+                </div>
+
+                <div class="field-group">
+                  <label class="field-label" for="preset-secondary-provider">
+                    {i18n.t('Summary provider')}
+                  </label>
+                  <select
+                    id="preset-secondary-provider"
+                    class="field"
+                    value={presetForm.secondaryProviderId}
+                    onchange={(e) => onSecondaryProvider(e.currentTarget.value)}
+                  >
+                    <option value="">{i18n.t('Same as the main provider')}</option>
+                    {#each providers as provider (provider._id)}
+                      <option value={provider._id}>
+                        {provider.name} · {providerLabel(provider)}
+                      </option>
+                    {/each}
+                  </select>
+                  <p class="field-hint">
+                    {i18n.t(
+                      'Summarising is background work, so it is usually worth pointing at a cheaper model than the one writing the roleplay.'
+                    )}
+                  </p>
+                </div>
+
+                {#if presetForm.secondaryProviderId}
+                  <div class="field-group">
+                    <label class="field-label" for="preset-secondary-model">
+                      {i18n.t('Summary model')}
+                    </label>
+                    <div class="flex items-center gap-2">
+                      <input
+                        id="preset-secondary-model"
+                        class="field min-w-0 flex-1"
+                        type="text"
+                        list="secondary-model-options"
+                        placeholder="provider/model-name"
+                        autocomplete="off"
+                        bind:value={presetForm.secondaryModel}
+                      />
+                      <button
+                        class="icon-button border border-neutral-700 bg-neutral-900"
+                        type="button"
+                        aria-label={i18n.t('Refresh model list')}
+                        title={i18n.t('Refresh model list')}
+                        disabled={secondaryModels.loading}
+                        onclick={refreshSecondaryModels}
+                      >
+                        <RefreshCw
+                          class={secondaryModels.loading ? 'animate-spin' : ''}
+                          size={17}
+                        />
+                      </button>
+                    </div>
+                    <datalist id="secondary-model-options">
+                      {#each secondaryModels.options as model (model)}
+                        <option value={model}>{model}</option>
+                      {/each}
+                    </datalist>
+                    <p
+                      class="field-hint"
+                      class:text-amber-400={!presetForm.secondaryModel.trim()}
+                      aria-live="polite"
+                    >
+                      {secondaryModels.loading
+                        ? i18n.t('Loading models...')
+                        : !presetForm.secondaryModel.trim()
+                        ? i18n.t('Pick a model, or summarising falls back to the main provider.')
+                        : i18n.t(
+                            secondaryModels.message ||
+                              'Choose a discovered model or enter the exact model id manually.'
+                          )}
+                    </p>
+                  </div>
+                {/if}
               </div>
             </details>
 

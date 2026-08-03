@@ -9,6 +9,7 @@ import type {
 import type { AppSchema } from '/common/types'
 
 import { defaultPresets, isDefaultPreset } from '/common/default-preset'
+import type { ChatSummaries, SummaryCategory } from '/common/summary'
 import { api } from './api'
 import { books } from './books.svelte'
 import { cancelGeneration, generateLastReply, sendMessage, type SendControl } from './generate'
@@ -406,43 +407,44 @@ class Chats {
    * The anchor is left where it is: it records which messages the summary already covers, so
    * moving it here would make the summariser skip everything between the old and new positions.
    */
-  async setSummary(summary: string) {
+  async setSummary(category: SummaryCategory, text: string) {
     const detail = this.detail
-    if (!detail || summary === (detail.chat.summary ?? '')) return
+    if (!detail) return
 
-    const previous = detail.chat
-    this.detail = { ...detail, chat: { ...detail.chat, summary } }
-    try {
-      await api.put(`/chat/${detail.chat._id}/summary`, {
-        summary,
-        summaryUpTo: detail.chat.summaryUpTo,
-        summaryCount: detail.chat.summaryCount,
-      })
-    } catch (ex) {
-      this.detail = { ...detail, chat: previous }
-      this.error = ex instanceof Error ? ex.message : 'Failed to update the story summary'
-    }
+    const current = detail.chat.summaries ?? {}
+    if (text === (current[category] ?? '')) return
+
+    await this.writeSummaries(
+      { ...current, [category]: text },
+      'Failed to update the story summary'
+    )
   }
 
-  /** Drops the summary and its anchor, so the next run rebuilds it from the top of the chat. */
-  async clearSummary() {
+  /** Drops the notes and the anchor, so the next run rebuilds them from the top of the chat. */
+  async clearSummaries() {
+    if (!this.detail) return
+    await this.writeSummaries({}, 'Failed to clear the story summary', true)
+  }
+
+  /**
+   * The anchor records which messages the notes already cover, so a hand edit must leave it alone -
+   * moving it would make the summariser skip everything in between. Clearing resets it on purpose.
+   */
+  private async writeSummaries(summaries: ChatSummaries, failure: string, reset = false) {
     const detail = this.detail
     if (!detail) return
 
     const previous = detail.chat
-    this.detail = {
-      ...detail,
-      chat: { ...detail.chat, summary: '', summaryUpTo: '', summaryCount: 0 },
-    }
+    const anchor = reset
+      ? { summaryUpTo: '', summaryCount: 0 }
+      : { summaryUpTo: detail.chat.summaryUpTo, summaryCount: detail.chat.summaryCount }
+
+    this.detail = { ...detail, chat: { ...detail.chat, summaries, summary: '', ...anchor } }
     try {
-      await api.put(`/chat/${detail.chat._id}/summary`, {
-        summary: '',
-        summaryUpTo: '',
-        summaryCount: 0,
-      })
+      await api.put(`/chat/${detail.chat._id}/summary`, { summaries, ...anchor })
     } catch (ex) {
       this.detail = { ...detail, chat: previous }
-      this.error = ex instanceof Error ? ex.message : 'Failed to clear the story summary'
+      this.error = ex instanceof Error ? ex.message : failure
     }
   }
 

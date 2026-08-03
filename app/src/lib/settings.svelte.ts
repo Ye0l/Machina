@@ -5,6 +5,7 @@ import type { ModelFormat } from '/common/presets/templates'
 import { presetDefaults } from '/common/default-preset'
 import { defaultTemplate } from '/common/mode-templates'
 import { SIMPLE_ORDER } from '/common/prompt-order'
+import type { SummaryCategory } from '/common/summary'
 import { api } from './api'
 import { session } from './session.svelte'
 
@@ -144,6 +145,8 @@ export type ProviderInput = {
 export type JsonMode = 'off' | 'standard' | 'separate'
 export type JsonSource = 'character' | 'preset' | 'json-preset'
 
+export type { SummaryCategory }
+
 export const PROMPT_SECTION_IDS = [
   'system_prompt',
   'scenario',
@@ -203,6 +206,9 @@ export type PresetInput = {
   summaryEnabled: boolean
   summaryContextLimit: number
   summaryThreshold: number
+  summaryCategories: Record<SummaryCategory, boolean>
+  secondaryProviderId: string
+  secondaryModel: string
 }
 
 export type ConnectionTestResult = { success: boolean; url: string }
@@ -312,6 +318,16 @@ class SettingsStore {
         summaryEnabled: input.summaryEnabled,
         summaryContextLimit: input.summaryContextLimit,
         summaryThreshold: input.summaryThreshold,
+        summaryCategories: input.summaryCategories,
+        secondaryProviderId: input.secondaryProviderId,
+        // Keyed like `providerModels`, and merged the same way so switching the secondary provider
+        // back and forth keeps each one's model choice.
+        secondaryProviderModels: {
+          ...(existing?.secondaryProviderModels ?? {}),
+          ...(input.secondaryProviderId
+            ? { [input.secondaryProviderId]: input.secondaryModel.trim() }
+            : {}),
+        },
       }
 
       if (existing) {

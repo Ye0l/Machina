@@ -2,16 +2,20 @@ import type { AppSchema } from '/common/types'
 import type { HistoryLine } from '/common/types/inference'
 import { getMessageAuthor } from '/common/util'
 import { getContextLimit } from '/common/prompt'
+import { toSecondarySettings } from '/common/providers'
 import { extractReasoning } from '/common/reasoning'
 import {
   buildSummaryPrompt,
   getSummaryWindow,
+  SUMMARY_CATEGORIES,
   SUMMARY_CONTEXT_LIMIT,
   SUMMARY_THRESHOLD,
   summaryWordBudget,
   takeWithinBudget,
+  type ChatSummaries,
+  type SummaryCategory,
 } from '/common/summary'
-import { getEncoder } from '/common/tokenize'
+import { getEncoder, prepareTokenizer } from '/common/tokenize'
 import { api } from './api'
 
 /**
@@ -26,7 +30,7 @@ import { api } from './api'
 const inFlight = new Set<string>()
 
 export type SummaryResult = {
-  summary: string
+  summaries: ChatSummaries
   summaryUpTo: string
   summaryCount: number
 }
@@ -75,8 +79,15 @@ export type SummaryInput = {
   /** The line list the prompt was assembled from, and how many of its newest lines survived */
   history: HistoryLine[]
   linesAddedCount: number
-  /** Runs the summariser's own inference. Injected so this module stays off the generate path. */
-  infer: (prompt: string, settings: Partial<AppSchema.GenSettings> | undefined) => Promise<string>
+  /**
+   * Runs one summariser inference. Injected so this module stays off the generate path.
+   * `lockScope` keeps the three calls from queueing behind each other on the server's chat lock.
+   */
+  infer: (opts: {
+    prompt: string
+    settings: Partial<AppSchema.GenSettings> | undefined
+    lockScope: string
+  }) => Promise<string>
   /** Ignore the update threshold - used by the manual "Regenerate" action */
   force?: boolean
 }
@@ -106,24 +117,45 @@ export async function updateChatSummary(opts: SummaryInput): Promise<SummaryResu
   if (!opts.force && window.pending.length < (opts.settings?.summaryThreshold || SUMMARY_THRESHOLD))
     return
 
+  const active = SUMMARY_CATEGORIES.filter(
+    (category) => opts.settings?.summaryCategories?.[category] !== false
+  )
+  if (!active.length) return
+
+  // The categories share the budget, so each set of notes is a third of the injected block
   const contextLimit = opts.settings?.summaryContextLimit || SUMMARY_CONTEXT_LIMIT
-  const maxWords = summaryWordBudget(contextLimit)
+  const maxWords = summaryWordBudget(Math.floor(contextLimit / SUMMARY_CATEGORIES.length))
   const scenario = chat.scenario || opts.char.scenario
+
+  // Summarising runs on the secondary model, which usually has a smaller window than the roleplay
+  // model, so the batch has to be sized against that preset rather than the main one.
+  const settings = toSecondarySettings(opts.settings ?? {})
+  const previousOf = (category: SummaryCategory) =>
+    chat.summaries?.[category] ?? (category === 'plot' ? chat.summary : undefined)
 
   inFlight.add(chatId)
 
   try {
+    if (settings.tokenizer) await prepareTokenizer(settings.tokenizer)
     const encoder = await getEncoder()
 
-    const scaffold = buildSummaryPrompt({
-      charName: opts.char.name,
-      scenario,
-      previous: chat.summary,
-      events: [],
-      maxWords,
-    })
+    const scaffolds = await Promise.all(
+      active.map((category) =>
+        encoder(
+          buildSummaryPrompt({
+            category,
+            charName: opts.char.name,
+            scenario,
+            previous: previousOf(category),
+            events: [],
+            maxWords,
+          })
+        )
+      )
+    )
 
-    const budget = getContextLimit(opts.user, opts.settings) - (await encoder(scaffold))
+    // One batch for every category, so it has to fit inside the largest scaffold
+    const budget = getContextLimit(opts.user, settings) - Math.max(...scaffolds)
     const taken = await takeWithinBudget({
       items: window.pending,
       toText: (msg) => msg.msg,
@@ -131,25 +163,49 @@ export async function updateChatSummary(opts: SummaryInput): Promise<SummaryResu
       encoder,
     })
 
-    const prompt = buildSummaryPrompt({
-      charName: opts.char.name,
-      scenario,
-      previous: chat.summary,
-      events: toEventLines({ ...opts, messages: taken }),
-      maxWords,
+    const events = toEventLines({ ...opts, messages: taken })
+
+    const settled = await Promise.allSettled(
+      active.map(async (category) => {
+        const response = await opts.infer({
+          prompt: buildSummaryPrompt({
+            category,
+            charName: opts.char.name,
+            scenario,
+            previous: previousOf(category),
+            events,
+            maxWords,
+          }),
+          settings,
+          lockScope: `summary:${category}`,
+        })
+
+        const text = extractReasoning(response || '', { tags: settings.reasoning }).content.trim()
+        if (!text) throw new Error(`The ${category} summariser returned nothing`)
+        return text
+      })
+    )
+
+    const summaries: ChatSummaries = { ...chat.summaries }
+
+    active.forEach((category, index) => {
+      const outcome = settled[index]
+      if (outcome.status === 'fulfilled') summaries[category] = outcome.value
+      else console.warn(`[summary] the ${category} summariser failed`, outcome.reason)
     })
 
-    const response = await opts.infer(prompt, opts.settings)
-    const summary = extractReasoning(response || '', {
-      tags: opts.settings?.reasoning,
-    }).content.trim()
+    const complete = settled.every((outcome) => outcome.status === 'fulfilled')
+    if (!settled.some((outcome) => outcome.status === 'fulfilled')) return
 
-    if (!summary) return
-
+    /**
+     * The anchor only moves when every category made it, so a failed one never silently skips the
+     * messages the others just absorbed. Re-running over the same batch is harmless: each prompt
+     * merges its previous notes with the new events rather than appending to them.
+     */
     const result: SummaryResult = {
-      summary,
-      summaryUpTo: taken[taken.length - 1]._id,
-      summaryCount: window.covered + taken.length,
+      summaries,
+      summaryUpTo: complete ? taken[taken.length - 1]._id : chat.summaryUpTo ?? '',
+      summaryCount: complete ? window.covered + taken.length : chat.summaryCount ?? 0,
     }
 
     await api.put(`/chat/${chatId}/summary`, result)

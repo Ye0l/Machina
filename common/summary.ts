@@ -1,5 +1,5 @@
-import { AppSchema } from './types/schema'
-import { HistoryLine } from './types/inference'
+import type { AppSchema } from './types/schema'
+import type { HistoryLine } from './types/inference'
 import { neat } from './util'
 
 export const SUMMARY_CONTEXT_LIMIT = 1000
@@ -47,20 +47,59 @@ export function getSummaryWindow(opts: {
   return { pending: opts.messages.slice(anchor + 1, boundary), covered: anchor + 1 }
 }
 
-const INSTRUCTION = neat`
-Update the running summary of this roleplay so it can stand in for the conversation that no longer
-fits in context.
+/**
+ * The summary is kept as three independent notes rather than one prose blob.
+ *
+ * Each call is handed the same batch of evicted messages but asked for one narrow view of it, which
+ * is a far easier task than "summarise everything" and loses less of what matters. They carry their
+ * own previous notes as continuity, so none depends on another's output and all three can run at
+ * once. (The idea is borrowed from MARP, a RisuAI plugin, which splits per-turn analysis the same
+ * way -- though it chains worldbuilding into the other two, which persistent notes make unnecessary.)
+ */
+export const SUMMARY_CATEGORIES = ['world', 'plot', 'chars'] as const
 
-Rules:
-- Merge the previous summary and the new events into one continuous account. Do not append the new
-  events as a separate section.
-- Write third-person past tense prose. Do not roleplay, do not write dialogue, do not address anyone.
-- Keep established facts, relationships, promises, injuries, locations and unresolved threads.
-- Compress older material harder than recent material when you run out of room.
-- Reply with the summary text only. No preamble, no headings, no commentary.
+export type SummaryCategory = (typeof SUMMARY_CATEGORIES)[number]
+
+export type ChatSummaries = Partial<Record<SummaryCategory, string>>
+
+export const SUMMARY_CATEGORY_LABELS: Record<SummaryCategory, string> = {
+  world: 'Setting',
+  plot: 'Story',
+  chars: 'Characters',
+}
+
+const SHARED_RULES = neat`
+- Merge your previous notes and the new events into one list. Do not append the new events as a
+  separate section, and do not repeat a point you already have.
+- Write terse bullet points, one fact per line, starting with "- ". No prose paragraphs.
+- Do not roleplay, do not write dialogue, do not address anyone.
+- Drop or compress the least consequential lines when you run out of room. Never drop something the
+  story still depends on.
+- Reply with the bullet list only. No preamble, no headings, no commentary.
 `
 
+const CATEGORY_INSTRUCTIONS: Record<SummaryCategory, string> = {
+  world: neat`
+    Maintain the setting notes for this roleplay: locations and how they connect, factions and
+    institutions, rules of the world, technology or magic and its limits, and how much time has
+    passed. Record only what the story has established as true.
+    Ignore who feels what and what happens next -- other notes cover those.
+  `,
+  plot: neat`
+    Maintain the story notes for this roleplay: what happened and why, in order; decisions and their
+    consequences; promises, debts, threats and goals; and every thread still left open.
+    Ignore descriptions of places and personalities -- other notes cover those.
+  `,
+  chars: neat`
+    Maintain the character notes for this roleplay: who each person is, how they speak and behave,
+    what they want, what they know and believe, how they stand with each other, and any lasting
+    change to their condition. Group the lines by character.
+    Ignore world description and plot sequence -- other notes cover those.
+  `,
+}
+
 export function buildSummaryPrompt(opts: {
+  category: SummaryCategory
   charName: string
   scenario?: string
   previous?: string
@@ -68,6 +107,7 @@ export function buildSummaryPrompt(opts: {
   maxWords: number
 }) {
   const sections: string[] = []
+  const label = SUMMARY_CATEGORY_LABELS[opts.category].toLowerCase()
 
   sections.push(`This is a roleplay between a user and "${opts.charName}".`)
 
@@ -76,15 +116,33 @@ export function buildSummaryPrompt(opts: {
   }
 
   if (opts.previous?.trim()) {
-    sections.push(`Summary so far:\n${opts.previous.trim()}`)
+    sections.push(`Your ${label} notes so far:\n${opts.previous.trim()}`)
   } else {
-    sections.push(`There is no summary yet. Write the first one.`)
+    sections.push(`There are no ${label} notes yet. Write the first ones.`)
   }
 
   sections.push(`New events, in order:\n${opts.events.join('\n')}`)
-  sections.push(`${INSTRUCTION}\n\nKeep the summary under ${opts.maxWords} words.`)
+  sections.push(
+    `${CATEGORY_INSTRUCTIONS[opts.category]}\n\n${SHARED_RULES}\n\nKeep the notes under ${
+      opts.maxWords
+    } words.`
+  )
 
   return sections.join('\n\n')
+}
+
+/**
+ * The three notes as one labelled block, for the combined `{{summary}}` placeholder.
+ */
+export function joinSummaries(summaries: ChatSummaries | undefined, legacy?: string) {
+  const blocks = SUMMARY_CATEGORIES.filter((category) => summaries?.[category]?.trim()).map(
+    (category) => `${SUMMARY_CATEGORY_LABELS[category]}:\n${summaries![category]!.trim()}`
+  )
+
+  // Chats summarised before the split still carry a single prose summary.
+  if (!blocks.length) return legacy?.trim() || ''
+
+  return blocks.join('\n\n')
 }
 
 /**
