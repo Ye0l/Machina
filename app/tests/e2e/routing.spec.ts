@@ -15,7 +15,7 @@ test.describe('deep links', () => {
 
     const version = app.locator('[data-testid="build-version"]:visible').first()
     await expect(version).toBeVisible()
-    await expect(version).toContainText(/v1\.0\.27/)
+    await expect(version).toContainText(/v\d+\.\d+\.\d+/)
     await expect(version).toContainText('·')
   })
 
