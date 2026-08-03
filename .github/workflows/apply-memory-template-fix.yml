@@ -4,13 +4,16 @@ on:
   push:
     branches:
       - fix/memory-template-injection
+  pull_request:
+    branches:
+      - dev
 
 permissions:
   contents: write
 
 jobs:
   apply:
-    if: github.actor != 'github-actions[bot]'
+    if: github.actor != 'github-actions[bot]' && (github.event_name == 'push' || github.head_ref == 'fix/memory-template-injection')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
