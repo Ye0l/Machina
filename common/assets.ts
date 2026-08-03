@@ -7,12 +7,12 @@ import type { AppSchema } from './types'
  * swapped for an image when the message is rendered. That keeps the model from inventing
  * paths, and keeps a stored message portable -- it holds the name, not a URL that may move.
  *
- * The tag deliberately looks like the placeholders already in this app's templates, so a
- * model that has seen `{{char}}` treats it as the same kind of thing.
+ * RisuAI uses `{{asset::name}}`; older Agnai prompts used `{{asset:name}}`. Both forms are
+ * accepted so imported cards and existing chats render identically.
  */
 
 /** Global and case-insensitive: models are inconsistent about capitalising a tag. */
-export const ASSET_TAG_PATTERN = /\{\{\s*asset\s*:\s*([^{}]+?)\s*\}\}/gi
+export const ASSET_TAG_PATTERN = /\{\{\s*asset\s*::?\s*([^{}]+?)\s*\}\}/gi
 
 const normalise = (name: string) => name.trim().toLowerCase()
 
@@ -32,7 +32,7 @@ export function assetInstruction(assets: AppSchema.CharacterAsset[] | undefined)
   if (!names.length) return ''
 
   return [
-    `{{char}} can show an image by writing {{asset:name}} on its own line, using one of these names exactly:`,
+    `{{char}} can show an image by writing {{asset::name}} on its own line, using one of these names exactly:`,
     names.map((name) => `- ${name}`).join('\n'),
     'Only these names exist. Do not invent a name, describe the image in the tag, or write a URL.',
   ].join('\n')
