@@ -7,7 +7,7 @@
   import { promptTemplates } from '/app/lib/prompt-templates.svelte'
   import { i18n } from '/app/lib/i18n.svelte'
   import { router, routes } from '/app/lib/router.svelte'
-  import { APP_VERSION, BUILD_DETAILS, BUILD_LABEL } from '/app/lib/build'
+  import { APP_VERSION, BUILD_DETAILS } from '/app/lib/build'
   import CharacterEditor from '/app/routes/CharacterEditor.svelte'
   import CharacterWorkspace from '/app/routes/CharacterWorkspace.svelte'
   import Characters from '/app/routes/Characters.svelte'
@@ -112,25 +112,18 @@
   </aside>
 
   <div class="flex min-w-0 flex-1 flex-col">
-    <header
-      class="flex h-14 shrink-0 items-center gap-3 border-b border-neutral-800/80 bg-[#0d1118] px-3 md:hidden"
+    <button
+      class="fixed left-2 z-30 flex h-9 w-9 items-center justify-center rounded-xl border border-neutral-700/80 bg-[#0d1118]/90 text-neutral-200 shadow-lg backdrop-blur hover:bg-neutral-800 md:hidden"
+      style="top: max(0.5rem, env(safe-area-inset-top));"
+      type="button"
+      data-testid="mobile-menu-trigger"
+      aria-label={i18n.t('Open menu')}
+      aria-expanded={drawerOpen}
+      title={i18n.t('Open menu')}
+      onclick={() => (drawerOpen = true)}
     >
-      <button
-        class="icon-button"
-        type="button"
-        aria-label={i18n.t('Open menu')}
-        aria-expanded={drawerOpen}
-        onclick={() => (drawerOpen = true)}
-      >
-        <Menu size={20} />
-      </button>
-      <span class="text-sm font-semibold tracking-wide text-white">Agnai</span>
-      <span
-        class="ml-auto rounded-md border border-violet-500/30 bg-violet-500/10 px-2 py-1 font-mono text-[10px] font-semibold text-violet-200"
-        data-testid="build-version"
-        title={BUILD_DETAILS}>{BUILD_LABEL}</span
-      >
-    </header>
+      <Menu size={19} />
+    </button>
 
     <main class="min-h-0 min-w-0 flex-1 overflow-hidden">
       {#key current}
