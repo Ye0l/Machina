@@ -17,6 +17,7 @@ export const chatsApi = {
   getChat,
   getBotChats,
   assignChatPreset: editChatGenPreset,
+  editChatSummary,
   importChat,
   deleteChat,
   addCharacter,
@@ -314,6 +315,27 @@ export async function editChatGenPreset(chatId: string, preset: string) {
   }
   await saveChats(replace(chatId, chats, next))
   return localApi.result(next)
+}
+
+export async function editChatSummary(
+  chatId: string,
+  summary: string,
+  anchor: { summaryUpTo?: string; summaryCount?: number }
+) {
+  const update = { summary, ...anchor, summaryUpdatedAt: new Date().toISOString() }
+
+  if (isLoggedIn()) {
+    const res = await api.method('put', `/chat/${chatId}/summary`, { summary, ...anchor })
+    if (res.error) return res
+    return localApi.result(update)
+  }
+
+  const chats = await loadItem('chats')
+  const chat = chats.find((ch) => ch._id === chatId)
+  if (!chat) return localApi.error(`Chat not found`)
+
+  await saveChats(replace(chatId, chats, { ...chat, ...update }))
+  return localApi.result(update)
 }
 
 export function createNewChat(char: AppSchema.Character, props: NewChat) {

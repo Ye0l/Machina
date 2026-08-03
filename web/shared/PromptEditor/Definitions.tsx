@@ -28,6 +28,8 @@ const helpers: { [key in InterpAll | string]?: JSX.Element | string } = {
 
   memory: `Text retrieved from your Memory Book(s)`,
 
+  summary: `A rolling summary of the messages that have fallen out of the context window. Enable it and adjust its token budget in the preset \`Memory\` section.`,
+
   longterm_memory:
     '(Aka `chat_embed`) Text retrieved from chat history embeddings. Adjust the token budget in the preset `Memory` section.',
   user_embed: 'Text retrieved from user-specified embeddings (Articles, PDFs, ...)',

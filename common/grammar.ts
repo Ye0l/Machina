@@ -144,6 +144,7 @@ Instruction "instruction" = "system_prompt"i { return "system_prompt" }
 Jailbreak "ujb" = ("ujb"i / "system_note"i / "jailbreak"i) { return "ujb" }
 Post "post" = "post"i { return "post" }
 Memory "memory" = "memory"i { return "memory" }
+Summary "summary" = ("story_summary"i / "summary"i) { return "summary" }
 Message "message" = ("msg"i / "message"i / "text"i) { return "message" }
 ChatAge "chat-age" = "chat_age"i { return "chat_age" }
 IdleDuration "idle-duration" = "idle_duration"i { return "idle_duration" }
@@ -182,6 +183,7 @@ Interp "interp"
   / Jailbreak
   / Post
   / Memory
+  / Summary
   / Message
   / ChatAge
   / IdleDuration

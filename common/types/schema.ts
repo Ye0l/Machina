@@ -277,6 +277,14 @@ export namespace AppSchema {
     memoryId?: string
     userEmbedId?: string
 
+    /** Rolling prose summary of the messages that have fallen out of the context window */
+    summary?: string
+    /** `_id` of the newest message included in `summary` */
+    summaryUpTo?: string
+    /** How many messages `summary` covers. Fallback anchor when `summaryUpTo` is off the branch */
+    summaryCount?: number
+    summaryUpdatedAt?: string
+
     memberIds: string[]
     characters?: Record<string, boolean>
     tempCharacters?: Record<string, AppSchema.Character>

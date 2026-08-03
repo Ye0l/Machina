@@ -19,6 +19,7 @@ export const placeholders = {
   history: { required: true, limit: 1 },
   scenario: { required: true, limit: 1 },
   memory: { required: false, limit: 1 },
+  summary: { required: false, limit: 1 },
   personality: { required: true, limit: 1 },
   ujb: { required: false, limit: 1 },
   post: { required: true, limit: 1 },

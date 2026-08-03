@@ -259,6 +259,10 @@ export interface GenSettings {
   memoryChatEmbedLimit?: number
   memoryUserEmbedLimit?: number
 
+  summaryEnabled?: boolean
+  summaryContextLimit?: number
+  summaryThreshold?: number
+
   src?: string
 
   imageSettings?: BaseImageSettings

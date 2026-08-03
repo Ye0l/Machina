@@ -11,6 +11,10 @@ import { EditEmbedModal } from '/web/shared/EditEmbedModal'
 import { Portal } from 'solid-js/web'
 import { embedApi } from '/web/store/embeddings'
 import { ManageMemoryBooks } from './ManageMemoryBooks'
+import TextInput from '/web/shared/TextInput'
+import { toastStore } from '/web/store'
+import { botGen } from '/web/store/data/bot-generate'
+import { elapsedSince } from '/common/util'
 
 const ChatMemoryModal: Component<{
   chat: AppSchema.Chat | undefined
@@ -111,8 +115,100 @@ const ChatMemoryModal: Component<{
           <Divider />
         </Show>
         <EmbedContent />
+
+        <Divider />
+        <ChatSummary chat={props.chat} />
       </div>
     </>
+  )
+}
+
+const ChatSummary: Component<{ chat: AppSchema.Chat | undefined }> = (props) => {
+  const [text, setText] = createSignal(props.chat?.summary || '')
+  const [busy, setBusy] = createSignal(false)
+
+  createEffect(
+    on(
+      () => props.chat?.summary,
+      (summary) => setText(summary || '')
+    )
+  )
+
+  const dirty = createMemo(() => text() !== (props.chat?.summary || ''))
+
+  // Editing by hand must not move the anchor, otherwise the messages between the old and new anchor
+  // would never make it into the summary
+  const save = () => {
+    if (!props.chat) return
+    chatStore.editChatSummary(props.chat._id, text(), {
+      summaryUpTo: props.chat.summaryUpTo,
+      summaryCount: props.chat.summaryCount,
+    })
+  }
+
+  const clear = () => {
+    if (!props.chat) return
+    setText('')
+    chatStore.editChatSummary(props.chat._id, '', { summaryUpTo: '', summaryCount: 0 })
+  }
+
+  const regenerate = async () => {
+    setBusy(true)
+    try {
+      const summary = await botGen.summariseActiveChat()
+      if (!summary) {
+        toastStore.warn(`Nothing to summarise yet - no messages have fallen out of context`)
+      }
+    } catch (ex: any) {
+      toastStore.error(`Failed to generate summary: ${ex.message || ex}`)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <div class="flex flex-col gap-2">
+      <TextInput
+        fieldName="chatSummary"
+        label="Story Summary"
+        helperText={
+          <>
+            A running summary of the messages that have fallen out of the context window. Enable it
+            and set its token budget in your preset's <b>Memory</b> settings.
+            <Show when={props.chat?.summaryUpdatedAt}>
+              <div class="text-600 text-xs">
+                Updated {elapsedSince(new Date(props.chat!.summaryUpdatedAt!))} ago, covering{' '}
+                {props.chat?.summaryCount || 0} messages.
+              </div>
+            </Show>
+          </>
+        }
+        isMultiline
+        tokenCount
+        value={text()}
+        onChange={(ev) => setText(ev.currentTarget.value)}
+      />
+
+      <div class="flex items-center gap-1">
+        <Button class="w-fit" disabled={!dirty()} onClick={save}>
+          <Save size={16} />
+          Save
+        </Button>
+
+        <Button class="w-fit" disabled={busy()} onClick={regenerate}>
+          {busy() ? 'Summarising...' : 'Regenerate'}
+        </Button>
+
+        <Button
+          schema="error"
+          class="w-fit"
+          disabled={!props.chat?.summary && !text()}
+          onClick={clear}
+        >
+          Clear
+        </Button>
+      </div>
+    </div>
   )
 }
 

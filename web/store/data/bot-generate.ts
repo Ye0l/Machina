@@ -33,6 +33,7 @@ import { localEmit } from '../socket'
 import { getProviderConnection } from '/common/providers'
 import { stripImageContent, toChatMessages } from '/common/template-messages'
 import { msgsApi } from './messages'
+import { summaryApi } from './summary'
 import { getProvider } from '../preset-context'
 import { getLocalPayload, getStoppingStrings } from '/common/requests/payloads'
 import { toastStore } from '../toasts'
@@ -56,6 +57,7 @@ export const botGen = {
   streamResponse: streamResponse,
   getActivePromptOptions,
   getMessageParent,
+  summariseActiveChat,
 }
 
 export type GenerateOpts = { signal: AbortController; hint?: string; systemPrompt?: string } & /**
@@ -220,7 +222,7 @@ async function streamResponse(opts: StreamOpts) {
     },
     async (response, state, json) => {
       await handleStreamTick(
-        { opts, req, lazy, meta, active, sanitize, jsonCall: !!jsonSchema },
+        { opts, req, lazy, meta, active, sanitize, jsonCall: !!jsonSchema, assembled },
         { response, state, json }
       )
     }
@@ -263,6 +265,7 @@ async function handleStreamTick(
     active: { chat: AppSchema.Chat }
     sanitize: (text: string) => string
     jsonCall?: boolean
+    assembled?: Awaited<ReturnType<typeof toChatMessages>>['assembled']
   },
   tick: { state: InferenceState; response: string; json?: JsonOutput }
 ) {
@@ -351,11 +354,72 @@ async function handleStreamTick(
         jsonCall: input.jsonCall,
       })
 
+      maybeSummariseChat(input)
+
       break
     }
   }
 
   opts.onTick?.(tick.response, tick.state, tick.json)
+}
+
+const SUMMARISED_KINDS = new Set<StreamOpts['kind']>([
+  'send',
+  'request',
+  'retry',
+  'continue',
+  'self',
+  'send-event:world',
+  'send-event:character',
+  'send-event:hidden',
+  'send-event:ooc',
+])
+
+/**
+ * Folds the messages that just fell out of the context window into the chat's rolling summary.
+ *
+ * Intentionally not awaited: the user's reply has already landed and a second inference should
+ * never hold it up. Failures are swallowed by `updateChatSummary`.
+ */
+function maybeSummariseChat(input: {
+  opts: StreamOpts
+  req: ChatRequest
+  assembled?: Awaited<ReturnType<typeof toChatMessages>>['assembled']
+}) {
+  const { opts, req, assembled } = input
+
+  if (!assembled) return
+  if (!req.entities.settings.summaryEnabled) return
+  if (!SUMMARISED_KINDS.has(opts.kind)) return
+  if (opts.signal.signal.aborted) return
+
+  summaryApi.updateChatSummary({
+    entities: req.entities,
+    replyAs: req.props.replyAs,
+    history: req.prompt.lines,
+    linesAddedCount: assembled.linesAddedCount,
+  })
+}
+
+/**
+ * Rewrites the active chat's summary on demand, ignoring the update threshold.
+ *
+ * Builds the prompt as a `send` rather than a `summary` so the eviction boundary matches the chat's
+ * own preset - `getGenerateProps` swaps in the summary preset for `kind: 'summary'`, which would
+ * measure the context window of the wrong model.
+ */
+async function summariseActiveChat() {
+  const signal = new AbortController()
+  const req = await buildChatRequest({ signal, kind: 'send', text: '' })
+  const { assembled } = await toChatMessages(req.request, countTokens)
+
+  return summaryApi.updateChatSummary({
+    entities: req.entities,
+    replyAs: req.props.replyAs,
+    history: req.prompt.lines,
+    linesAddedCount: assembled.linesAddedCount,
+    force: true,
+  })
 }
 
 /** This is used exclusively by JSON structured responses */

@@ -41,6 +41,10 @@ export const presetValidator = {
   memoryChatEmbedLimit: 'number?',
   memoryUserEmbedLimit: 'number?',
 
+  summaryEnabled: 'boolean?',
+  summaryContextLimit: 'number?',
+  summaryThreshold: 'number?',
+
   minP: 'number?',
   typicalP: 'number',
   topP: 'number',

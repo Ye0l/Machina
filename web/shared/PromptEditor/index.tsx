@@ -312,6 +312,7 @@ const BASIC_LABELS: Record<string, { label: string; id: number }> = {
   impersonating: { label: 'Impersonate Personality', id: 300 },
   chat_embed: { label: 'Long-term Memory', id: 350 },
   memory: { label: 'Memory', id: 400 },
+  summary: { label: 'Story Summary', id: 450 },
   example_dialogue: { label: 'Example Dialogue', id: 500 },
   history: { label: 'Chat History', id: 600 },
   ujb: { label: 'Jailbreak (UJB)', id: 700 },
@@ -328,14 +329,29 @@ export const BasicPromptTemplate: Component<{
 }> = (props) => {
   const isMobile = createMemo(() => /iPhone|iPad|iPod|Android/i.test(navigator.userAgent))
   const [lockPromptOrder, setLockPromptOrder] = createSignal(isMobile())
-  const items = createMemo(
-    () =>
-      props.state?.promptOrder?.map((o) => ({
-        ...BASIC_LABELS[o.placeholder],
-        value: o.placeholder,
-        enabled: !!o.enabled,
-      })) || SORTED_LABELS.map((h) => ({ ...h, enabled: true }))
-  )
+  const items = createMemo(() => {
+    const order = props.state?.promptOrder
+    if (!order) return SORTED_LABELS.map((h) => ({ ...h, enabled: true }))
+
+    const saved = order.map((o) => ({
+      ...BASIC_LABELS[o.placeholder],
+      value: o.placeholder,
+      enabled: !!o.enabled,
+    }))
+
+    // Holders introduced after the user saved their order would otherwise never appear here.
+    // Added disabled so surfacing them cannot change an existing prompt on its own.
+    const missing = SORTED_LABELS.filter((h) => !order.some((o) => o.placeholder === h.value))
+
+    for (const holder of missing) {
+      const at = saved.findIndex((item) => item.id > holder.id)
+      const entry = { ...holder, enabled: false }
+      if (at === -1) saved.push(entry)
+      else saved.splice(at, 0, entry)
+    }
+
+    return saved
+  })
 
   return (
     <Card border hide={props.hide}>

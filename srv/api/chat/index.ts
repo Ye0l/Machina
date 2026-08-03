@@ -5,6 +5,7 @@ import {
   restartChat,
   updateChat,
   updateChatGenPreset,
+  updateChatSummary,
   updateMessage,
   updateMessageProps,
   swapMessage,
@@ -47,6 +48,7 @@ router.get('/:id', getChatDetail)
 
 router.put('/:id', updateChat)
 router.put('/:id/preset', updateChatGenPreset)
+router.put('/:id/summary', updateChatSummary)
 
 router.post('/', createChat)
 router.post('/import', importChat)

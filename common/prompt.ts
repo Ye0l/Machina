@@ -50,6 +50,7 @@ export type PromptPlaceholders = {
   post: string[]
   prefill?: string
   memory?: string
+  summary?: string
   systemPrompt?: string
 
   /** User's impersonated personality */
@@ -136,6 +137,7 @@ const HOLDER_NAMES = {
   persona: 'personality',
   allPersonas: 'all_personalities',
   memory: 'memory',
+  summary: 'summary',
   post: 'post',
   scenario: 'scenario',
   history: 'history',
@@ -155,6 +157,7 @@ export const HOLDERS = {
   sampleChat: /{{example_dialogue}}/gi,
   scenario: /{{scenario}}/gi,
   memory: /{{memory}}/gi,
+  summary: /{{summary}}/gi,
   persona: /{{personality}}/gi,
   allPersonas: /{{all_personalities}}/gi,
   post: /{{post}}/gi,
@@ -638,6 +641,17 @@ export async function buildPromptPlaceholders(
         lines: embeds,
       })
       parts.chatEmbeds = fit.map((l) => l.line)
+    }
+
+    if (chat.summary && opts.settings?.summaryEnabled) {
+      // Filling from the bottom means an over-budget summary loses its oldest paragraphs first
+      const { adding: fit } = await fillPromptWithLines({
+        encoder,
+        tokenLimit: opts.settings?.summaryContextLimit || 1000,
+        context: '',
+        lines: chat.summary.split('\n').filter(removeEmpty),
+      })
+      parts.summary = fit.map((l) => l.line).join('\n')
     }
 
     return parts

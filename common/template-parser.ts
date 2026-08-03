@@ -170,6 +170,7 @@ type Holder =
   | 'ujb'
   | 'post'
   | 'memory'
+  | 'summary'
   | 'chat_age'
   | 'idle_duration'
   | 'all_personalities'
@@ -1005,6 +1006,9 @@ function getPlaceholder(
 
     case 'memory':
       return opts.parts?.memory || ''
+
+    case 'summary':
+      return opts.parts?.summary || ''
 
     case 'impersonating':
       return opts.parts?.impersonality || ''
