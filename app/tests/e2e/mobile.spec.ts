@@ -19,18 +19,19 @@ test.describe('mobile layout', () => {
     await expect(app.locator('a:has-text("AI settings"):visible')).toHaveCount(0)
   })
 
-  test('uses a floating menu button instead of reserving header height', async ({ app }) => {
-    await app.goto('/')
-    await app.waitForSelector('h2:text-is("Aria")')
+  // Chat controls must not consume vertical space until the user explicitly asks for them.
+  test('keeps the mobile chat header compact until options are opened', async ({ app }) => {
+    await app.goto('/chat/chat-1')
+    await expect(app.getByText('Greetings from Aria.')).toBeVisible()
 
-    const trigger = app.getByTestId('mobile-menu-trigger')
-    await expect(trigger).toBeVisible()
+    const header = app.getByTestId('chat-header')
+    const box = await header.boundingBox()
+    expect(box?.height).toBeLessThanOrEqual(52)
+    await expect(app.locator('select[aria-label="Speak as"]:visible')).toHaveCount(0)
 
-    const triggerBox = await trigger.boundingBox()
-    const mainBox = await app.locator('main').boundingBox()
-    expect(triggerBox?.height).toBeLessThanOrEqual(40)
-    expect(mainBox?.y).toBe(0)
-    expect(mainBox?.height).toBe(app.viewportSize()?.height)
+    await app.getByTestId('mobile-chat-options').click()
+    await expect(app.getByTestId('mobile-chat-controls')).toBeVisible()
+    await expect(app.locator('select[aria-label="Speak as"]:visible')).toHaveCount(1)
   })
 
   test('no view scrolls the page horizontally', async ({ app }) => {
