@@ -123,10 +123,8 @@ test.describe('character assets', () => {
     ]
 
     await app.goto('/chat/chat-1')
-    // Scoped by content: the greeting is the first rendered message in this chat.
-    await expect(app.locator('.rendered-markdown', { hasText: 'Look:' })).toContainText(
-      '{{asset::invented}}'
-    )
+    await expect(app.locator('.rendered-markdown', { hasText: 'Look:' })).toContainText('Look:')
+    await expect(app.locator('.asset-tag-missing')).toContainText('{{asset::invented}}')
     await expect(app.locator('img.chat-asset')).toHaveCount(0)
   })
 })

@@ -107,6 +107,7 @@
 
   type RenderedBodyPart =
     | { kind: 'text'; html: string }
+    | { kind: 'literal'; text: string }
     | { kind: 'asset'; name: string; src: string }
 
   /**
@@ -131,7 +132,7 @@
       const name = (match[1] ?? '').trim()
       const asset = findAsset(speaker?.assets, name)
       if (asset) parts.push({ kind: 'asset', name, src: assetUrl(asset.uri) })
-      else pushText(match[0].replace(/\{/g, '&#123;').replace(/\}/g, '&#125;'))
+      else parts.push({ kind: 'literal', text: match[0] })
 
       cursor = index + match[0].length
     }
@@ -451,6 +452,18 @@
                       decoding="async"
                     />
                   </button>
+                {:else if part.kind === 'literal'}
+                  <div
+                    class:bg-violet-600={isUser}
+                    class:text-white={isUser}
+                    class:ml-auto={isUser}
+                    class="asset-tag-missing rounded-2xl bg-[#151a23] px-4 py-3 font-mono text-sm leading-6 text-neutral-200 {isUser
+                      ? 'rounded-tr-md'
+                      : 'rounded-tl-md'}"
+                    style:opacity={msgOpacity}
+                  >
+                    {part.text}
+                  </div>
                 {:else if part.html}
                   <div
                     class:bg-violet-600={isUser}
@@ -566,6 +579,13 @@
                     decoding="async"
                   />
                 </button>
+              {:else if part.kind === 'literal'}
+                <div
+                  class="asset-tag-missing rounded-2xl rounded-tl-md bg-[#151a23] px-4 py-3 font-mono text-sm leading-6 text-neutral-200"
+                  style:opacity={msgOpacity}
+                >
+                  {part.text}
+                </div>
               {:else if part.html}
                 <div
                   class="rendered-markdown rounded-2xl rounded-tl-md bg-[#151a23] px-4 py-3 leading-6 text-neutral-200"
@@ -650,7 +670,9 @@
         type="button"
         aria-label={i18n.t('Close')}
         onclick={() => (expandedAsset = null)}
-      />
+      >
+        <span class="sr-only">{i18n.t('Close')}</span>
+      </button>
       <div class="relative z-10 flex max-h-[94vh] max-w-[94vw] items-center justify-center">
         <button
           class="icon-button absolute right-0 top-0 z-10 h-11 w-11 -translate-y-1/2 translate-x-1/2 bg-black/70 text-white hover:bg-black/90"
