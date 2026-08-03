@@ -34,6 +34,7 @@ jobs:
           git merge --no-commit --no-ff origin/feat/machina-themes-scroll || true
           git checkout --ours app/src/lib/generate.ts app/src/routes/Settings.svelte package.json
           node scripts/apply-machina-overlap.mjs
+          git add app/src/lib/generate.ts app/src/routes/Settings.svelte package.json
           if git diff --name-only --diff-filter=U | grep .; then
             echo 'Unresolved merge conflicts remain'
             exit 1
