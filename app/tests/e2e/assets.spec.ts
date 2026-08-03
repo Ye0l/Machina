@@ -50,7 +50,7 @@ test.describe('character assets', () => {
     await app.goto('/chat/chat-1')
     const prompt = await sendAndCapturePrompt(app, stub.state, 'Say hello.')
 
-    expect(prompt).toContain('{{asset:name}}')
+    expect(prompt).toContain('{{asset::name}}')
     expect(prompt).toContain('- smiling')
   })
 
@@ -58,7 +58,7 @@ test.describe('character assets', () => {
     await app.goto('/chat/chat-1')
     const prompt = await sendAndCapturePrompt(app, stub.state, 'Say hello.')
 
-    expect(prompt).not.toContain('{{asset:name}}')
+    expect(prompt).not.toContain('{{asset::name}}')
   })
 
   test('a tag in a reply renders as the image it names', async ({ app, stub }) => {
@@ -70,7 +70,7 @@ test.describe('character assets', () => {
         kind: 'chat-message',
         chatId: 'chat-1',
         characterId: 'char-1',
-        msg: 'Here you go. {{asset:smiling}}',
+        msg: 'Here you go. {{asset::smiling}}',
         retries: [],
         createdAt: '',
         updatedAt: '',
@@ -93,7 +93,7 @@ test.describe('character assets', () => {
         kind: 'chat-message',
         chatId: 'chat-1',
         characterId: 'char-1',
-        msg: 'Look: {{asset:invented}}',
+        msg: 'Look: {{asset::invented}}',
         retries: [],
         createdAt: '',
         updatedAt: '',
