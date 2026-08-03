@@ -19,8 +19,12 @@ const render = (text: string, list = assets) =>
   )
 
 describe('asset tags', () => {
-  it('replaces a tag with the asset it names', () => {
+  it('replaces the Risu double-colon form', () => {
     expect(render('before {{asset::smiling}} after')).toBe('before [img:smiling.png] after')
+  })
+
+  it('keeps the legacy single-colon form compatible', () => {
+    expect(render('before {{asset:smiling}} after')).toBe('before [img:smiling.png] after')
   })
 
   it('matches the name case-insensitively and ignores padding', () => {
@@ -29,13 +33,13 @@ describe('asset tags', () => {
   })
 
   it('replaces every tag in a message, not just the first', () => {
-    expect(render('{{asset:smiling}} then {{asset:smiling}}')).toBe(
+    expect(render('{{asset::smiling}} then {{asset:smiling}}')).toBe(
       '[img:smiling.png] then [img:smiling.png]'
     )
   })
 
   it('hands an unknown name back rather than deciding for the caller', () => {
-    expect(render('{{asset:nope}}')).toBe('[missing:nope]')
+    expect(render('{{asset::nope}}')).toBe('[missing:nope]')
   })
 
   it('leaves ordinary placeholders alone', () => {
@@ -43,18 +47,19 @@ describe('asset tags', () => {
   })
 
   it('leaves text untouched when the character has no assets', () => {
-    expect(render('{{asset:smiling}}', [])).toBe('[missing:smiling]')
+    expect(render('{{asset::smiling}}', [])).toBe('[missing:smiling]')
   })
 
   describe('detection', () => {
-    it('finds a tag anywhere in the text', () => {
+    it('finds either supported form anywhere in the text', () => {
+      expect(hasAssetTag('a {{asset::x}} b')).toBe(true)
       expect(hasAssetTag('a {{asset:x}} b')).toBe(true)
       expect(hasAssetTag('no tags here')).toBe(false)
     })
 
     it('is not left stateful by a previous test, unlike a shared global regex', () => {
-      expect(hasAssetTag('{{asset:x}}')).toBe(true)
-      expect(hasAssetTag('{{asset:x}}')).toBe(true)
+      expect(hasAssetTag('{{asset::x}}')).toBe(true)
+      expect(hasAssetTag('{{asset::x}}')).toBe(true)
     })
   })
 

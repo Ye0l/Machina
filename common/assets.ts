@@ -7,8 +7,8 @@ import type { AppSchema } from './types'
  * swapped for an image when the message is rendered. That keeps the model from inventing
  * paths, and keeps a stored message portable -- it holds the name, not a URL that may move.
  *
- * The tag deliberately looks like the placeholders already in this app's templates, so a
- * model that has seen `{{char}}` treats it as the same kind of thing.
+ * RisuAI uses `{{asset::name}}`; older Agnai prompts used `{{asset:name}}`. Both forms are
+ * accepted so imported cards and existing chats render identically.
  */
 
 /** Global and case-insensitive: models are inconsistent about capitalising a tag. */
