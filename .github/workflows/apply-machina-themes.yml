@@ -1,0 +1,40 @@
+name: Apply Machina themes
+
+on:
+  push:
+    branches:
+      - feat/machina-themes-scroll
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/machina-themes-scroll
+          fetch-depth: 0
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Apply implementation
+        run: node scripts/apply-machina-themes.mjs
+      - name: Format changed files
+        run: pnpm exec prettier --write app/src app/tests common/types/ui.ts app/tailwind.config.cjs app/index.html package.json
+      - name: Validate
+        run: pnpm run check
+      - name: Browser tests
+        run: pnpm run test:e2e
+      - name: Commit implementation
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add app/src app/tests common/types/ui.ts app/tailwind.config.cjs app/index.html package.json
+          git commit -m "feat: rename app to Machina and add themes and chat display controls"
+          git push origin HEAD:feat/machina-themes-scroll
