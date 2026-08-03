@@ -43,7 +43,7 @@
 
 <main class="flex h-full items-center justify-center p-4">
   <form class="flex w-full max-w-sm flex-col gap-4" onsubmit={submit}>
-    <h1 class="text-center text-2xl font-semibold">{i18n.t('Agnai')}</h1>
+    <h1 class="text-center text-2xl font-semibold">{i18n.t('Machina')}</h1>
 
     {#if session.canAuth}
       <div class="flex rounded-lg border border-neutral-700 p-1" role="tablist">

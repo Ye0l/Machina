@@ -18,6 +18,7 @@ test('rerolls with current settings while replacing the visible response immedia
       providerModels: { 'provider-current': 'current/model-v2' },
       temp: 0.37,
       maxTokens: 777,
+      maxContextLength: 16384,
     },
   ]
   stub.state.extraMessages = [
@@ -56,6 +57,7 @@ test('rerolls with current settings while replacing the visible response immedia
   const debug = app.getByTestId('generation-debug-msg-reroll')
   await expect(debug).toContainText('current/model-v2')
   await expect(debug).toContainText(/\d+ tokens/)
+  await expect(debug).toContainText('16,384 context')
 
   await debug.click()
   const dialog = app.getByRole('dialog', { name: 'Generation request' })

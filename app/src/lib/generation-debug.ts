@@ -11,6 +11,8 @@ export type GenerationRequestDebug = {
 export type GenerationSummary = {
   model: string
   outputTokens: number
+  inputTokens?: number
+  contextLimit?: number
 }
 
 export type GenerationDebug = GenerationSummary & {
@@ -35,7 +37,14 @@ const asSummary = (value: unknown): GenerationSummary | undefined => {
   const model = (value as { model?: unknown }).model
   const outputTokens = (value as { outputTokens?: unknown }).outputTokens
   if (typeof model !== 'string' || typeof outputTokens !== 'number') return undefined
-  return { model, outputTokens }
+  const inputTokens = (value as { inputTokens?: unknown }).inputTokens
+  const contextLimit = (value as { contextLimit?: unknown }).contextLimit
+  return {
+    model,
+    outputTokens,
+    ...(typeof inputTokens === 'number' ? { inputTokens } : {}),
+    ...(typeof contextLimit === 'number' ? { contextLimit } : {}),
+  }
 }
 
 /**
@@ -97,6 +106,8 @@ export function resolveGenerationModel(
 export const generationSummary = (debug: GenerationDebug): GenerationSummary => ({
   model: debug.model,
   outputTokens: debug.outputTokens,
+  inputTokens: debug.inputTokens,
+  contextLimit: debug.contextLimit,
 })
 
 export function readGenerationSummary(
