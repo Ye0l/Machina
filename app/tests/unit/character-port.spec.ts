@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   characterToJson,
   embedCardInPng,
+  IMPORT_ACCEPT,
   jsonToCharacter,
   parseCharacterFile,
   type ImportedCharacter,
@@ -11,6 +12,12 @@ import type { AppSchema } from '/common/types'
 
 const personaText = (character: ImportedCharacter) =>
   character.persona.kind === 'text' ? character.persona.attributes.text?.[0] ?? '' : ''
+
+describe('character import picker', () => {
+  it('does not apply an iOS-hostile file type filter', () => {
+    expect(IMPORT_ACCEPT).toBeUndefined()
+  })
+})
 
 describe('jsonToCharacter', () => {
   it('reads an Agnai native character', () => {
