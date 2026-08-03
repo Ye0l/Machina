@@ -19,6 +19,7 @@ test.describe('mobile layout', () => {
     await expect(app.locator('a:has-text("AI settings"):visible')).toHaveCount(0)
   })
 
+  // Chat controls must not consume vertical space until the user explicitly asks for them.
   test('keeps the mobile chat header compact until options are opened', async ({ app }) => {
     await app.goto('/chat/chat-1')
     await expect(app.getByText('Greetings from Aria.')).toBeVisible()
