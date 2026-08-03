@@ -12,6 +12,8 @@ export interface MemoryBook {
   _id: string
   name: string
   description?: string
+  /** Slash-separated organizational path. Empty or missing means the library root. */
+  folder?: string
   userId: string
   entries: MemoryEntry[]
 

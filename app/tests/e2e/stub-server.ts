@@ -76,6 +76,7 @@ const character = <T extends object>(id: string, name: string, avatar: string, e
   alternateGreetings: [],
   createdAt: now,
   updatedAt: now,
+  assets: [] as Array<{ name: string; uri: string; folder?: string }>,
   ...extra,
 })
 
@@ -109,6 +110,8 @@ export type StubState = {
   /** Non-2xx responses served, so tests can assert none were unexpected. */
   failedResponses: string[]
   chatMemory: Record<string, string | undefined>
+  /** Generation preset selected by the fixture chat. */
+  chatPreset: string
   extraMessages: any[]
   /** Chats invented per-test, e.g. to exercise the list's incremental rendering. */
   extraChats: any[]
@@ -155,6 +158,7 @@ export async function createStubServer(port: number) {
     apiCalls: [],
     failedResponses: [],
     chatMemory: {},
+    chatPreset: '',
     extraMessages: [],
     extraChats: [],
     characterUpdates: [],
@@ -176,6 +180,7 @@ export async function createStubServer(port: number) {
       this.apiCalls = []
       this.failedResponses = []
       this.chatMemory = {}
+      this.chatPreset = ''
       this.extraMessages = []
       this.extraChats = []
       this.characterUpdates = []
@@ -245,7 +250,7 @@ export async function createStubServer(port: number) {
         memberIds: [],
         messageCount: 1,
         treeLeafId: 'msg-1',
-        genPreset: '',
+        genPreset: state.chatPreset,
       },
       messages: [
         {
@@ -422,21 +427,33 @@ export async function createStubServer(port: number) {
       const assetAdd = path.match(/^\/api\/character\/([^/]+)\/assets$/)
       if (assetAdd && req.method === 'POST') {
         const body = await readBody(req)
-        const target = characters.find((c) => c._id === assetAdd[1]) as any
+        const target = characters.find((c) => c._id === assetAdd[1])
         if (!target) return json({ message: 'Not found' }, 404)
         const name = String(body.name).trim()
-        target.assets = (target.assets ?? [])
-          .filter((a: any) => a.name.toLowerCase() !== name.toLowerCase())
-          .concat({ name, uri: `${name}.png` })
+        const folder = String(body.folder ?? '')
+        target.assets = target.assets
+          .filter((asset) => asset.name.toLowerCase() !== name.toLowerCase())
+          .concat({ name, uri: `${name}.png`, ...(folder ? { folder } : {}) })
         return json(target)
       }
 
-      const assetRemove = path.match(/^\/api\/character\/([^/]+)\/assets\/([^/]+)$/)
-      if (assetRemove && req.method === 'DELETE') {
-        const target = characters.find((c) => c._id === assetRemove[1]) as any
+      const assetWrite = path.match(/^\/api\/character\/([^/]+)\/assets\/([^/]+)$/)
+      if (assetWrite && req.method === 'PUT') {
+        const body = await readBody(req)
+        const target = characters.find((character) => character._id === assetWrite[1])
         if (!target) return json({ message: 'Not found' }, 404)
-        const name = decodeURIComponent(assetRemove[2]).toLowerCase()
-        target.assets = (target.assets ?? []).filter((a: any) => a.name.toLowerCase() !== name)
+        const name = decodeURIComponent(assetWrite[2]).toLowerCase()
+        const folder = String(body.folder ?? '')
+        target.assets = target.assets.map((asset) =>
+          asset.name.toLowerCase() === name ? { ...asset, folder: folder || undefined } : asset
+        )
+        return json(target)
+      }
+      if (assetWrite && req.method === 'DELETE') {
+        const target = characters.find((character) => character._id === assetWrite[1])
+        if (!target) return json({ message: 'Not found' }, 404)
+        const name = decodeURIComponent(assetWrite[2]).toLowerCase()
+        target.assets = target.assets.filter((asset) => asset.name.toLowerCase() !== name)
         return json(target)
       }
 

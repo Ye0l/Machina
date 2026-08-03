@@ -31,6 +31,8 @@ export interface CharacterAsset {
   name: string
   /** Stored path, resolved the same way an avatar is. */
   uri: string
+  /** Slash-separated organizational path. Empty or missing means the character's root. */
+  folder?: string
 }
 
 export interface Character extends BaseCharacter {

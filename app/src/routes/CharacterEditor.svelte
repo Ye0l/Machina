@@ -502,6 +502,7 @@
         await api.post(`/character/${id}/assets`, {
           name: asset.name,
           image: await blobToDataUrl(asset.blob),
+          folder: asset.folder ?? '',
         })
       }
       importedAssets = []

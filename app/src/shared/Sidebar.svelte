@@ -4,6 +4,7 @@
     LogOut,
     MessageCircle,
     Plus,
+    PanelLeftClose,
     Settings,
     Sparkles,
     UserRound,
@@ -19,10 +20,12 @@
     onClose,
     onNavigate,
     onLogout,
+    onCollapse,
   }: {
     onClose: () => void
     onNavigate: (path: string) => void
     onLogout: () => void
+    onCollapse?: () => void
   } = $props()
 
   const route = $derived(router.route)
@@ -54,6 +57,17 @@
       <p class="truncate text-sm font-semibold tracking-wide text-white">Agnai</p>
       <p class="truncate text-xs text-neutral-500">{i18n.t('Character workspace')}</p>
     </div>
+    {#if onCollapse}
+      <button
+        class="icon-button hidden md:flex"
+        type="button"
+        aria-label={i18n.t('Collapse sidebar')}
+        title={i18n.t('Collapse sidebar')}
+        onclick={onCollapse}
+      >
+        <PanelLeftClose size={19} />
+      </button>
+    {/if}
     <button
       class="icon-button md:hidden"
       type="button"

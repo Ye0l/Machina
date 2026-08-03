@@ -2,12 +2,13 @@ import { expect, test } from './fixtures'
 import type { Page } from '@playwright/test'
 
 /** Creates a book through the UI and returns once the list shows it. */
-async function createBook(app: Page) {
+async function createBook(app: Page, folder = '') {
   await app.goto('/memory/new')
   await app.waitForSelector('input[placeholder="Book name"]')
 
   await app.fill('input[placeholder="Book name"]', 'Lore')
   await app.fill('input[placeholder="What this book covers"]', 'World facts')
+  if (folder) await app.fill('input[placeholder="e.g. World/Locations"]', folder)
   await app.fill('input[placeholder="For your reference only"]', 'Dragons')
   await app.fill('input[placeholder="Add keyword…"]', 'dragon')
   await app.press('input[placeholder="Add keyword…"]', 'Enter')
@@ -45,6 +46,35 @@ test.describe('memory books', () => {
     expect(stub.state.memoryBooks[0].name).toBe('Lore')
     expect(stub.state.memoryBooks[0].entries).toHaveLength(1)
     expect(stub.state.memoryBooks[0].entries[0].keywords).toEqual(['dragon'])
+  })
+
+  test('groups books by nested folder and moves them through the editor', async ({ app, stub }) => {
+    await createBook(app, 'World// Locations')
+
+    expect(stub.state.memoryBooks[0].folder).toBe('World/Locations')
+    await expect(
+      app.getByRole('region', { name: 'World/Locations' }).getByRole('heading', {
+        name: 'Lore',
+      })
+    ).toBeVisible()
+
+    await app.getByLabel('Edit Lore').click()
+    const folderInput = app.locator('input[placeholder="e.g. World/Locations"]')
+    await expect(folderInput).toHaveValue('World/Locations')
+    await folderInput.fill('Characters/Main')
+    await app.getByRole('button', { name: 'Save book' }).click()
+
+    await expect(
+      app.getByRole('region', { name: 'Characters/Main' }).getByRole('heading', {
+        name: 'Lore',
+      })
+    ).toBeVisible()
+    await expect(app.getByRole('region', { name: 'World/Locations' })).toHaveCount(0)
+
+    await app.goto('/chat/chat-1')
+    await expect(
+      app.locator('select[aria-label="Memory book"] optgroup[label="Characters/Main"] option')
+    ).toHaveText('Lore')
   })
 
   test('a book deep link loads its stored values', async ({ app, stub }) => {

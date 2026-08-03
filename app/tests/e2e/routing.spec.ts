@@ -73,6 +73,20 @@ test.describe('navigation', () => {
     await expect(app.locator('a:has-text("AI settings")')).toHaveAttribute('href', '/settings')
   })
 
+  test('the desktop sidebar collapses, persists, and expands again', async ({ app }) => {
+    await app.goto('/')
+    await waitForLibrary(app)
+
+    await app.getByRole('button', { name: 'Collapse sidebar' }).click()
+    await expect(app.getByRole('button', { name: 'Expand sidebar' })).toBeVisible()
+    await expect(app.locator('a:has-text("AI settings"):visible')).toHaveCount(0)
+
+    await app.reload()
+    await expect(app.getByRole('button', { name: 'Expand sidebar' })).toBeVisible()
+    await app.getByRole('button', { name: 'Expand sidebar' }).click()
+    await expect(app.locator('a:has-text("AI settings"):visible')).toBeVisible()
+  })
+
   test('back returns to the previous chat and re-renders it', async ({ app }) => {
     await app.goto('/chat/chat-1')
     await expect(app.getByText('Greetings from Aria.')).toBeVisible()

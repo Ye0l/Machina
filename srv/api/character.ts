@@ -1,5 +1,6 @@
 import { Router } from 'express'
 import { assertValid } from '/common/valid'
+import { normalizeFolderPath } from '/common/folders'
 import { store } from '../db'
 import { loggedIn } from './auth'
 import { errors, handle, StatusError } from './wrap'
@@ -326,7 +327,7 @@ const removeAvatar = handle(async ({ userId, params }) => {
  * -- re-uploading the same name replaces the image rather than shadowing it.
  */
 const addAsset = handle(async ({ body, userId, params }) => {
-  assertValid({ name: 'string', image: 'string' }, body)
+  assertValid({ name: 'string', image: 'string', folder: 'string?' }, body)
 
   const char = await store.characters.getCharacter(userId, params.id)
   if (!char) throw errors.NotFound
@@ -345,14 +346,34 @@ const addAsset = handle(async ({ body, userId, params }) => {
   if (!filename) throw new StatusError('Could not store the asset', 500)
 
   const existing = char.assets ?? []
+  const replaced = existing.find((asset) => asset.name.trim().toLowerCase() === name.toLowerCase())
+  const folder = normalizeFolderPath(body.folder ?? replaced?.folder)
   const assets = existing
     .filter((asset) => asset.name.trim().toLowerCase() !== name.toLowerCase())
-    .concat({ name, uri: filename })
+    .concat({ name, uri: filename, ...(folder ? { folder } : {}) })
 
   await store.characters.updateCharacter(params.id, userId, { assets })
   return { ...char, assets }
 })
 
+const moveAsset = handle(async ({ body, userId, params }) => {
+  assertValid({ folder: 'string' }, body)
+  const char = await store.characters.getCharacter(userId, params.id)
+  if (!char) throw errors.NotFound
+
+  const wanted = decodeURIComponent(params.name).trim().toLowerCase()
+  if (!(char.assets ?? []).some((asset) => asset.name.trim().toLowerCase() === wanted)) {
+    throw errors.NotFound
+  }
+
+  const folder = normalizeFolderPath(body.folder)
+  const assets = (char.assets ?? []).map((asset) =>
+    asset.name.trim().toLowerCase() === wanted ? { ...asset, folder: folder || undefined } : asset
+  )
+
+  await store.characters.updateCharacter(params.id, userId, { assets })
+  return { ...char, assets }
+})
 const removeAsset = handle(async ({ userId, params }) => {
   const char = await store.characters.getCharacter(userId, params.id)
   if (!char) throw errors.NotFound
@@ -427,6 +448,7 @@ router.get('/:id', getCharacter)
 router.post('/:id/favorite', editCharacterFavorite)
 router.delete('/:id/avatar', removeAvatar)
 router.post('/:id/assets', addAsset)
+router.put('/:id/assets/:name', moveAsset)
 router.delete('/:id/assets/:name', removeAsset)
 
 export default router

@@ -21,6 +21,7 @@
   import { isRouterClick, router, routes } from '/app/lib/router.svelte'
   import { renderMarkdown } from '/app/lib/markdown'
   import { ASSET_TAG_PATTERN, findAsset } from '/common/assets'
+  import { groupByFolder } from '/common/folders'
   import { assetUrl } from '/app/lib/config'
   import { uiSettings } from '/app/lib/ui-settings.svelte'
   import { FONT_FACES } from '/common/types/ui'
@@ -222,6 +223,7 @@
   const selectedBookId = $derived(
     books.books.some((book) => book._id === detail.chat.memoryId) ? detail.chat.memoryId : ''
   )
+  const bookGroups = $derived(groupByFolder(books.books, (book) => book.folder))
 
   const selectBook = (event: Event) =>
     chats.setMemoryBook((event.currentTarget as HTMLSelectElement).value)
@@ -328,8 +330,18 @@
         disabled={chats.generating}
       >
         <option value="">{i18n.t('No memory book')}</option>
-        {#each books.books as book (book._id)}
-          <option value={book._id}>{book.name}</option>
+        {#each bookGroups as group (group.folder)}
+          {#if group.folder}
+            <optgroup label={group.folder}>
+              {#each group.items as book (book._id)}
+                <option value={book._id}>{book.name}</option>
+              {/each}
+            </optgroup>
+          {:else}
+            {#each group.items as book (book._id)}
+              <option value={book._id}>{book.name}</option>
+            {/each}
+          {/if}
         {/each}
       </select>
     {/if}
@@ -433,16 +445,22 @@
               </div>
             </div>
           {:else}
-            <div class="space-y-2">
+            <div
+              class:bg-violet-600={isUser}
+              class:text-white={isUser}
+              class:ml-auto={isUser}
+              class="chat-message-body space-y-2 rounded-2xl bg-[#151a23] px-4 py-3 leading-6 text-neutral-200 {isUser
+                ? 'rounded-tr-md'
+                : 'rounded-tl-md'}"
+              style:opacity={msgOpacity}
+            >
               {#each renderBody(message.msg, character) as part}
                 {#if part.kind === 'asset'}
                   <button
-                    class="chat-asset-frame group block w-[min(100%,32rem)] overflow-hidden rounded-xl border border-neutral-700/70 bg-black/40 shadow-lg"
-                    class:ml-auto={isUser}
+                    class="chat-asset-frame group block w-full max-w-[32rem] overflow-hidden rounded-xl border border-neutral-700/70 bg-black/40"
                     type="button"
                     aria-label={i18n.t('Open image')}
                     onclick={() => (expandedAsset = part)}
-                    style:opacity={msgOpacity}
                   >
                     <img
                       class="chat-asset block max-h-[70vh] w-full object-contain transition-transform group-hover:scale-[1.01]"
@@ -453,27 +471,13 @@
                     />
                   </button>
                 {:else if part.kind === 'literal'}
-                  <div
-                    class:bg-violet-600={isUser}
-                    class:text-white={isUser}
-                    class:ml-auto={isUser}
-                    class="asset-tag-missing rounded-2xl bg-[#151a23] px-4 py-3 font-mono text-sm leading-6 text-neutral-200 {isUser
-                      ? 'rounded-tr-md'
-                      : 'rounded-tl-md'}"
-                    style:opacity={msgOpacity}
+                  <code
+                    class="asset-tag-missing block break-words rounded-lg bg-black/20 px-2.5 py-1.5 font-mono text-sm"
                   >
                     {part.text}
-                  </div>
+                  </code>
                 {:else if part.html}
-                  <div
-                    class:bg-violet-600={isUser}
-                    class:text-white={isUser}
-                    class:ml-auto={isUser}
-                    class="rendered-markdown rounded-2xl bg-[#151a23] px-4 py-3 leading-6 text-neutral-200 {isUser
-                      ? 'rounded-tr-md'
-                      : 'rounded-tl-md'}"
-                    style:opacity={msgOpacity}
-                  >
+                  <div class="rendered-markdown">
                     <!-- Sanitised in renderMarkdown via DOMPurify. -->
                     {@html part.html}
                   </div>
@@ -562,15 +566,17 @@
           <span class="mb-1 block text-xs text-neutral-500"
             >{detail.character?.name ?? i18n.t('Bot')}</span
           >
-          <div class="space-y-2">
+          <div
+            class="chat-message-body space-y-2 rounded-2xl rounded-tl-md bg-[#151a23] px-4 py-3 leading-6 text-neutral-200"
+            style:opacity={msgOpacity}
+          >
             {#each renderBody(chats.partial, detail.character) as part}
               {#if part.kind === 'asset'}
                 <button
-                  class="chat-asset-frame group block w-[min(100%,32rem)] overflow-hidden rounded-xl border border-neutral-700/70 bg-black/40 shadow-lg"
+                  class="chat-asset-frame group block w-full max-w-[32rem] overflow-hidden rounded-xl border border-neutral-700/70 bg-black/40"
                   type="button"
                   aria-label={i18n.t('Open image')}
                   onclick={() => (expandedAsset = part)}
-                  style:opacity={msgOpacity}
                 >
                   <img
                     class="chat-asset block max-h-[70vh] w-full object-contain transition-transform group-hover:scale-[1.01]"
@@ -580,17 +586,13 @@
                   />
                 </button>
               {:else if part.kind === 'literal'}
-                <div
-                  class="asset-tag-missing rounded-2xl rounded-tl-md bg-[#151a23] px-4 py-3 font-mono text-sm leading-6 text-neutral-200"
-                  style:opacity={msgOpacity}
+                <code
+                  class="asset-tag-missing block break-words rounded-lg bg-black/20 px-2.5 py-1.5 font-mono text-sm"
                 >
                   {part.text}
-                </div>
+                </code>
               {:else if part.html}
-                <div
-                  class="rendered-markdown rounded-2xl rounded-tl-md bg-[#151a23] px-4 py-3 leading-6 text-neutral-200"
-                  style:opacity={msgOpacity}
-                >
+                <div class="rendered-markdown">
                   {@html part.html}
                 </div>
               {/if}

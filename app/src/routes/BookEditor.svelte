@@ -1,6 +1,7 @@
 <script lang="ts">
   import { ArrowLeft, Save, Trash2 } from '@lucide/svelte'
   import type { AppSchema } from '/common/types'
+  import { normalizeFolderPath } from '/common/folders'
   import { emptyEntry } from '/common/memory'
   import { books, type BookDraft } from '/app/lib/books.svelte'
   import { i18n } from '/app/lib/i18n.svelte'
@@ -20,6 +21,7 @@
 
   let name = $state('')
   let description = $state('')
+  let folder = $state('')
   /**
    * Whole entry objects are kept, not just the fields below: the server replaces `entries`
    * wholesale, so per-entry V2 fields (`id`, `comment`, `secondaryKeys`) would be destroyed
@@ -33,7 +35,7 @@
   let nameError = $state('')
   let notFound = $state(false)
 
-  const snapshot = () => JSON.stringify({ name, description, entries })
+  const snapshot = () => JSON.stringify({ name, description, folder, entries })
   let initialSnapshot = $state('')
   const isDirty = $derived(snapshot() !== initialSnapshot)
 
@@ -71,6 +73,7 @@
       }
       name = book.name
       description = book.description ?? ''
+      folder = book.folder ?? ''
       entries = (book.entries ?? []).map((entry) => ({ ...entry }))
       initialSnapshot = snapshot()
     } catch (ex) {
@@ -98,7 +101,12 @@
     saving = true
     error = ''
 
-    const draft: BookDraft = { name: name.trim(), description: description.trim(), entries: usable }
+    const draft: BookDraft = {
+      name: name.trim(),
+      description: description.trim(),
+      folder: normalizeFolderPath(folder),
+      entries: usable,
+    }
 
     try {
       if (bookId) {
@@ -212,6 +220,19 @@
               placeholder={i18n.t('What this book covers')}
               autocomplete="off"
             />
+          </label>
+          <label class="field-group sm:col-span-2">
+            <span class="field-label">{i18n.t('Folder')}</span>
+            <input
+              class="field"
+              bind:value={folder}
+              maxlength="120"
+              placeholder={i18n.t('e.g. World/Locations')}
+              autocomplete="off"
+            />
+            <span class="field-hint">
+              {i18n.t('Use slashes to create nested folders.')}
+            </span>
           </label>
         </div>
 

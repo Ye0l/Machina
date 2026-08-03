@@ -1,5 +1,6 @@
 <script lang="ts">
-  import { BookOpen, Pencil, Plus } from '@lucide/svelte'
+  import { BookOpen, FolderOpen, Pencil, Plus } from '@lucide/svelte'
+  import { groupByFolder } from '/common/folders'
   import { books } from '/app/lib/books.svelte'
   import { i18n } from '/app/lib/i18n.svelte'
   import { isRouterClick, router, routes } from '/app/lib/router.svelte'
@@ -12,6 +13,8 @@
 
   const enabledCount = (entries: { enabled: boolean }[]) =>
     entries.filter((entry) => entry.enabled).length
+
+  const bookGroups = $derived(groupByFolder(books.books, (book) => book.folder))
 </script>
 
 <div class="flex h-full min-h-0 flex-col overflow-y-auto">
@@ -69,40 +72,51 @@
         </a>
       </div>
     {:else}
-      <ul class="mt-5 grid grid-cols-1 gap-3 lg:grid-cols-2">
-        {#each books.books as book (book._id)}
-          <li
-            class="flex min-w-0 items-center gap-3 rounded-xl border border-neutral-800 bg-[#10141c] p-3 transition hover:border-neutral-700 hover:bg-[#131822]"
-          >
-            <span
-              class="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-violet-500/10 text-violet-300"
-            >
-              <BookOpen size={20} />
-            </span>
-            <div class="min-w-0 flex-1">
-              <h2 class="truncate font-medium text-neutral-100">{book.name}</h2>
-              <p class="mt-1 truncate text-sm text-neutral-500">
-                {book.description || i18n.t('No description')}
-              </p>
-              <p class="mt-1 text-xs tabular-nums text-neutral-600">
-                {i18n.t('{enabled} of {total} entries enabled', {
-                  enabled: enabledCount(book.entries ?? []),
-                  total: (book.entries ?? []).length,
-                })}
-              </p>
-            </div>
-            <a
-              class="icon-button shrink-0"
-              href={routes.book(book._id)}
-              aria-label={i18n.t('Edit {name}', { name: book.name })}
-              title={i18n.t('Edit book')}
-              onclick={link(routes.book(book._id))}
-            >
-              <Pencil size={17} />
-            </a>
-          </li>
+      <div class="mt-5 space-y-6">
+        {#each bookGroups as group (group.folder)}
+          <section class="space-y-2" aria-label={group.folder || i18n.t('Root')}>
+            <h2 class="flex items-center gap-2 text-xs font-semibold text-neutral-400">
+              <FolderOpen size={15} class="shrink-0 text-violet-300" />
+              <span class="min-w-0 break-all">{group.folder || i18n.t('Root')}</span>
+              <span class="font-normal tabular-nums text-neutral-600">{group.items.length}</span>
+            </h2>
+            <ul class="grid grid-cols-1 gap-3 lg:grid-cols-2">
+              {#each group.items as book (book._id)}
+                <li
+                  class="flex min-w-0 items-center gap-3 rounded-xl border border-neutral-800 bg-[#10141c] p-3 transition hover:border-neutral-700 hover:bg-[#131822]"
+                >
+                  <span
+                    class="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-violet-500/10 text-violet-300"
+                  >
+                    <BookOpen size={20} />
+                  </span>
+                  <div class="min-w-0 flex-1">
+                    <h3 class="truncate font-medium text-neutral-100">{book.name}</h3>
+                    <p class="mt-1 truncate text-sm text-neutral-500">
+                      {book.description || i18n.t('No description')}
+                    </p>
+                    <p class="mt-1 text-xs tabular-nums text-neutral-600">
+                      {i18n.t('{enabled} of {total} entries enabled', {
+                        enabled: enabledCount(book.entries ?? []),
+                        total: (book.entries ?? []).length,
+                      })}
+                    </p>
+                  </div>
+                  <a
+                    class="icon-button shrink-0"
+                    href={routes.book(book._id)}
+                    aria-label={i18n.t('Edit {name}', { name: book.name })}
+                    title={i18n.t('Edit book')}
+                    onclick={link(routes.book(book._id))}
+                  >
+                    <Pencil size={17} />
+                  </a>
+                </li>
+              {/each}
+            </ul>
+          </section>
         {/each}
-      </ul>
+      </div>
     {/if}
   </div>
 </div>

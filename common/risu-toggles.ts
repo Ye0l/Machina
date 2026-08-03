@@ -15,6 +15,8 @@ export type RisuToggleConfig = {
   source: string
   /** Prompt template before Risu toggle macros are evaluated. */
   template: string
+  /** Preset-wide values used when a chat has not overridden a control. */
+  defaults?: Record<string, string>
 }
 
 type RisuPreset = Partial<AppSchema.GenSettings> & {
@@ -25,6 +27,14 @@ export function getRisuToggleConfig(preset?: RisuPreset): RisuToggleConfig | und
   const config = preset?.temporary?.[RISU_TOGGLE_CONFIG_KEY]
   if (!config || config.version !== 1) return
   if (typeof config.source !== 'string' || typeof config.template !== 'string') return
+  if (
+    config.defaults !== undefined &&
+    (!config.defaults ||
+      typeof config.defaults !== 'object' ||
+      Array.isArray(config.defaults) ||
+      Object.values(config.defaults).some((value) => typeof value !== 'string'))
+  )
+    return
   return config as RisuToggleConfig
 }
 
@@ -33,6 +43,7 @@ export function withRisuToggleConfig(
   source: string,
   template: string
 ): RisuPreset {
+  const defaults = getRisuToggleConfig(preset)?.defaults
   return {
     ...preset,
     presetMode: 'advanced',
@@ -41,7 +52,28 @@ export function withRisuToggleConfig(
     promptTemplateId: undefined,
     temporary: {
       ...(preset.temporary ?? {}),
-      [RISU_TOGGLE_CONFIG_KEY]: { version: 1, source, template } satisfies RisuToggleConfig,
+      [RISU_TOGGLE_CONFIG_KEY]: {
+        version: 1,
+        source,
+        template,
+        ...(defaults ? { defaults } : {}),
+      } satisfies RisuToggleConfig,
+    },
+  }
+}
+
+export function withRisuToggleDefaults(
+  preset: RisuPreset,
+  defaults: Record<string, string>
+): RisuPreset {
+  const config = getRisuToggleConfig(preset)
+  if (!config) return preset
+
+  return {
+    ...preset,
+    temporary: {
+      ...(preset.temporary ?? {}),
+      [RISU_TOGGLE_CONFIG_KEY]: { ...config, defaults } satisfies RisuToggleConfig,
     },
   }
 }
@@ -474,6 +506,9 @@ export function renderRisuPreset(
     presetMode: 'advanced',
     useAdvancedPrompt: 'no-validation',
     promptTemplateId: undefined,
-    gaslight: renderRisuToggleMacros(config.template, config.source, values),
+    gaslight: renderRisuToggleMacros(config.template, config.source, {
+      ...(config.defaults ?? {}),
+      ...(values ?? {}),
+    }),
   }
 }

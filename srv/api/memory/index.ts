@@ -1,5 +1,6 @@
 import { Router } from 'express'
 import { assertValid } from '/common/valid'
+import { normalizeFolderPath } from '/common/folders'
 import { store } from '../../db'
 import { loggedIn } from '../auth'
 import { handle } from '../wrap'
@@ -18,6 +19,7 @@ const validEntry = {
 export const validBook = {
   name: 'string',
   description: 'string?',
+  folder: 'string?',
   entries: [validEntry],
 } as const
 
@@ -29,7 +31,10 @@ const getUserBooks = handle(async ({ userId }) => {
 const createBook = handle(async ({ body, userId }) => {
   assertValid(validBook, body)
 
-  const newBook = await store.memory.createBook(userId!, body)
+  const newBook = await store.memory.createBook(userId!, {
+    ...body,
+    folder: normalizeFolderPath(body.folder),
+  })
 
   return newBook
 })
@@ -37,7 +42,10 @@ const createBook = handle(async ({ body, userId }) => {
 const updateBook = handle(async ({ body, userId, params }) => {
   const id = params.id
   assertValid(validBook, body)
-  await store.memory.updateBook(userId!, id!, body)
+  await store.memory.updateBook(userId!, id!, {
+    ...body,
+    folder: normalizeFolderPath(body.folder),
+  })
 
   return { success: true }
 })

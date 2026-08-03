@@ -5,6 +5,7 @@
     getRisuToggleConfig,
     parseRisuToggleSyntax,
     withRisuToggleConfig,
+    withRisuToggleDefaults,
     withoutRisuToggleConfig,
     type RisuToggleDefinition,
   } from '/common/risu-toggles'
@@ -23,6 +24,8 @@
   let templateDraft = $state('')
   let saving = $state(false)
   let message = $state('')
+  let defaultSaving = $state(false)
+  let defaultStatus = $state('')
 
   const route = $derived(router.route)
   const settingsMode = $derived(route.name === 'settings' && route.tab === 'presets')
@@ -147,7 +150,11 @@
   }
 
   function currentValue(definition: Extract<RisuToggleDefinition, { key: string }>) {
-    return chat?.risuToggleValues?.[definition.key] ?? definition.defaultValue
+    return (
+      chat?.risuToggleValues?.[definition.key] ??
+      activeConfig?.defaults?.[definition.key] ??
+      definition.defaultValue
+    )
   }
 
   async function setToggleValue(
@@ -157,6 +164,7 @@
     const detail = chats.detail
     if (!detail) return
 
+    defaultStatus = ''
     const previous = (detail.chat as ChatWithRisuToggles).risuToggleValues ?? {}
     const next = { ...previous, [definition.key]: value }
     chats.detail = {
@@ -175,6 +183,41 @@
         ex instanceof Error
           ? ex.message
           : text('Could not save toggle.', '토글값을 저장하지 못했습니다.')
+    }
+  }
+
+  async function saveCurrentDefaults() {
+    const preset = activePreset
+    const config = activeConfig
+    if (!preset || !config || defaultSaving) return
+
+    const defaults = Object.fromEntries(
+      interactiveDefinitions.map((definition) => [definition.key, currentValue(definition)])
+    )
+    defaultSaving = true
+    defaultStatus = ''
+    message = ''
+    try {
+      const configured = withRisuToggleDefaults(
+        editablePresetBody(preset) as Partial<AppSchema.GenSettings>,
+        defaults
+      )
+      const updated = await api.post<AppSchema.UserGenPreset>(`/user/presets/${preset._id}`, {
+        ...configured,
+        promptTemplateId: null,
+      })
+      session.presets = session.presets.map((item) => (item._id === updated._id ? updated : item))
+      defaultStatus = text(
+        'Current values are now the preset defaults.',
+        '현재 값이 프리셋 기본값으로 저장되었습니다.'
+      )
+    } catch (ex) {
+      message =
+        ex instanceof Error
+          ? ex.message
+          : text('Could not save defaults.', '기본값을 저장하지 못했습니다.')
+    } finally {
+      defaultSaving = false
     }
   }
 
@@ -374,6 +417,30 @@
           </label>
         {/if}
       {/each}
+      <div
+        class="flex flex-wrap items-center justify-between gap-2 border-t border-neutral-800 pt-4"
+      >
+        <p class="max-w-56 text-xs text-neutral-500">
+          {text(
+            'New chats use these values until changed.',
+            '새 채팅은 변경하기 전까지 이 값을 사용합니다.'
+          )}
+        </p>
+        <button
+          class="button-secondary"
+          type="button"
+          disabled={defaultSaving}
+          onclick={saveCurrentDefaults}
+        >
+          <Save size={15} />
+          {defaultSaving
+            ? text('Saving...', '저장 중...')
+            : text('Use as defaults', '현재 값을 기본값으로')}
+        </button>
+      </div>
+      {#if defaultStatus}
+        <p class="text-xs text-emerald-300" aria-live="polite">{defaultStatus}</p>
+      {/if}
       {#if message}<p class="text-xs text-red-300" aria-live="polite">{message}</p>{/if}
     </div>
   </section>

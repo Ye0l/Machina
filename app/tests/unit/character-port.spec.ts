@@ -418,7 +418,14 @@ describe('CHARX archives', () => {
 
   it('reads the card and unpacks the assets it names', async () => {
     const file = await makeCharx(
-      v3([{ type: 'emotion', name: 'smiling', uri: 'embeded://assets/smile.png', ext: 'png' }]),
+      v3([
+        {
+          type: 'emotion',
+          name: 'smiling.PNG',
+          uri: 'embeded://assets/smile.png',
+          ext: 'png',
+        },
+      ]),
       { 'assets/smile.png': PIXEL }
     )
 
@@ -426,9 +433,31 @@ describe('CHARX archives', () => {
     expect(result.name).toBe('Charx Hero')
     expect(result.assets).toHaveLength(1)
     expect(result.assets?.[0].name).toBe('smiling')
+    expect(result.assets?.[0].folder).toBe('assets')
     expect(result.assets?.[0].blob.type).toBe('image/png')
     // The archive carried them, so the "not carried over" notice must not still claim otherwise.
     expect(result.unsupported).not.toContain('Character Card V3 assets')
+  })
+
+  it('reports names that collide after their file extension is removed', async () => {
+    const file = await makeCharx(
+      v3([
+        { type: 'emotion', name: 'smile', uri: 'embeded://assets/smile.png', ext: 'png' },
+        {
+          type: 'emotion',
+          name: 'smile.PNG',
+          uri: 'embeded://assets/smile-copy.png',
+          ext: 'png',
+        },
+      ]),
+      { 'assets/smile.png': PIXEL, 'assets/smile-copy.png': PIXEL }
+    )
+
+    const result = await parseCharacterFile(file)
+    expect(result.assets?.map((asset) => asset.name)).toEqual(['smile'])
+    expect(result.unsupported).toContain(
+      '1 asset(s) had duplicate names after removing file extensions'
+    )
   })
 
   it('takes the main icon as the avatar rather than as a shown image', async () => {

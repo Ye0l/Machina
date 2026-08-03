@@ -1,6 +1,7 @@
 <script lang="ts">
-  import { ImagePlus, Trash2 } from '@lucide/svelte'
+  import { FolderOpen, ImagePlus, Trash2 } from '@lucide/svelte'
   import type { AppSchema } from '/common/types'
+  import { groupByFolder, normalizeFolderPath } from '/common/folders'
   import { api } from '/app/lib/api'
   import { assetUrl } from '/app/lib/config'
   import { i18n } from '/app/lib/i18n.svelte'
@@ -22,12 +23,15 @@
 
   let fileInput = $state<HTMLInputElement>()
   let name = $state('')
+  let folder = $state('')
   let pending = $state<File | null>(null)
   let preview = $state('')
   let busy = $state(false)
   let error = $state('')
 
   const assets = $derived(character.assets ?? [])
+  const assetGroups = $derived(groupByFolder(assets, (asset) => asset.folder))
+  const folderOptions = $derived(assetGroups.map((group) => group.folder).filter(Boolean))
 
   // Revoke the object URL when it is replaced or the tab unmounts.
   $effect(() => {
@@ -37,16 +41,37 @@
     }
   })
 
+  function setPendingFile(file: File, suggestedName?: string) {
+    pending = file
+    preview = URL.createObjectURL(file)
+    // Clipboard images have no useful filename, so they receive a stable editable suggestion.
+    if (!name.trim()) name = suggestedName ?? file.name.replace(/\.[^.]+$/, '')
+  }
+
   function onFileChange(event: Event) {
     const input = event.currentTarget as HTMLInputElement
     const file = input.files?.[0]
     input.value = ''
     if (!file) return
 
-    pending = file
-    preview = URL.createObjectURL(file)
-    // The filename is the obvious first guess at a name, minus its extension.
-    if (!name.trim()) name = file.name.replace(/\.[^.]+$/, '')
+    setPendingFile(file)
+  }
+
+  function onPaste(event: ClipboardEvent) {
+    const items = event.clipboardData?.items
+    if (!items) return
+
+    for (let index = 0; index < items.length; index++) {
+      const item = items[index]
+      if (item.kind !== 'file' || !item.type.startsWith('image/')) continue
+      const file = item.getAsFile()
+      if (!file) continue
+
+      event.preventDefault()
+      error = ''
+      setPendingFile(file, 'pasted-image')
+      return
+    }
   }
 
   /** The API only accepts base64 images, the same as the avatar path. */
@@ -82,6 +107,7 @@
       const updated = await api.post<AppSchema.Character>(`/character/${character._id}/assets`, {
         name: trimmed,
         image: await toDataUrl(pending),
+        folder: normalizeFolderPath(folder),
       })
       onSaved(updated)
       clearPending()
@@ -92,6 +118,25 @@
     }
   }
 
+  async function move(asset: AppSchema.CharacterAsset, input: HTMLInputElement) {
+    const normalized = normalizeFolderPath(input.value)
+    if (normalized === normalizeFolderPath(asset.folder)) return
+
+    busy = true
+    error = ''
+    try {
+      const updated = await api.put<AppSchema.Character>(
+        `/character/${character._id}/assets/${encodeURIComponent(asset.name)}`,
+        { folder: normalized }
+      )
+      onSaved(updated)
+    } catch (ex) {
+      error = ex instanceof Error ? ex.message : i18n.t('Failed to move asset')
+      input.value = asset.folder ?? ''
+    } finally {
+      busy = false
+    }
+  }
   async function remove(asset: AppSchema.CharacterAsset) {
     if (!window.confirm(i18n.t('Delete "{name}"? This cannot be undone.', { name: asset.name })))
       return
@@ -110,6 +155,8 @@
     }
   }
 </script>
+
+<svelte:window onpaste={onPaste} />
 
 <div class="space-y-5">
   <p class="text-sm text-neutral-500">
@@ -133,6 +180,7 @@
         <ImagePlus size={16} />
         {preview ? i18n.t('Replace') : i18n.t('Choose image')}
       </button>
+      <span class="text-xs text-neutral-500">{i18n.t('or paste an image from the clipboard')}</span>
       <label class="field-group min-w-[12rem] flex-1">
         <span class="field-label">{i18n.t('Asset name')}</span>
         <input
@@ -140,6 +188,17 @@
           bind:value={name}
           maxlength="60"
           placeholder={i18n.t('e.g. smiling')}
+          autocomplete="off"
+        />
+      </label>
+      <label class="field-group min-w-[12rem] flex-1">
+        <span class="field-label">{i18n.t('Folder')}</span>
+        <input
+          class="field"
+          bind:value={folder}
+          list="asset-folder-options"
+          maxlength="120"
+          placeholder={i18n.t('e.g. Scenes/Night')}
           autocomplete="off"
         />
       </label>
@@ -167,32 +226,61 @@
     {/if}
   </div>
 
+  <datalist id="asset-folder-options">
+    {#each folderOptions as option}
+      <option value={option}>{option}</option>
+    {/each}
+  </datalist>
+
   {#if assets.length}
-    <ul class="grid gap-3 lg:grid-cols-3 sm:grid-cols-2">
-      {#each assets as asset (asset.name)}
-        <li class="rounded-xl border border-neutral-800 bg-[#10141c] p-3">
-          <img
-            class="mb-2 h-32 w-full rounded-lg object-cover"
-            src={assetUrl(asset.uri)}
-            alt={asset.name}
-          />
-          <div class="flex items-center justify-between gap-2">
-            <code class="min-w-0 truncate text-xs text-neutral-300"
-              >{`{{asset::${asset.name}}}`}</code
-            >
-            <button
-              class="icon-button h-8 w-8 shrink-0 text-neutral-600 hover:text-red-300"
-              type="button"
-              disabled={busy}
-              aria-label={i18n.t('Remove {name}', { name: asset.name })}
-              onclick={() => remove(asset)}
-            >
-              <Trash2 size={15} />
-            </button>
-          </div>
-        </li>
+    <div class="space-y-5">
+      {#each assetGroups as group (group.folder)}
+        <section class="space-y-2" aria-label={group.folder || i18n.t('Root')}>
+          <h2 class="flex items-center gap-2 text-xs font-semibold text-neutral-400">
+            <FolderOpen size={15} class="shrink-0 text-violet-300" />
+            <span class="min-w-0 break-all">{group.folder || i18n.t('Root')}</span>
+            <span class="font-normal tabular-nums text-neutral-600">{group.items.length}</span>
+          </h2>
+          <ul class="grid gap-3 lg:grid-cols-3 sm:grid-cols-2">
+            {#each group.items as asset (asset.name)}
+              <li class="rounded-xl border border-neutral-800 bg-[#10141c] p-3">
+                <img
+                  class="mb-2 h-32 w-full rounded-lg object-cover"
+                  src={assetUrl(asset.uri)}
+                  alt={asset.name}
+                />
+                <div class="flex items-center justify-between gap-2">
+                  <code class="min-w-0 truncate text-xs text-neutral-300"
+                    >{`{{asset::${asset.name}}}`}</code
+                  >
+                  <button
+                    class="icon-button h-8 w-8 shrink-0 text-neutral-600 hover:text-red-300"
+                    type="button"
+                    disabled={busy}
+                    aria-label={i18n.t('Remove {name}', { name: asset.name })}
+                    onclick={() => remove(asset)}
+                  >
+                    <Trash2 size={15} />
+                  </button>
+                </div>
+                <label class="mt-2 block">
+                  <span class="sr-only">{i18n.t('Folder for {name}', { name: asset.name })}</span>
+                  <input
+                    class="field h-8 py-1 text-xs"
+                    value={asset.folder ?? ''}
+                    list="asset-folder-options"
+                    maxlength="120"
+                    placeholder={i18n.t('Root')}
+                    disabled={busy}
+                    onchange={(event) => move(asset, event.currentTarget)}
+                  />
+                </label>
+              </li>
+            {/each}
+          </ul>
+        </section>
       {/each}
-    </ul>
+    </div>
   {:else}
     <p
       class="rounded-xl border border-neutral-800 bg-[#10141c] px-4 py-8 text-center text-sm text-neutral-500"

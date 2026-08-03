@@ -5,6 +5,7 @@ import { load as loadExif } from 'exifreader'
 import JSZip from 'jszip'
 import { exportCharacter, formatCharacter } from '/common/characters'
 import { characterBookToNative, type CharacterBook } from '/common/memory'
+import { normalizeFolderPath } from '/common/folders'
 import type { AppSchema } from '/common/types'
 
 /**
@@ -51,6 +52,7 @@ export type ImportedCharacter = {
 /** An asset lifted out of a `.charx`, held until the character exists to attach it to. */
 export type ImportedAsset = {
   name: string
+  folder?: string
   /**
    * The raw image. Kept as a Blob rather than the `data:` URL the upload route wants, because
    * base64 is a third larger again and a card can carry a whole emotion set; the conversion
@@ -387,6 +389,8 @@ async function readCharx(file: File): Promise<ImportedCharacter> {
    * missing file means the archive is broken, and a rejected one hit a limit here.
    */
   let external = 0
+  let duplicateNames = 0
+  const importedNames = new Set<string>()
   let missing = 0
 
   for (const asset of declared) {
@@ -413,19 +417,40 @@ async function readCharx(file: File): Promise<ImportedCharacter> {
       continue
     }
 
-    const name = String(asset?.name ?? '').trim()
+    const declaredName = String(asset?.name ?? '').trim()
+    const suffix = `.${ext}`
+    const name = declaredName.toLowerCase().endsWith(suffix)
+      ? declaredName.slice(0, -suffix.length).trim()
+      : declaredName
     if (!name) {
       missing++
       continue
     }
 
-    assets.push({ name, blob: new Blob([bytes as BlobPart], { type: imageType(ext) }) })
+    const normalizedName = name.toLowerCase()
+    if (importedNames.has(normalizedName)) {
+      duplicateNames++
+      continue
+    }
+    importedNames.add(normalizedName)
+
+    const folder = normalizeFolderPath(path.slice(0, path.lastIndexOf('/') + 1))
+    assets.push({
+      name,
+      folder: folder || undefined,
+      blob: new Blob([bytes as BlobPart], { type: imageType(ext) }),
+    })
   }
 
   // The archive carried its images, so the V3 notice no longer applies to what came through.
   const unsupported = parsed.unsupported.filter((item) => item !== 'Character Card V3 assets')
   if (external) unsupported.push(`${external} asset(s) stored outside the archive`)
   if (missing) unsupported.push(`${missing} asset(s) missing from the archive`)
+  if (duplicateNames) {
+    unsupported.push(
+      `${duplicateNames} asset(s) had duplicate names after removing file extensions`
+    )
+  }
 
   return { ...parsed, unsupported, avatar, assets: assets.length ? assets : undefined }
 }

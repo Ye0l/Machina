@@ -214,7 +214,7 @@ test.describe('CHARX', () => {
     const buffer = await makeCharx(
       [
         { type: 'icon', name: 'main', uri: 'embeded://assets/main.png', ext: 'png' },
-        { type: 'emotion', name: 'smiling', uri: 'embeded://assets/smile.png', ext: 'png' },
+        { type: 'emotion', name: 'smiling.png', uri: 'embeded://assets/smile.png', ext: 'png' },
         // Legal in V3 and not in the archive, so it can only be reported.
         { type: 'emotion', name: 'remote', uri: 'https://example.com/x.png', ext: 'png' },
       ],
@@ -238,7 +238,9 @@ test.describe('CHARX', () => {
     // The main icon became the avatar; the emotion became a shown asset.
     await expect(app).toHaveURL(/\/character\/char-\d+$/)
     await app.getByRole('tab', { name: 'Assets' }).click()
-    await expect(app.locator('main code:text-is("{{asset::smiling}}")')).toBeVisible()
+    await expect(
+      app.getByRole('region', { name: 'assets' }).locator('code:text-is("{{asset::smiling}}")')
+    ).toBeVisible()
     await expect(app.locator('main code:text-is("{{asset::main}}")')).toHaveCount(0)
   })
 })

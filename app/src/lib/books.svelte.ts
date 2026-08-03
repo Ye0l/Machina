@@ -5,8 +5,8 @@ import { subscribe } from './socket'
 /**
  * Memory book state (`srv/api/memory`).
  *
- * The server replaces `entries` wholesale on update but only `$set`s name, description and
- * entries, so book-level V2 fields (`scanDepth`, `tokenBudget`, ...) survive on their own.
+ * The server replaces `entries` wholesale on update but only `$set`s name, description, folder
+ * and entries, so book-level V2 fields (`scanDepth`, `tokenBudget`, ...) survive on their own.
  * Per-entry V2 fields do not, which is why `toDraft`/save round-trip whole entry objects
  * rather than rebuilding them from the fields this editor exposes.
  */
@@ -14,6 +14,7 @@ import { subscribe } from './socket'
 export type BookDraft = {
   name: string
   description: string
+  folder: string
   entries: AppSchema.MemoryEntry[]
 }
 

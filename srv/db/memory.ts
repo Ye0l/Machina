@@ -14,6 +14,7 @@ export async function createBook(userId: string, book: NewBook) {
     userId,
     name: book.name,
     description: book.description || '',
+    folder: book.folder || undefined,
     entries: book.entries.map((entry) => ({
       enabled: entry.enabled,
       entry: entry.entry,
@@ -35,6 +36,7 @@ export async function updateBook(userId: string, bookId: string, book: NewBook) 
       $set: {
         name: book.name,
         description: book.description,
+        folder: book.folder || '',
         entries: book.entries,
       },
     }

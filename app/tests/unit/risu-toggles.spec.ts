@@ -1,9 +1,12 @@
 import { describe, expect, it } from 'vitest'
+import type { AppSchema } from '/common/types'
 import {
+  getRisuToggleConfig,
   parseRisuToggleSyntax,
   renderRisuPreset,
   renderRisuToggleMacros,
   withRisuToggleConfig,
+  withRisuToggleDefaults,
 } from '/common/risu-toggles'
 
 describe('RisuAI prompt toggles', () => {
@@ -15,6 +18,7 @@ describe('RisuAI prompt toggles', () => {
     'header=Header',
   ].join('\n')
 
+  const basePreset: Partial<AppSchema.GenSettings> = { name: 'Imported' }
   it('parses groups, selects, text inputs and checkboxes', () => {
     expect(parseRisuToggleSyntax(source)).toEqual([
       { kind: 'group', label: 'Options' },
@@ -61,15 +65,32 @@ describe('RisuAI prompt toggles', () => {
 
   it('creates a generation-only preset without modifying its source', () => {
     const template = '{{#if_pure {{? {{getglobalvar::toggle_mode}}=2}}}}OOC{{/if}}{{history}}'
-    const preset = withRisuToggleConfig(
-      { name: 'Imported', gaslight: template } as any,
-      source,
-      template
-    )
+    const preset = withRisuToggleConfig({ ...basePreset, gaslight: template }, source, template)
     const rendered = renderRisuPreset(preset, { mode: '2' })
 
     expect(rendered?.gaslight).toBe('OOC{{history}}')
     expect(preset.gaslight).toBe(template)
     expect(rendered?.promptTemplateId).toBeUndefined()
+  })
+
+  it('uses saved preset defaults until a chat overrides them', () => {
+    const template = '{{#if_pure {{? {{getglobalvar::toggle_mode}}=2}}}}OOC{{/if}}{{history}}'
+    const configured = withRisuToggleConfig({ ...basePreset, gaslight: template }, source, template)
+    const preset = withRisuToggleDefaults(configured, {
+      mode: '2',
+      style: 'direct',
+      header: '1',
+    })
+
+    expect(renderRisuPreset(preset)?.gaslight).toBe('OOC{{history}}')
+    expect(renderRisuPreset(preset, { mode: '0' })?.gaslight).toBe('{{history}}')
+  })
+
+  it('preserves saved defaults when the toggle source is edited', () => {
+    const configured = withRisuToggleConfig(basePreset, source, '{{history}}')
+    const preset = withRisuToggleDefaults(configured, { mode: '2' })
+    const updated = withRisuToggleConfig(preset, `${source}\nextra=Extra`, '{{history}}')
+
+    expect(getRisuToggleConfig(updated)?.defaults).toEqual({ mode: '2' })
   })
 })

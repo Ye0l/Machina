@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { Menu } from '@lucide/svelte'
+  import { Menu, PanelLeftOpen } from '@lucide/svelte'
   import { fade, fly } from 'svelte/transition'
   import { chats } from '/app/lib/chats.svelte'
   import { books } from '/app/lib/books.svelte'
@@ -47,6 +47,7 @@
   personas.load()
 
   let drawerOpen = $state(false)
+  let sidebarCollapsed = $state(localStorage.getItem('agnai-sidebar-collapsed') === '1')
   const route = $derived(router.route)
   /** Transition key; an editor is a state of its section, not a section of its own. */
   const current = $derived(
@@ -63,13 +64,41 @@
     drawerOpen = false
     router.go(path)
   }
+
+  function setSidebarCollapsed(collapsed: boolean) {
+    sidebarCollapsed = collapsed
+    localStorage.setItem('agnai-sidebar-collapsed', collapsed ? '1' : '0')
+  }
 </script>
 
 <svelte:window onkeydown={(event) => event.key === 'Escape' && (drawerOpen = false)} />
 
 <div class="flex h-full min-h-0 bg-background">
-  <aside class="hidden h-full w-[17rem] shrink-0 border-r border-neutral-800/80 md:block">
-    <Sidebar onClose={() => (drawerOpen = false)} onNavigate={navigate} {onLogout} />
+  <aside
+    class:w-14={sidebarCollapsed}
+    class:w-[17rem]={!sidebarCollapsed}
+    class="hidden h-full shrink-0 border-r border-neutral-800/80 bg-[#0d1118] transition-[width] duration-200 motion-reduce:transition-none md:block"
+  >
+    {#if sidebarCollapsed}
+      <div class="flex h-16 items-center justify-center border-b border-neutral-800/80">
+        <button
+          class="icon-button"
+          type="button"
+          aria-label={i18n.t('Expand sidebar')}
+          title={i18n.t('Expand sidebar')}
+          onclick={() => setSidebarCollapsed(false)}
+        >
+          <PanelLeftOpen size={19} />
+        </button>
+      </div>
+    {:else}
+      <Sidebar
+        onClose={() => (drawerOpen = false)}
+        onNavigate={navigate}
+        {onLogout}
+        onCollapse={() => setSidebarCollapsed(true)}
+      />
+    {/if}
   </aside>
 
   <div class="flex min-w-0 flex-1 flex-col">
