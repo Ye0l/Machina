@@ -31,7 +31,7 @@ export function setSocketId(id: string) {
   socketId = id
 }
 
-/** Thrown for any non-2xx response so callers can branch on `status`. */
+/** Thrown for any non-2xx response so callers can decide whether the failure invalidates auth. */
 export class ApiError extends Error {
   constructor(readonly status: number, message: string) {
     super(message)
@@ -63,7 +63,9 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
   const payload = await res.json().catch(() => undefined)
 
   if (!res.ok) {
-    if (res.status === 401) clearToken()
+    // A 401 from an individual resource or provider request does not prove that the stored
+    // login token is invalid. Session ownership is decided by Session.init(), which calls
+    // the dedicated /user/init endpoint and clears auth only when that check returns 401.
     throw new ApiError(res.status, payload?.message || `${res.status} ${res.statusText}`)
   }
 

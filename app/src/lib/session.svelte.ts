@@ -63,14 +63,21 @@ class Session {
     }
   }
 
-  /** Loads the session when a token is already present. Safe to call on boot. */
+  /** Loads and validates the stored login session. Safe to call on boot. */
   async init() {
     if (!getToken()) return
 
-    const res = await api.get<InitResponse>('/user/init')
-    this.user = res.user
-    this.profile = res.profile
-    this.presets = res.presets ?? []
+    try {
+      const res = await api.get<InitResponse>('/user/init')
+      this.user = res.user
+      this.profile = res.profile
+      this.presets = res.presets ?? []
+    } catch (ex) {
+      // Only the dedicated session validation endpoint is allowed to invalidate the stored
+      // login. A 401 from any other API request is surfaced to that request's caller instead.
+      if (ex instanceof ApiError && ex.status === 401) clearToken()
+      throw ex
+    }
   }
 
   logout() {
@@ -102,8 +109,8 @@ export async function boot() {
   try {
     await session.init()
   } catch (ex) {
-    // `api` already cleared the token on 401, so an expired session just falls through to
-    // the login screen. Anything else (offline, 5xx) must NOT discard a still-valid JWT.
+    // Session.init() clears the token only when /user/init itself confirms a 401. Anything
+    // else (offline, 5xx) must preserve the stored JWT and present a recoverable boot error.
     if (ex instanceof ApiError && ex.status === 401) {
       session.logout()
       return
