@@ -76,7 +76,9 @@ test('renders recent history by character budget and expands older text on deman
 
   const loadEarlier = app.getByTestId('load-earlier-messages')
   await expect(loadEarlier).toBeVisible()
-  await loadEarlier.click()
+  // A pointer click scrolls the top sentinel into view and intentionally triggers the same
+  // expansion through the scroll handler. Invoke the control directly to test its own path.
+  await loadEarlier.evaluate((button: HTMLButtonElement) => button.click())
 
   await expect(app.getByText(/oldest-window-marker/)).toBeVisible()
 })
