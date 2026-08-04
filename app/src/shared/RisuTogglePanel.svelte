@@ -357,11 +357,11 @@
 
 {#if panelOpen && route.name === 'chat' && activeConfig}
   <section
-    class="fixed right-2 top-[3.75rem] z-40 max-h-[calc(100vh-4.5rem)] w-[min(25rem,calc(100vw-1rem))] overflow-y-auto rounded-xl border border-neutral-700 bg-[#10151d] shadow-2xl sm:right-5 sm:top-[4.5rem] sm:max-h-[calc(100vh-5.25rem)]"
+    class="fixed inset-x-2 top-[calc(3.5rem+env(safe-area-inset-top))] z-40 flex max-h-[calc(100dvh-4rem-env(safe-area-inset-top)-env(safe-area-inset-bottom))] flex-col overflow-hidden rounded-xl border border-neutral-700 bg-[#10151d] shadow-2xl sm:inset-x-auto sm:right-5 sm:top-[4.5rem] sm:max-h-[calc(100dvh-5.25rem)] sm:w-[min(25rem,calc(100vw-2.5rem))]"
     aria-label={text('Prompt toggles', '프롬프트 토글')}
   >
     <header
-      class="sticky top-0 flex items-center gap-2 border-b border-neutral-800 bg-[#10151d] px-4 py-3"
+      class="flex shrink-0 items-center gap-2 border-b border-neutral-800 bg-[#10151d] px-3 py-2.5 sm:px-4 sm:py-3"
     >
       <SlidersHorizontal size={17} class="text-violet-300" />
       <div class="min-w-0 flex-1">
@@ -380,7 +380,9 @@
       </button>
     </header>
 
-    <div class="space-y-4 p-4">
+    <div
+      class="min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain p-3 sm:space-y-4 sm:p-4"
+    >
       {#each activeDefinitions as definition, index (`${definition.kind}-${'key' in definition ? definition.key : index}`)}
         {#if definition.kind === 'group'}
           <h3 class="pt-1 text-sm font-semibold text-violet-200">{definition.label}</h3>
