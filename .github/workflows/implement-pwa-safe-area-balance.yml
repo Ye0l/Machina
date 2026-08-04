@@ -1,0 +1,44 @@
+name: Implement PWA safe area balance
+
+on:
+  push:
+    branches: [fix/pwa-safe-area-balance]
+    paths:
+      - .github/workflows/implement-pwa-safe-area-balance.yml
+      - .github/scripts/patch-pwa-safe-areas.py
+
+permissions:
+  contents: write
+
+jobs:
+  implement:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/pwa-safe-area-balance
+          fetch-depth: 0
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.34.5
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - name: Apply patch
+        run: |
+          python .github/scripts/patch-pwa-safe-areas.py
+          rm -f .github/scripts/patch-pwa-safe-areas.py
+          rm -f .github/workflows/implement-pwa-safe-area-balance.yml
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm exec prettier --write app/src/shared/AppShell.svelte app/src/shared/RisuTogglePanel.svelte app/src/routes/Chat.svelte package.json
+      - run: pnpm run typecheck
+      - run: pnpm run test:unit
+      - run: pnpm run build
+      - name: Commit implementation
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add -A
+          git commit -m "fix: balance PWA safe areas"
+          git push origin HEAD:fix/pwa-safe-area-balance
