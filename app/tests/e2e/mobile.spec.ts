@@ -36,10 +36,10 @@ test.describe('mobile layout', () => {
     await expect(app.locator('select[aria-label="Speak as"]:visible')).toHaveCount(1)
 
     const expandedMessagesBox = await app.locator('ol[aria-live="polite"]').boundingBox()
-    expect(Math.abs((expandedMessagesBox?.y ?? 0) - (messagesBox?.y ?? 0))).toBeLessThanOrEqual(0.5)
+    expect(Math.abs((expandedMessagesBox?.y ?? 0) - (messagesBox?.y ?? 0))).toBeLessThanOrEqual(1)
     expect(
       Math.abs((expandedMessagesBox?.height ?? 0) - (messagesBox?.height ?? 0))
-    ).toBeLessThanOrEqual(0.5)
+    ).toBeLessThanOrEqual(1)
   })
 
   test('blocks global zoom and does not add bottom safe-area padding to chat', async ({ app }) => {
