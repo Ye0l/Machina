@@ -36,6 +36,7 @@ jobs:
           app/tests/unit/message-window.spec.ts
           app/tests/e2e/message-branches.spec.ts
           app/tests/e2e/theme-contrast.spec.ts
+          app/tests/e2e/mobile.spec.ts
           srv/db/messages.ts
           srv/api/chat/create.ts
           srv/api/chat/index.ts
