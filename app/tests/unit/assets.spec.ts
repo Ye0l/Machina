@@ -5,6 +5,7 @@ import {
   hasAssetTag,
   replaceAssetTags,
   withAssetInstruction,
+  withAssetInstructionMessages,
 } from '/common/assets'
 import type { AppSchema } from '/common/types'
 
@@ -84,6 +85,10 @@ describe('the prompt instruction', () => {
     expect(instruction).toContain('{{asset::name}}')
   })
 
+  it('uses the real character name when one is available', () => {
+    expect(assetInstruction(assets, 'Aria')).toContain('Aria can show an image')
+  })
+
   it('is empty when there is nothing to show', () => {
     expect(assetInstruction([])).toBe('')
     expect(assetInstruction(undefined)).toBe('')
@@ -98,5 +103,31 @@ describe('the prompt instruction', () => {
   it('leaves the prompt byte-identical when the character has no assets', () => {
     expect(withAssetInstruction('PROMPT-BODY', [])).toBe('PROMPT-BODY')
     expect(withAssetInstruction('PROMPT-BODY', undefined)).toBe('PROMPT-BODY')
+  })
+
+  it('adds the instruction to structured messages consumed by chat adapters', () => {
+    const messages = [
+      { role: 'system', content: 'SYSTEM-BODY' },
+      { role: 'user', content: 'Hello' },
+    ]
+    const result = withAssetInstructionMessages(messages, assets, 'Aria')
+
+    expect(result[0].content).toContain('SYSTEM-BODY')
+    expect(result[0].content).toContain('Aria can show an image')
+    expect(result[0].content).toContain('- smiling')
+    expect(result[1]).toEqual(messages[1])
+    expect(messages[0].content).toBe('SYSTEM-BODY')
+  })
+
+  it('creates a system message when the structured request has none', () => {
+    const result = withAssetInstructionMessages([{ role: 'user', content: 'Hello' }], assets)
+    expect(result[0].role).toBe('system')
+    expect(result[0].content).toContain('{{asset::name}}')
+    expect(result[1]).toEqual({ role: 'user', content: 'Hello' })
+  })
+
+  it('leaves structured messages untouched when there are no assets', () => {
+    const messages = [{ role: 'user', content: 'Hello' }]
+    expect(withAssetInstructionMessages(messages, [])).toBe(messages)
   })
 })
