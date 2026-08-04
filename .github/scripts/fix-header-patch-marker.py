@@ -21,11 +21,11 @@ if old not in s:
     raise SystemExit('header patch marker block not found')
 p.write_text(s.replace(old, new, 1))
 
-# Keep the Svelte textarea placeholder on one source line.
+# Keep the Svelte textarea placeholder free of template braces.
 p = Path('.github/scripts/patch-preset-settings-v2.py')
 s = p.read_text()
 old = r'''                    placeholder={'{\n  "top_p": 0.9,\n  "seed": 42\n}'}'''
-new = '''                    placeholder='{"top_p": 0.9, "seed": 42}' '''.rstrip()
+new = r'''                    placeholder=\"top_p: 0.9, seed: 42\"'''
 if old not in s:
     raise SystemExit('custom parameter placeholder marker not found')
 p.write_text(s.replace(old, new, 1))
