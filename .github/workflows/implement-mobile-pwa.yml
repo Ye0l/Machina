@@ -1,0 +1,46 @@
+name: Implement mobile toggle sizing and PWA
+
+on:
+  pull_request:
+    branches: [dev]
+
+permissions:
+  contents: write
+
+jobs:
+  implement:
+    if: github.head_ref == 'fix/mobile-toggle-pwa'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref }}
+          fetch-depth: 0
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.34.5
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - name: Apply patch
+        run: |
+          python .github/scripts/patch-mobile-pwa.py
+          rm -f .github/scripts/patch-mobile-pwa.py
+          rm -f .github/workflows/implement-mobile-pwa.yml
+      - run: pnpm install --frozen-lockfile
+      - name: Format
+        run: pnpm exec prettier --write app/index.html app/src/main.ts app/src/shared/RisuTogglePanel.svelte app/public/manifest.webmanifest app/public/sw.js package.json
+      - name: Typecheck
+        run: pnpm run typecheck
+      - name: Unit tests
+        run: pnpm run test:unit
+      - name: Build
+        run: pnpm run build
+      - name: Commit implementation
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add -A
+          git commit -m "fix: fit mobile toggles and add PWA support"
+          git push origin HEAD:${{ github.head_ref }}
