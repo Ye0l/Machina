@@ -62,6 +62,15 @@ class Books {
     return this.books.find((book) => book._id === bookId)
   }
 
+  async duplicate(book: AppSchema.MemoryBook, name: string) {
+    return this.create({
+      name,
+      description: book.description ?? '',
+      folder: book.folder ?? '',
+      entries: structuredClone(book.entries ?? []),
+    })
+  }
+
   /** Returns the created book, whose id the caller navigates to. */
   async create(draft: BookDraft): Promise<AppSchema.MemoryBook | undefined> {
     this.error = ''

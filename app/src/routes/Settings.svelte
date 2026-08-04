@@ -4,6 +4,7 @@
     ArrowLeft,
     CheckCircle2,
     CircleX,
+    Copy,
     Globe2,
     KeyRound,
     Monitor,
@@ -59,6 +60,7 @@
     type ThemeMode,
   } from '/common/types/ui'
   import type { ModelFormat } from '/common/presets/templates'
+  import type { ReasoningEffort } from '/common/types/presets'
   import { BUILTIN_FORMATS } from '/common/presets/templates'
   import {
     SUMMARY_CATEGORIES,
@@ -212,6 +214,11 @@
     if (await settings.saveProvider(input)) cancelProvider()
   }
 
+  async function duplicateProvider(provider: AppSchema.Provider) {
+    settings.clearError()
+    await settings.duplicateProvider(provider, i18n.t('{name} (copy)', { name: provider.name }))
+  }
+
   async function removeProvider(provider: AppSchema.Provider) {
     settings.clearError()
     if (!window.confirm(i18n.t('Delete provider “{name}”?', { name: provider.name }))) return
@@ -248,6 +255,13 @@
     secondaryProviderId: string
     secondaryModel: string
     displayRegexRules: DisplayRegexRule[]
+    reasoningEnabled: boolean
+    reasoningEffort: ReasoningEffort
+    reasoningMaxTokens: number
+    reasoningExclude: boolean
+    reasoningStart: string
+    reasoningEnd: string
+    providerSettingsText: string
   }
 
   const MODEL_FORMAT_OPTIONS = Object.keys(BUILTIN_FORMATS) as ModelFormat[]
@@ -286,6 +300,7 @@
   let presetForm = $state<PresetForm>(emptyPresetForm())
   let presetNameError = $state('')
   let presetPromptError = $state('')
+  let providerSettingsError = $state('')
   let rawTemplateEl: HTMLTextAreaElement | null = null
   /** Name for "Save as template" / "Update template"; seeded from the selected template. */
   let templateName = $state('')
@@ -422,6 +437,13 @@
       secondaryProviderId: '',
       secondaryModel: '',
       displayRegexRules: [],
+      reasoningEnabled: false,
+      reasoningEffort: 'low',
+      reasoningMaxTokens: 2048,
+      reasoningExclude: false,
+      reasoningStart: '<think>',
+      reasoningEnd: '</think>',
+      providerSettingsText: '{}',
     }
   }
 
@@ -430,6 +452,7 @@
     presetForm = emptyPresetForm()
     presetNameError = ''
     presetPromptError = ''
+    providerSettingsError = ''
     seedTemplateName()
     editingPreset = 'new'
     void refreshModels()
@@ -475,9 +498,17 @@
         ? preset.secondaryProviderModels?.[preset.secondaryProviderId] ?? ''
         : '',
       displayRegexRules: getDisplayRegexRules(preset),
+      reasoningEnabled: !!preset.reasoning?.enabled,
+      reasoningEffort: preset.reasoning?.effort ?? 'low',
+      reasoningMaxTokens: preset.reasoning?.maxTokens ?? 2048,
+      reasoningExclude: !!preset.reasoning?.exclude,
+      reasoningStart: preset.reasoning?.start ?? '<think>',
+      reasoningEnd: preset.reasoning?.end ?? '</think>',
+      providerSettingsText: JSON.stringify(preset.providerSettings ?? {}, null, 2),
     }
     presetNameError = ''
     presetPromptError = ''
+    providerSettingsError = ''
     seedTemplateName()
     editingPreset = preset._id
     void refreshModels()
@@ -486,6 +517,7 @@
   function cancelPreset() {
     editingPreset = null
     presetNameError = ''
+    providerSettingsError = ''
     mainModels.reset()
     secondaryModels.reset()
   }
@@ -633,6 +665,25 @@
     presetForm.promptTemplateId = created._id
   }
 
+  async function duplicateSelectedTemplate() {
+    const template = selectedTemplate
+    if (!template || isBuiltinTemplate(template._id)) return
+
+    const created = await promptTemplates.create(
+      i18n.t('{name} (copy)', { name: template.name }),
+      template.template
+    )
+    if (!created) {
+      templateError = promptTemplates.error
+      return
+    }
+
+    presetForm.promptTemplateId = created._id
+    presetForm.gaslight = created.template
+    templateName = created.name
+    templateError = ''
+  }
+
   async function updateSelectedTemplate() {
     const id = presetForm.promptTemplateId
     if (!id || isBuiltinTemplate(id)) return
@@ -668,6 +719,20 @@
         : ''
     if (presetNameError || presetPromptError) return
 
+    let providerSettings: Record<string, any> = {}
+    providerSettingsError = ''
+    try {
+      const parsed = JSON.parse(presetForm.providerSettingsText.trim() || '{}')
+      if (!parsed || Array.isArray(parsed) || typeof parsed !== 'object') {
+        providerSettingsError = i18n.t('Custom request parameters must be a JSON object.')
+        return
+      }
+      providerSettings = parsed
+    } catch (ex) {
+      providerSettingsError = i18n.t('Custom request parameters contain invalid JSON.')
+      return
+    }
+
     const input: PresetInput = {
       name: presetForm.name,
       providerId: presetForm.providerId,
@@ -694,9 +759,23 @@
       secondaryProviderId: presetForm.secondaryProviderId,
       secondaryModel: presetForm.secondaryModel,
       displayRegexRules: presetForm.displayRegexRules,
+      reasoning: {
+        enabled: presetForm.reasoningEnabled,
+        effort: presetForm.reasoningEnabled ? presetForm.reasoningEffort : 'none',
+        maxTokens: Math.max(1, Number(presetForm.reasoningMaxTokens) || 2048),
+        exclude: presetForm.reasoningExclude,
+        start: presetForm.reasoningStart || '<think>',
+        end: presetForm.reasoningEnd || '</think>',
+      },
+      providerSettings,
     }
     const existing = presets.find((p) => p._id === presetForm._id)
     if (await settings.savePreset(input, existing)) cancelPreset()
+  }
+
+  async function duplicatePreset(preset: AppSchema.UserGenPreset) {
+    settings.clearError()
+    await settings.duplicatePreset(preset, i18n.t('{name} (copy)', { name: preset.name }))
   }
 
   async function removePreset(preset: AppSchema.UserGenPreset) {
@@ -1356,6 +1435,16 @@
                     <button
                       class="icon-button"
                       type="button"
+                      aria-label={i18n.t('Duplicate {name}', { name: provider.name })}
+                      title={i18n.t('Duplicate')}
+                      disabled={settings.providerSaving}
+                      onclick={() => duplicateProvider(provider)}
+                    >
+                      <Copy size={17} />
+                    </button>
+                    <button
+                      class="icon-button"
+                      type="button"
                       aria-label={`Edit ${provider.name}`}
                       onclick={() => startEditProvider(provider)}
                     >
@@ -1497,6 +1586,119 @@
                 />
               </div>
             </div>
+
+            <details
+              class="rounded-lg border border-neutral-800/80 bg-neutral-900/40 px-4 py-3"
+              data-testid="advanced-model-parameters"
+            >
+              <summary class="cursor-pointer text-sm font-medium text-neutral-200">
+                {i18n.t('Advanced model parameters')}
+              </summary>
+              <div class="mt-4 space-y-5">
+                <section class="space-y-3">
+                  <label class="flex items-center gap-2 text-sm text-neutral-300">
+                    <input
+                      type="checkbox"
+                      class="accent-violet-500"
+                      bind:checked={presetForm.reasoningEnabled}
+                    />
+                    {i18n.t('Enable thinking / reasoning')}
+                  </label>
+
+                  <div
+                    class="grid gap-4 sm:grid-cols-2"
+                    class:opacity-50={!presetForm.reasoningEnabled}
+                  >
+                    <div class="field-group">
+                      <label class="field-label" for="preset-reasoning-effort">
+                        {i18n.t('Thinking effort')}
+                      </label>
+                      <select
+                        id="preset-reasoning-effort"
+                        class="field"
+                        bind:value={presetForm.reasoningEffort}
+                        disabled={!presetForm.reasoningEnabled}
+                      >
+                        <option value="low">{i18n.t('Low')}</option>
+                        <option value="medium">{i18n.t('Medium')}</option>
+                        <option value="high">{i18n.t('High')}</option>
+                        <option value="custom">{i18n.t('Custom token budget')}</option>
+                      </select>
+                    </div>
+                    <div class="field-group">
+                      <label class="field-label" for="preset-reasoning-tokens">
+                        {i18n.t('Thinking token budget')}
+                      </label>
+                      <input
+                        id="preset-reasoning-tokens"
+                        class="field"
+                        type="number"
+                        min="1"
+                        step="1"
+                        bind:value={presetForm.reasoningMaxTokens}
+                        disabled={!presetForm.reasoningEnabled ||
+                          presetForm.reasoningEffort !== 'custom'}
+                      />
+                    </div>
+                  </div>
+
+                  <label class="flex items-center gap-2 text-xs text-neutral-400">
+                    <input
+                      type="checkbox"
+                      class="accent-violet-500"
+                      bind:checked={presetForm.reasoningExclude}
+                      disabled={!presetForm.reasoningEnabled}
+                    />
+                    {i18n.t('Exclude thinking from the final response')}
+                  </label>
+
+                  <div class="grid gap-4 sm:grid-cols-2">
+                    <div class="field-group">
+                      <label class="field-label" for="preset-reasoning-start">
+                        {i18n.t('Reasoning start marker')}
+                      </label>
+                      <input
+                        id="preset-reasoning-start"
+                        class="field font-mono text-xs"
+                        bind:value={presetForm.reasoningStart}
+                      />
+                    </div>
+                    <div class="field-group">
+                      <label class="field-label" for="preset-reasoning-end">
+                        {i18n.t('Reasoning end marker')}
+                      </label>
+                      <input
+                        id="preset-reasoning-end"
+                        class="field font-mono text-xs"
+                        bind:value={presetForm.reasoningEnd}
+                      />
+                    </div>
+                  </div>
+                </section>
+
+                <section class="field-group border-t border-neutral-800 pt-4">
+                  <label class="field-label" for="preset-provider-settings">
+                    {i18n.t('Custom request parameters')}
+                  </label>
+                  <textarea
+                    id="preset-provider-settings"
+                    class="field min-h-40 resize-y font-mono text-xs leading-5"
+                    spellcheck="false"
+                    bind:value={presetForm.providerSettingsText}
+                    oninput={() => (providerSettingsError = '')}
+                    placeholder="top_p: 0.9, seed: 42"
+                  />
+                  <p class="field-hint">
+                    {i18n.t(
+                      'Enter a JSON object. These values are merged into the provider request last, so they can add or override provider-specific parameters.'
+                    )}
+                  </p>
+                  {#if providerSettingsError}
+                    <p class="text-xs text-red-300">{providerSettingsError}</p>
+                  {/if}
+                </section>
+              </div>
+            </details>
 
             <details class="rounded-lg border border-neutral-800/80 bg-neutral-900/40 px-4 py-3">
               <summary class="cursor-pointer text-sm font-medium text-neutral-200">
@@ -2014,6 +2216,15 @@
                           class="button-secondary"
                           type="button"
                           disabled={promptTemplates.saving}
+                          onclick={duplicateSelectedTemplate}
+                        >
+                          <Copy size={15} />
+                          {i18n.t('Duplicate template')}
+                        </button>
+                        <button
+                          class="button-secondary"
+                          type="button"
+                          disabled={promptTemplates.saving}
                           onclick={updateSelectedTemplate}
                         >
                           {i18n.t('Update template')}
@@ -2190,6 +2401,16 @@
                       <Star size={17} />
                     </button>
                   {/if}
+                  <button
+                    class="icon-button"
+                    type="button"
+                    aria-label={i18n.t('Duplicate {name}', { name: preset.name })}
+                    title={i18n.t('Duplicate')}
+                    disabled={settings.presetSaving}
+                    onclick={() => duplicatePreset(preset)}
+                  >
+                    <Copy size={17} />
+                  </button>
                   <button
                     class="icon-button"
                     type="button"

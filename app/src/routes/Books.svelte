@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { BookOpen, FolderOpen, Pencil, Plus } from '@lucide/svelte'
+  import { BookOpen, Copy, FolderOpen, Pencil, Plus } from '@lucide/svelte'
   import { groupByFolder } from '/common/folders'
   import { books } from '/app/lib/books.svelte'
   import { i18n } from '/app/lib/i18n.svelte'
@@ -13,6 +13,11 @@
 
   const enabledCount = (entries: { enabled: boolean }[]) =>
     entries.filter((entry) => entry.enabled).length
+
+  const duplicateBook = async (book: import('/common/types').AppSchema.MemoryBook) => {
+    const created = await books.duplicate(book, i18n.t('{name} (copy)', { name: book.name }))
+    if (created) router.go(routes.book(created._id))
+  }
 
   const bookGroups = $derived(groupByFolder(books.books, (book) => book.folder))
 </script>
@@ -102,15 +107,26 @@
                       })}
                     </p>
                   </div>
-                  <a
-                    class="icon-button shrink-0"
-                    href={routes.book(book._id)}
-                    aria-label={i18n.t('Edit {name}', { name: book.name })}
-                    title={i18n.t('Edit book')}
-                    onclick={link(routes.book(book._id))}
-                  >
-                    <Pencil size={17} />
-                  </a>
+                  <div class="flex shrink-0 items-center gap-1">
+                    <button
+                      class="icon-button"
+                      type="button"
+                      aria-label={i18n.t('Duplicate {name}', { name: book.name })}
+                      title={i18n.t('Duplicate')}
+                      onclick={() => duplicateBook(book)}
+                    >
+                      <Copy size={17} />
+                    </button>
+                    <a
+                      class="icon-button shrink-0"
+                      href={routes.book(book._id)}
+                      aria-label={i18n.t('Edit {name}', { name: book.name })}
+                      title={i18n.t('Edit book')}
+                      onclick={link(routes.book(book._id))}
+                    >
+                      <Pencil size={17} />
+                    </a>
+                  </div>
                 </li>
               {/each}
             </ul>

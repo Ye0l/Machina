@@ -14,10 +14,11 @@
   import { i18n } from '/app/lib/i18n.svelte'
   import { router } from '/app/lib/router.svelte'
   import { session } from '/app/lib/session.svelte'
+  import { chatControls } from '/app/lib/chat-controls.svelte'
 
   type ChatWithRisuToggles = AppSchema.Chat & { risuToggleValues?: Record<string, string> }
 
-  let open = $state(false)
+  let setupOpen = $state(false)
   let selectedPresetId = $state('')
   let loadedPresetId = $state('')
   let sourceDraft = $state('')
@@ -40,6 +41,12 @@
   )
   const selectedPreset = $derived(session.presets.find((preset) => preset._id === selectedPresetId))
   const selectedConfig = $derived(getRisuToggleConfig(selectedPreset))
+  const panelOpen = $derived(settingsMode ? setupOpen : chatControls.promptOpen)
+
+  function setPanelOpen(value: boolean) {
+    if (settingsMode) setupOpen = value
+    else chatControls.promptOpen = value
+  }
 
   const text = (english: string, korean: string) => (i18n.locale === 'ko' ? korean : english)
 
@@ -61,8 +68,14 @@
   })
 
   $effect(() => {
-    // Close a panel that no longer has a reason to be visible after navigation.
-    if (!settingsMode && route.name !== 'chat') open = false
+    // Close panels that no longer have a reason to be visible after navigation or preset changes.
+    if (!settingsMode && route.name !== 'chat') {
+      setupOpen = false
+      chatControls.closePrompt()
+    }
+    if (route.name === 'chat' && (!activeConfig || !interactiveDefinitions.length)) {
+      chatControls.closePrompt()
+    }
   })
 
   function editablePresetBody(preset: AppSchema.UserGenPreset) {
@@ -227,25 +240,19 @@
   }
 </script>
 
-{#if settingsMode || (route.name === 'chat' && activeConfig && interactiveDefinitions.length)}
+{#if settingsMode}
   <button
-    class="fixed right-4 z-30 flex items-center gap-2 rounded-full sm:right-5 {settingsMode
-      ? 'bottom-5'
-      : 'bottom-[calc(5.75rem+env(safe-area-inset-bottom))]'} border border-violet-700/70 bg-violet-950/95 px-4 py-2.5 text-sm font-medium text-violet-100 shadow-xl backdrop-blur hover:bg-violet-900"
+    class="fixed bottom-5 right-4 z-30 flex items-center gap-2 rounded-full border border-violet-700/70 bg-violet-950/95 px-4 py-2.5 text-sm font-medium text-violet-100 shadow-xl backdrop-blur hover:bg-violet-900 sm:right-5"
     type="button"
-    aria-expanded={open}
-    onclick={() => (open = !open)}
+    aria-expanded={panelOpen}
+    onclick={() => setPanelOpen(!panelOpen)}
   >
     <SlidersHorizontal size={17} />
-    {settingsMode
-      ? text('Risu toggle setup', 'Risu 토글 설정')
-      : text('Prompt toggles', '프롬프트 토글')}
-    {#if !settingsMode}<span class="text-xs text-violet-300">{interactiveDefinitions.length}</span
-      >{/if}
+    {text('Risu toggle setup', 'Risu 토글 설정')}
   </button>
 {/if}
 
-{#if open && settingsMode}
+{#if panelOpen && settingsMode}
   <section
     class="fixed bottom-20 right-5 z-40 flex max-h-[78vh] w-[min(38rem,calc(100vw-2rem))] flex-col overflow-hidden rounded-xl border border-neutral-700 bg-[#10151d] shadow-2xl"
     aria-label={text('Risu toggle setup', 'Risu 토글 설정')}
@@ -258,7 +265,7 @@
       <button
         class="icon-button"
         type="button"
-        onclick={() => (open = false)}
+        onclick={() => setPanelOpen(false)}
         aria-label={text('Close', '닫기')}
       >
         <X size={17} />
@@ -348,9 +355,9 @@
   </section>
 {/if}
 
-{#if open && route.name === 'chat' && activeConfig}
+{#if panelOpen && route.name === 'chat' && activeConfig}
   <section
-    class="fixed bottom-[calc(9.5rem+env(safe-area-inset-bottom))] right-4 z-40 max-h-[calc(100vh-11rem)] w-[min(25rem,calc(100vw-2rem))] overflow-y-auto rounded-xl border border-neutral-700 bg-[#10151d] shadow-2xl sm:right-5"
+    class="fixed right-2 top-[3.75rem] z-40 max-h-[calc(100vh-4.5rem)] w-[min(25rem,calc(100vw-1rem))] overflow-y-auto rounded-xl border border-neutral-700 bg-[#10151d] shadow-2xl sm:right-5 sm:top-[4.5rem] sm:max-h-[calc(100vh-5.25rem)]"
     aria-label={text('Prompt toggles', '프롬프트 토글')}
   >
     <header
@@ -366,7 +373,7 @@
       <button
         class="icon-button"
         type="button"
-        onclick={() => (open = false)}
+        onclick={() => setPanelOpen(false)}
         aria-label={text('Close', '닫기')}
       >
         <X size={17} />

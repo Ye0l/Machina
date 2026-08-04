@@ -80,6 +80,10 @@ class Personas {
     else localStorage.removeItem(STORAGE_KEY)
   }
 
+  async duplicate(persona: AppSchema.UserPersona, name: string) {
+    return this.create({ name, persona: structuredClone(persona.persona) })
+  }
+
   async create(draft: PersonaDraft): Promise<AppSchema.UserPersona | undefined> {
     this.saving = true
     this.error = ''

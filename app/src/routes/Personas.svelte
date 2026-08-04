@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { Pencil, Plus, UserRound } from '@lucide/svelte'
+  import { Copy, Pencil, Plus, UserRound } from '@lucide/svelte'
   import { personas } from '/app/lib/personas.svelte'
   import { i18n } from '/app/lib/i18n.svelte'
   import { isRouterClick, router, routes } from '/app/lib/router.svelte'
@@ -8,6 +8,14 @@
     if (!isRouterClick(event)) return
     event.preventDefault()
     router.go(path)
+  }
+
+  const duplicatePersona = async (persona: import('/common/types').AppSchema.UserPersona) => {
+    const created = await personas.duplicate(
+      persona,
+      i18n.t('{name} (copy)', { name: persona.name })
+    )
+    if (created) router.go(routes.persona(created._id))
   }
 
   const personaText = (persona: { kind: string; attributes: Record<string, string[]> }) =>
@@ -90,14 +98,25 @@
                   >
                 {/if}
               </div>
-              <a
-                class="icon-button shrink-0"
-                href={routes.persona(persona._id)}
-                aria-label={i18n.t('Edit {name}', { name: persona.name })}
-                onclick={link(routes.persona(persona._id))}
-              >
-                <Pencil size={16} />
-              </a>
+              <div class="flex shrink-0 items-center gap-1">
+                <button
+                  class="icon-button"
+                  type="button"
+                  aria-label={i18n.t('Duplicate {name}', { name: persona.name })}
+                  title={i18n.t('Duplicate')}
+                  onclick={() => duplicatePersona(persona)}
+                >
+                  <Copy size={16} />
+                </button>
+                <a
+                  class="icon-button shrink-0"
+                  href={routes.persona(persona._id)}
+                  aria-label={i18n.t('Edit {name}', { name: persona.name })}
+                  onclick={link(routes.persona(persona._id))}
+                >
+                  <Pencil size={16} />
+                </a>
+              </div>
             </div>
             <p class="mt-2 line-clamp-3 whitespace-pre-wrap text-xs text-neutral-500">
               {personaText(persona.persona) || i18n.t('No description')}

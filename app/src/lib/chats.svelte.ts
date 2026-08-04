@@ -108,6 +108,19 @@ class Chats {
     return api.get<AppSchema.Character>(`/character/${characterId}`)
   }
 
+  async duplicateCharacter(characterId: string, name: string) {
+    this.error = ''
+    try {
+      const character = await api.post<AppSchema.Character>(`/character/${characterId}/duplicate`, {
+        name,
+      })
+      this.characters = [character, ...this.characters.filter((item) => item._id !== character._id)]
+      return character
+    } catch (ex) {
+      this.error = ex instanceof Error ? ex.message : 'Failed to duplicate character'
+    }
+  }
+
   async saveCharacter(characterId: string | null, draft: CharacterDraft) {
     const body = {
       name: draft.name.trim(),

@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { Menu, PanelLeftOpen } from '@lucide/svelte'
+  import { Menu, PanelLeftOpen, Settings2, SlidersHorizontal } from '@lucide/svelte'
   import { fade, fly } from 'svelte/transition'
   import { chats } from '/app/lib/chats.svelte'
   import { books } from '/app/lib/books.svelte'
@@ -7,6 +7,9 @@
   import { promptTemplates } from '/app/lib/prompt-templates.svelte'
   import { i18n } from '/app/lib/i18n.svelte'
   import { router, routes } from '/app/lib/router.svelte'
+  import { session } from '/app/lib/session.svelte'
+  import { getRisuToggleConfig, parseRisuToggleSyntax } from '/common/risu-toggles'
+  import { chatControls } from '/app/lib/chat-controls.svelte'
   import { APP_VERSION, BUILD_DETAILS, BUILD_LABEL } from '/app/lib/build'
   import CharacterEditor from '/app/routes/CharacterEditor.svelte'
   import CharacterWorkspace from '/app/routes/CharacterWorkspace.svelte'
@@ -63,6 +66,22 @@
       ? 'personas'
       : route.name
   )
+
+  const activeChatPreset = $derived(
+    route.name === 'chat'
+      ? session.presets.find((preset) => preset._id === chats.detail?.chat.genPreset)
+      : undefined
+  )
+  const hasPromptToggles = $derived(
+    parseRisuToggleSyntax(getRisuToggleConfig(activeChatPreset)?.source ?? '').some(
+      (definition) => 'key' in definition
+    )
+  )
+
+  $effect(() => {
+    route.name
+    if (route.name !== 'chat') chatControls.closeAll()
+  })
 
   function navigate(path: string) {
     drawerOpen = false
@@ -128,11 +147,42 @@
         <Menu size={20} />
       </button>
       <span class="text-sm font-semibold tracking-wide text-white">Machina</span>
-      <span
-        class="ml-auto rounded-md border border-violet-500/30 bg-violet-500/10 px-2 py-1 font-mono text-[10px] font-semibold text-violet-200"
-        data-testid="build-version"
-        title={BUILD_DETAILS}>{BUILD_LABEL}</span
-      >
+      {#if route.name === 'chat'}
+        <div class="ml-auto flex items-center gap-1">
+          {#if hasPromptToggles}
+            <button
+              class="icon-button"
+              class:text-violet-300={chatControls.promptOpen}
+              type="button"
+              data-testid="mobile-prompt-toggles"
+              aria-label={i18n.t('Prompt toggles')}
+              title={i18n.t('Prompt toggles')}
+              aria-pressed={chatControls.promptOpen}
+              onclick={() => chatControls.togglePrompt()}
+            >
+              <SlidersHorizontal size={18} />
+            </button>
+          {/if}
+          <button
+            class="icon-button"
+            class:text-violet-300={chatControls.optionsOpen}
+            type="button"
+            data-testid="mobile-chat-options"
+            aria-label={i18n.t('Chat options')}
+            title={i18n.t('Chat options')}
+            aria-expanded={chatControls.optionsOpen}
+            onclick={() => chatControls.toggleOptions()}
+          >
+            <Settings2 size={18} />
+          </button>
+        </div>
+      {:else}
+        <span
+          class="ml-auto rounded-md border border-violet-500/30 bg-violet-500/10 px-2 py-1 font-mono text-[10px] font-semibold text-violet-200"
+          data-testid="build-version"
+          title={BUILD_DETAILS}>{BUILD_LABEL}</span
+        >
+      {/if}
     </header>
 
     <main class="min-h-0 min-w-0 flex-1 overflow-hidden">

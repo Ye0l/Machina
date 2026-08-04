@@ -23,6 +23,7 @@ import { fetchStream } from '/common/requests/stream'
 import { remapMessages } from './template-chat-payload'
 import { getMimeTypeBase64 } from '/common/util'
 import { stripImageContent, toChatMessages } from '/common/template-messages'
+import { mergeProviderSettings } from '/common/provider-settings'
 
 const CHAT_URL = `https://api.anthropic.com/v1/messages`
 const TEXT_URL = `https://api.anthropic.com/v1/complete`
@@ -206,6 +207,9 @@ export const handleClaude: ModelAdapter = async function* (opts) {
   if (opts.kind === 'plain') {
     payload.stream = false
   }
+
+  // User-defined provider parameters intentionally win over generated defaults.
+  mergeProviderSettings(payload, gen.providerSettings)
 
   const headers: any = {
     'Content-Type': 'application/json',
