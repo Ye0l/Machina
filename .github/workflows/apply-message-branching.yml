@@ -26,7 +26,9 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - name: Apply implementation
-        run: node scripts/apply-message-branching.mjs
+        run: |
+          node scripts/apply-message-branching.mjs
+          node scripts/fix-history-ready.mjs
       - name: Format
         run: >-
           pnpm exec prettier --write
