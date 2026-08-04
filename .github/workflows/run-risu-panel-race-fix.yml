@@ -1,0 +1,78 @@
+name: Apply prompt panel race fix
+
+on:
+  push:
+    branches: [dev]
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/mobile-chat-viewport
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Keep prompt panel open through chat detail updates
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path('app/src/shared/RisuTogglePanel.svelte')
+          text = path.read_text()
+          old = '''  $effect(() => {
+            // Close panels that no longer have a reason to be visible after navigation or preset changes.
+            if (!settingsMode && route.name !== 'chat') {
+              setupOpen = false
+              chatControls.closePrompt()
+            }
+            if (route.name === 'chat' && (!activeConfig || !interactiveDefinitions.length)) {
+              chatControls.closePrompt()
+            }
+          })'''
+          new = '''  $effect(() => {
+            // Only navigation closes the prompt panel. Chat detail updates briefly recalculate the
+            // active preset, so closing on a transient missing config makes the panel disappear while
+            // the user changes a toggle.
+            if (!settingsMode && route.name !== 'chat') {
+              setupOpen = false
+              chatControls.closePrompt()
+            }
+          })'''
+          if old not in text:
+              raise SystemExit('Risu prompt panel effect marker not found')
+          path.write_text(text.replace(old, new, 1))
+          PY
+
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm run check
+      - run: pnpm run build
+      - run: pnpm exec playwright install --with-deps chromium
+      - run: pnpm exec playwright test app/tests/e2e/risu-toggle-defaults.spec.ts app/tests/e2e/mobile.spec.ts --config app/playwright.config.ts
+
+      - name: Commit validated source
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add app/src/shared/RisuTogglePanel.svelte
+          git commit -m "fix: keep prompt panel open during toggle updates"
+          git push origin HEAD:fix/mobile-chat-viewport
+
+      - name: Remove one-shot workflow
+        if: always()
+        run: |
+          git fetch origin dev
+          git switch -C dev origin/dev
+          git rm .github/workflows/run-risu-panel-race-fix.yml
+          git commit -m "ci: remove prompt panel race fix workflow"
+          git push origin dev
