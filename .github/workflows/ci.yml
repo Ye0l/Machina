@@ -61,3 +61,65 @@ jobs:
           name: playwright-traces
           path: .playwright/
           retention-days: 7
+
+  mcp-server:
+    name: MCP server validation
+    if: github.event_name == 'pull_request' && github.head_ref == 'feat/machina-themes-scroll-v2'
+    runs-on: self-hosted
+    timeout-minutes: 60
+    steps:
+      - name: Locate MCP server SSH target
+        id: target
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "Runner: $(hostname) / $(uname -a)"
+          options=(-o BatchMode=yes -o ConnectTimeout=8 -o StrictHostKeyChecking=accept-new)
+          if ssh "${options[@]}" docker true 2>/dev/null; then
+            echo 'target=docker' >> "$GITHUB_OUTPUT"
+          elif ssh "${options[@]}" kastre@192.168.50.74 true 2>/dev/null; then
+            echo 'target=kastre@192.168.50.74' >> "$GITHUB_OUTPUT"
+          else
+            echo 'The self-hosted runner cannot authenticate to docker / kastre@192.168.50.74.' >&2
+            exit 1
+          fi
+
+      - name: Run check, browser tests, and Docker build on MCP server
+        shell: bash
+        env:
+          TARGET: ${{ steps.target.outputs.target }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+          options=(-o BatchMode=yes -o ConnectTimeout=8 -o StrictHostKeyChecking=accept-new)
+          ssh "${options[@]}" "$TARGET" "bash -s -- '$HEAD_SHA'" <<'REMOTE'
+          set -euo pipefail
+          SHA="$1"
+          DIR="/tmp/agnai-pr27-${SHA:0:12}"
+          rm -rf "$DIR"
+          git clone --depth 1 --branch feat/machina-themes-scroll-v2 https://github.com/Ye0l/agnai.git "$DIR"
+          cd "$DIR"
+          test "$(git rev-parse HEAD)" = "$SHA"
+
+          if docker info >/dev/null 2>&1; then
+            DOCKER='docker'
+          elif sudo -n docker info >/dev/null 2>&1; then
+            DOCKER='sudo -n docker'
+          else
+            echo 'Docker is unavailable to the MCP server user.' >&2
+            exit 1
+          fi
+
+          $DOCKER run --rm \
+            -v "$DIR:/work" -w /work \
+            node:22-bookworm \
+            bash -lc 'corepack enable && corepack prepare pnpm@10.34.5 --activate && pnpm install --frozen-lockfile && pnpm run check'
+
+          $DOCKER run --rm --ipc=host \
+            -v "$DIR:/work" -w /work \
+            mcr.microsoft.com/playwright:v1.62.1-noble \
+            bash -lc 'corepack enable && corepack prepare pnpm@10.34.5 --activate && pnpm install --frozen-lockfile && pnpm run test:e2e'
+
+          $DOCKER build -t "machina-pr27:${SHA:0:12}" .
+          echo "Validated on $(hostname): $SHA"
+          REMOTE
