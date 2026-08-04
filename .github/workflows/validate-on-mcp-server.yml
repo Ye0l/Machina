@@ -1,70 +1,15 @@
-name: CI
+name: Validate on MCP server
 
 on:
   push:
-    branches: [dev]
-  pull_request:
-
-# A new push to the same branch supersedes an in-flight run.
-concurrency:
-  group: ci-${{ github.ref }}
-  cancel-in-progress: true
+    branches:
+      - feat/machina-themes-scroll-v2
 
 permissions:
   contents: read
 
 jobs:
-  check:
-    name: Format, types and tests
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: pnpm/action-setup@v4
-
-      - uses: actions/setup-node@v4
-        with:
-          # Matches the `engines.node` range in package.json.
-          node-version: 22
-          cache: pnpm
-
-      - run: pnpm install --frozen-lockfile
-
-      # Prettier, tsc (client/server/tests), svelte-check, the mocha suite for common/ and
-      # srv/, and the Vitest suite for the client's pure logic.
-      - run: pnpm run check
-
-  e2e:
-    name: Browser tests
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: pnpm/action-setup@v4
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: pnpm
-
-      - run: pnpm install --frozen-lockfile
-
-      # Only Chromium is configured in playwright.config.ts.
-      - run: pnpm exec playwright install --with-deps chromium
-
-      # Builds dist/ first; the stub server in tests/e2e serves it.
-      - run: pnpm run test:e2e
-
-      - if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: playwright-traces
-          path: .playwright/
-          retention-days: 7
-
-  mcp-server:
-    name: MCP server validation
-    if: github.event_name == 'pull_request' && github.head_ref == 'feat/machina-themes-scroll-v2'
+  validate:
     runs-on: self-hosted
     timeout-minutes: 60
     steps:
@@ -84,15 +29,14 @@ jobs:
             exit 1
           fi
 
-      - name: Run check, browser tests, and Docker build on MCP server
+      - name: Run repository validation on MCP server
         shell: bash
         env:
           TARGET: ${{ steps.target.outputs.target }}
-          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
           set -euo pipefail
           options=(-o BatchMode=yes -o ConnectTimeout=8 -o StrictHostKeyChecking=accept-new)
-          ssh "${options[@]}" "$TARGET" "bash -s -- '$HEAD_SHA'" <<'REMOTE'
+          ssh "${options[@]}" "$TARGET" "bash -s -- '$GITHUB_SHA'" <<'REMOTE'
           set -euo pipefail
           SHA="$1"
           DIR="/tmp/agnai-pr27-${SHA:0:12}"

@@ -1,8 +1,18 @@
 export type Locale = 'en' | 'ko'
 
 const korean: Record<string, string> = {
-  Agnai: 'Agnai',
+  Machina: 'Machina',
   Settings: '설정',
+  'Color theme': '색상 테마',
+  'Appearance mode': '화면 모드',
+  'Scroll following': '스크롤 따라가기',
+  'Always follow': '항상 따라가기',
+  'Follow while at bottom': '하단에 붙어 있을 때만 따라가기',
+  'Never follow': '따라가지 않기',
+  'Streaming output': '스트리밍 출력',
+  '{used} / {limit} context ({percent}%)': '컨텍스트 {used} / {limit} ({percent}%)',
+  'Show partial output while the model is writing.': '모델이 작성하는 동안 중간 출력을 표시합니다.',
+  'Generating response...': '응답 생성 중...',
   'AI settings': 'AI 설정',
   General: '일반',
   'Character workspace': '캐릭터 작업 공간',
@@ -80,7 +90,7 @@ const korean: Record<string, string> = {
   'Export character': '캐릭터 내보내기',
   'Tavern card (PNG)': 'Tavern 카드 (PNG)',
   'Tavern V2 (JSON)': 'Tavern V2 (JSON)',
-  'Agnai (JSON)': 'Agnai (JSON)',
+  'Machina (JSON)': 'Machina (JSON)',
   'TextGen (JSON)': 'TextGen (JSON)',
   'Failed to export character': '캐릭터를 내보내지 못했습니다',
   'Could not import {name}: {reason}': '{name}을(를) 가져오지 못했습니다: {reason}',

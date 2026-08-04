@@ -38,6 +38,7 @@
   } from '/common/summary'
   import { assetUrl } from '/app/lib/config'
   import { uiSettings } from '/app/lib/ui-settings.svelte'
+  import { isScrollAtBottom, shouldFollowScroll } from '/app/lib/scroll-follow'
   import { FONT_FACES } from '/common/types/ui'
   import type { AppSchema } from '/common/types'
   import CharacterAvatar from '/app/shared/CharacterAvatar.svelte'
@@ -88,6 +89,7 @@
   )
   let draft = $state('')
   let messageList: HTMLOListElement
+  let wasAtBottom = true
   let expandedAsset = $state<{ name: string; src: string } | null>(null)
   let generationDebug = $state<{
     summary: GenerationSummary
@@ -253,10 +255,29 @@
     event.currentTarget instanceof HTMLTextAreaElement && event.currentTarget.form?.requestSubmit()
   }
 
+  const trackScrollPosition = () => {
+    if (messageList) wasAtBottom = isScrollAtBottom(messageList)
+  }
+
+  $effect(() => {
+    detail.chat._id
+    wasAtBottom = true
+  })
+
   $effect(() => {
     chats.messages.length
     chats.partial
-    tick().then(() => messageList?.scrollTo({ top: messageList.scrollHeight, behavior: 'smooth' }))
+    const mode = ui.scrollFollow ?? 'always'
+    if (!shouldFollowScroll(mode, wasAtBottom)) return
+
+    tick().then(() => {
+      if (!messageList) return
+      messageList.scrollTo({
+        top: messageList.scrollHeight,
+        behavior: chats.partial ? 'auto' : 'smooth',
+      })
+      wasAtBottom = true
+    })
   })
 
   /** User-created presets for the per-chat preset dropdown. */
@@ -623,6 +644,8 @@
     bind:this={messageList}
     class="min-h-0 flex-1 space-y-5 overflow-y-auto px-4 py-5 sm:px-6"
     aria-live="polite"
+    data-testid="message-list"
+    onscroll={trackScrollPosition}
   >
     {#each chats.messages as message (message._id)}
       {@const isUser = fromUser(message)}
@@ -752,6 +775,16 @@
               <Bug size={11} />
               <span class="truncate">
                 {generation.model} · {i18n.t('{count} tokens', { count: generation.outputTokens })}
+                {#if generation.inputTokens !== undefined && generation.contextLimit}
+                  · {i18n.t('{used} / {limit} context ({percent}%)', {
+                    used: generation.inputTokens.toLocaleString(),
+                    limit: generation.contextLimit.toLocaleString(),
+                    percent: Math.min(
+                      999,
+                      Math.round((generation.inputTokens / generation.contextLimit) * 100)
+                    ),
+                  })}
+                {/if}
               </span>
             </button>
           {/if}
@@ -840,34 +873,40 @@
             class="chat-message-body space-y-2 rounded-2xl rounded-tl-md bg-[#151a23] px-4 py-3 leading-6 text-neutral-200"
             style:opacity={msgOpacity}
           >
-            {#each renderBody(chats.partial, detail.character, true) as part}
-              {#if part.kind === 'asset'}
-                <button
-                  class="chat-asset-frame group block w-full max-w-[32rem] overflow-hidden rounded-xl border border-neutral-700/70 bg-black/40"
-                  type="button"
-                  aria-label={i18n.t('Open image')}
-                  onclick={() => (expandedAsset = part)}
-                >
-                  <img
-                    class="chat-asset block max-h-[70vh] w-full object-contain transition-transform group-hover:scale-[1.01]"
-                    src={part.src}
-                    alt={part.name}
-                    decoding="async"
-                  />
-                </button>
-              {:else if part.kind === 'literal'}
-                <code
-                  class="asset-tag-missing block break-words rounded-lg bg-black/20 px-2.5 py-1.5 font-mono text-sm"
-                >
-                  {part.text}
-                </code>
-              {:else if part.html}
-                <div class="rendered-markdown">
-                  {@html part.html}
-                </div>
-              {/if}
-            {/each}
-            <span class="animate-pulse text-violet-300">▌</span>
+            {#if ui.streamingOutput !== false}
+              {#each renderBody(chats.partial, detail.character, true) as part}
+                {#if part.kind === 'asset'}
+                  <button
+                    class="chat-asset-frame group block w-full max-w-[32rem] overflow-hidden rounded-xl border border-neutral-700/70 bg-black/40"
+                    type="button"
+                    aria-label={i18n.t('Open image')}
+                    onclick={() => (expandedAsset = part)}
+                  >
+                    <img
+                      class="chat-asset block max-h-[70vh] w-full object-contain transition-transform group-hover:scale-[1.01]"
+                      src={part.src}
+                      alt={part.name}
+                      decoding="async"
+                    />
+                  </button>
+                {:else if part.kind === 'literal'}
+                  <code
+                    class="asset-tag-missing block break-words rounded-lg bg-black/20 px-2.5 py-1.5 font-mono text-sm"
+                  >
+                    {part.text}
+                  </code>
+                {:else if part.html}
+                  <div class="rendered-markdown">
+                    {@html part.html}
+                  </div>
+                {/if}
+              {/each}
+              <span class="animate-pulse text-violet-300">▌</span>
+            {:else}
+              <span class="text-sm text-neutral-500" data-testid="streaming-hidden">
+                {i18n.t('Generating response...')}
+              </span>
+            {/if}
           </div>
         </div>
       </li>
@@ -957,6 +996,19 @@
               {generationDebug.summary.model} · {i18n.t('{count} tokens', {
                 count: generationDebug.summary.outputTokens,
               })}
+              {#if generationDebug.summary.inputTokens !== undefined && generationDebug.summary.contextLimit}
+                · {i18n.t('{used} / {limit} context ({percent}%)', {
+                  used: generationDebug.summary.inputTokens.toLocaleString(),
+                  limit: generationDebug.summary.contextLimit.toLocaleString(),
+                  percent: Math.min(
+                    999,
+                    Math.round(
+                      (generationDebug.summary.inputTokens / generationDebug.summary.contextLimit) *
+                        100
+                    )
+                  ),
+                })}
+              {/if}
             </p>
           </div>
           <button

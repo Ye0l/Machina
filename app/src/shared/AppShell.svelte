@@ -48,7 +48,10 @@
   personas.load()
 
   let drawerOpen = $state(false)
-  let sidebarCollapsed = $state(localStorage.getItem('agnai-sidebar-collapsed') === '1')
+  let sidebarCollapsed = $state(
+    (localStorage.getItem('machina-sidebar-collapsed') ??
+      localStorage.getItem('agnai-sidebar-collapsed')) === '1'
+  )
   const route = $derived(router.route)
   /** Transition key; an editor is a state of its section, not a section of its own. */
   const current = $derived(
@@ -68,7 +71,7 @@
 
   function setSidebarCollapsed(collapsed: boolean) {
     sidebarCollapsed = collapsed
-    localStorage.setItem('agnai-sidebar-collapsed', collapsed ? '1' : '0')
+    localStorage.setItem('machina-sidebar-collapsed', collapsed ? '1' : '0')
   }
 </script>
 
@@ -124,7 +127,7 @@
       >
         <Menu size={20} />
       </button>
-      <span class="text-sm font-semibold tracking-wide text-white">Agnai</span>
+      <span class="text-sm font-semibold tracking-wide text-white">Machina</span>
       <span
         class="ml-auto rounded-md border border-violet-500/30 bg-violet-500/10 px-2 py-1 font-mono text-[10px] font-semibold text-violet-200"
         data-testid="build-version"

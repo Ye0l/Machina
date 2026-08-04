@@ -130,7 +130,7 @@ function numberOr(value: unknown, fallback: number) {
  * Reads a card's bundled lore into the shape `character.characterBook` expects.
  *
  * Two entry shapes reach here: the V2 card's (`keys`/`content`), which `characterBookToNative`
- * converts, and Agnai's own (`keywords`/`entry`), which native exports carry as-is. Either way
+ * converts, and Machina's own (`keywords`/`entry`), which native exports carry as-is. Either way
  * the result is re-checked field by field, because the fields the converter leaves optional are
  * all required by the server's book validator (`srv/api/memory/index.ts`), and a hand-written
  * card is under no obligation to supply them.
@@ -242,7 +242,7 @@ export function jsonToCharacter(json: any): ImportedCharacter {
     const agnai = data.extensions?.agnai
 
     /*
-     * A card can carry a lossless Agnai persona in its extensions, but another editor may
+     * A card can carry a lossless Machina persona in its extensions, but another editor may
      * have changed `description` since it was written. Trust the structured persona only
      * when re-formatting it still reproduces the card's description.
      */

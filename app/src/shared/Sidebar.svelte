@@ -55,7 +55,7 @@
       <Sparkles size={18} strokeWidth={2.2} />
     </span>
     <div class="min-w-0 flex-1">
-      <p class="truncate text-sm font-semibold tracking-wide text-white">Agnai</p>
+      <p class="truncate text-sm font-semibold tracking-wide text-white">Machina</p>
       <p class="truncate text-xs text-neutral-500">{i18n.t('Character workspace')}</p>
     </div>
     {#if onCollapse}

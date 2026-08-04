@@ -65,9 +65,20 @@ async function buildGenerationDebug(
   settings: Partial<AppSchema.GenSettings> | undefined,
   countTokens: (text: string) => Promise<number>
 ): Promise<GenerationDebug> {
+  // Structured messages are what chat adapters consume; completion adapters fall back to the
+  // flat prompt. Role labels approximate the small framing overhead while keeping the count
+  // tied to the same tokenizer that assembled and trimmed this request.
+  const inputText = request.messages.length
+    ? request.messages
+        .map(({ role, content }) => role + ': ' + content)
+        .join(String.fromCharCode(10))
+    : request.prompt
+
   return {
     model: resolveGenerationModel(settings),
     outputTokens: await countTokens(text),
+    inputTokens: await countTokens(inputText),
+    contextLimit: settings?.maxContextLength,
     request: {
       ...request,
       // Convert the Svelte proxy to plain data and recursively remove credentials.

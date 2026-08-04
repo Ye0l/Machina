@@ -204,6 +204,7 @@ export async function createStubServer(port: number) {
       this.presetUpdates = []
       this.promptTemplates = []
       this.templateCalls = []
+      user.ui = {}
       // Rebuilt rather than trimmed: the update route `Object.assign`s onto a character, so
       // a test that renames one would otherwise leave it renamed for every test after it.
       characters.length = 0
@@ -329,6 +330,12 @@ export async function createStubServer(port: number) {
           profile,
           presets: state.presets,
         })
+      }
+
+      if (path === '/api/user/ui' && req.method === 'POST') {
+        const body = await readBody(req)
+        Object.assign(user.ui, body)
+        return json({ success: true })
       }
 
       if (path === '/api/persona' && req.method === 'GET') {
