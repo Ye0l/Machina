@@ -61,4 +61,9 @@ export type DeleteMessagesResponse = {
   messages: Array<Pick<AppSchema.ChatMessage, '_id' | 'parent'>>
 }
 
+export type BranchChatResponse = {
+  chat: AppSchema.Chat
+  messages: AppSchema.ChatMessage[]
+}
+
 export type DeleteChatResponse = { success: boolean }

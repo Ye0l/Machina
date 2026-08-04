@@ -108,6 +108,8 @@ export type StubState = {
   prompts: string[]
   inferenceRequests: any[]
   swaps: Array<{ id: string; body: any }>
+  deletions: Array<{ chatId: string; body: any }>
+  branches: Array<{ chatId: string; body: any }>
   inferenceDelayMs: number
   inferenceResponse: string
   apiCalls: string[]
@@ -161,6 +163,8 @@ export async function createStubServer(port: number) {
     prompts: [],
     inferenceRequests: [],
     swaps: [],
+    deletions: [],
+    branches: [],
     inferenceDelayMs: 30,
     inferenceResponse: 'Stub reply.',
     apiCalls: [],
@@ -187,6 +191,8 @@ export async function createStubServer(port: number) {
       this.prompts = []
       this.inferenceRequests = []
       this.swaps = []
+      this.deletions = []
+      this.branches = []
       this.inferenceDelayMs = 30
       this.inferenceResponse = 'Stub reply.'
       this.apiCalls = []
@@ -242,7 +248,7 @@ export async function createStubServer(port: number) {
   ]
 
   const chatDetail = (id: string) => {
-    const summary = chatList.find((c) => c._id === id)
+    const summary = [...chatList, ...state.extraChats].find((c) => c._id === id)
     if (!summary) return null
     const char = characters.find((c) => c._id === summary.characterId)!
 
@@ -491,6 +497,39 @@ export async function createStubServer(port: number) {
         const found = characters.find((c) => c._id === charMatch[1])
         if (!found) return json({ message: 'Not found' }, 404)
         return json(found)
+      }
+
+      const branchMatch = path.match(/^\/api\/chat\/([^/]+)\/branch$/)
+      if (branchMatch && req.method === 'POST') {
+        const body = await readBody(req)
+        state.branches.push({ chatId: branchMatch[1], body })
+        const source = [...chatList, ...state.extraChats].find(
+          (chat) => chat._id === branchMatch[1]
+        )
+        if (!source) return json({ message: 'Chat not found' }, 404)
+        const created = {
+          _id: `chat-branch-${state.branches.length}`,
+          kind: 'chat',
+          userId: 'user-1',
+          memberIds: [],
+          characterId: source.characterId,
+          name: source.name + ' · branch',
+          createdAt: now,
+          updatedAt: now,
+          messageCount: 0,
+          genPreset: state.chatPreset,
+        }
+        state.extraChats.push(created)
+        return json({ chat: created, messages: [] })
+      }
+
+      const deleteMessages = path.match(/^\/api\/chat\/([^/]+)\/messages-v2$/)
+      if (deleteMessages && req.method === 'DELETE') {
+        const body = await readBody(req)
+        state.deletions.push({ chatId: deleteMessages[1], body })
+        const removed = new Set(body.ids)
+        state.extraMessages = state.extraMessages.filter((message) => !removed.has(message._id))
+        return json({ chat: {}, messages: [] })
       }
 
       const chatMatch = path.match(/^\/api\/chat\/([^/]+)$/)

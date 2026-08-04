@@ -24,12 +24,7 @@ test('all theme palettes keep text and controls readable', async ({ app }) => {
           root.dataset.mode = mode
           const style = getComputedStyle(root)
 
-          const rgb = (name: string) =>
-            style
-              .getPropertyValue(name)
-              .trim()
-              .split(/\s+/)
-              .map(Number)
+          const rgb = (name: string) => style.getPropertyValue(name).trim().split(/\s+/).map(Number)
 
           const luminance = (value: number[]) => {
             const [red, green, blue] = value.map((channel) => {

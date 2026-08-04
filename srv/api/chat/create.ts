@@ -2,7 +2,7 @@ import { assertValid } from '/common/valid'
 import { PERSONA_FORMATS } from '../../../common/adapters'
 import { store } from '../../db'
 import { NewMessage } from '../../db/messages'
-import { handle, StatusError } from '../wrap'
+import { errors, handle, StatusError } from '../wrap'
 import { optional } from '/common/valid/types'
 import { isDefaultPreset } from '/common/default-preset'
 
@@ -89,6 +89,81 @@ export const createChat = handle(async ({ body, user, authed, userId }) => {
     impersonating
   )
   return chat
+})
+
+export const branchChat = handle(async ({ body, params, userId }) => {
+  assertValid({ messageId: 'string', name: 'string?' }, body)
+
+  const source = await store.chats.getChatOnly(params.id)
+  if (!source) throw errors.NotFound
+  if (source.userId !== userId) throw errors.Forbidden
+
+  const allMessages = await store.msgs.getChatMessages(source)
+  const byId = new Map(allMessages.map((message) => [message._id, message]))
+  let current = byId.get(body.messageId)
+  if (!current) throw new StatusError('Branch point was not found in this chat', 404)
+
+  const path = [] as typeof allMessages
+  const seen = new Set<string>()
+  while (current && !seen.has(current._id)) {
+    seen.add(current._id)
+    path.unshift(current)
+    current = current.parent ? byId.get(current.parent) : undefined
+  }
+
+  const profile = await store.users.getProfile(userId)
+  if (!profile) throw errors.NotFound
+
+  const created = await store.chats.create(
+    source.characterId,
+    {
+      name: body.name?.trim() || source.name + ' · branch',
+      greeting: undefined,
+      scenario: source.scenario,
+      scenarioIds: source.scenarioIds || [],
+      sampleChat: source.sampleChat,
+      userId,
+      overrides: source.overrides,
+      genPreset: source.genPreset,
+      mode: source.mode,
+      imageSource: source.imageSource,
+      treeLeafId: undefined,
+    },
+    profile
+  )
+
+  const cloned = await store.msgs.cloneMessagesToChat(path, created._id)
+  const summaryUpTo = source.summaryUpTo ? cloned.idMap.get(source.summaryUpTo) : undefined
+  const copied: Record<string, unknown> = {
+    treeLeafId: cloned.messages.at(-1)?._id || '',
+    messageCount: cloned.messages.length,
+    greeting: source.greeting,
+    memoryId: source.memoryId,
+    userEmbedId: source.userEmbedId,
+    characters: source.characters,
+    tempCharacters: source.tempCharacters,
+    systemPrompt: source.systemPrompt,
+    postHistoryInstructions: source.postHistoryInstructions,
+    genSettings: source.genSettings,
+    imageSettings: source.imageSettings,
+    imageProviderId: source.imageProviderId,
+    background: source.background,
+    localSettings: source.localSettings,
+  }
+
+  if (summaryUpTo) {
+    copied.summaries = source.summaries
+    copied.summary = source.summary
+    copied.summaryUpTo = summaryUpTo
+    copied.summaryCount = Math.min(source.summaryCount || 0, cloned.messages.length)
+    copied.summaryUpdatedAt = source.summaryUpdatedAt
+  }
+
+  const update = Object.fromEntries(
+    Object.entries(copied).filter(([, value]) => value !== undefined)
+  )
+  const chat = await store.chats.update(created._id, update)
+  return { chat, messages: cloned.messages }
 })
 
 export const importChat = handle(async ({ body, userId }) => {

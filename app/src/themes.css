@@ -272,7 +272,8 @@ html[data-theme='overdose'][data-mode='dark'] {
   --surface-input: 26 29 49;
   --text-strong: 238 241 248;
   --accent-contrast: 255 255 255;
-  --theme-background: radial-gradient(circle at 12% 0%, rgb(76 165 184 / 0.09), transparent 30%), radial-gradient(circle at 100% 18%, rgb(177 64 136 / 0.10), transparent 34%);
+  --theme-background: radial-gradient(circle at 12% 0%, rgb(76 165 184 / 0.09), transparent 30%),
+    radial-gradient(circle at 100% 18%, rgb(177 64 136 / 0.1), transparent 34%);
   --neutral-50: 247 249 253;
   --neutral-100: 226 231 242;
   --neutral-200: 199 207 224;
@@ -305,7 +306,8 @@ html[data-theme='overdose'][data-mode='light'] {
   --surface-input: 255 255 255;
   --text-strong: 27 34 54;
   --accent-contrast: 255 255 255;
-  --theme-background: radial-gradient(circle at 0% 0%, rgb(76 165 184 / 0.08), transparent 30%), radial-gradient(circle at 100% 10%, rgb(177 64 136 / 0.07), transparent 34%);
+  --theme-background: radial-gradient(circle at 0% 0%, rgb(76 165 184 / 0.08), transparent 30%),
+    radial-gradient(circle at 100% 10%, rgb(177 64 136 / 0.07), transparent 34%);
   --neutral-50: 27 34 54;
   --neutral-100: 40 49 74;
   --neutral-200: 58 69 98;

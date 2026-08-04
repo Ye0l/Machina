@@ -35,11 +35,9 @@ test('middle deletion offers single, tail, and branch actions', async ({ app, st
   await expect(dialog.getByRole('button', { name: 'Branch from here' })).toBeVisible()
 
   await dialog.getByRole('button', { name: 'Delete from here' }).click()
-  await expect.poll(() => stub.state.deletions.at(-1)?.body.ids).toEqual([
-    'msg-3',
-    'msg-4',
-    'msg-5',
-  ])
+  await expect
+    .poll(() => stub.state.deletions.at(-1)?.body.ids)
+    .toEqual(['msg-3', 'msg-4', 'msg-5'])
   await expect(app.getByText('Branch point')).toHaveCount(0)
   await expect(app.getByText('Later user turn')).toHaveCount(0)
 })

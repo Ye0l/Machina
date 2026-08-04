@@ -6,6 +6,7 @@
     Check,
     ChevronLeft,
     ChevronRight,
+    GitBranch,
     Pencil,
     Plus,
     RotateCw,
@@ -40,6 +41,7 @@
   import { uiSettings } from '/app/lib/ui-settings.svelte'
   import { isScrollAtBottom, shouldFollowScroll } from '/app/lib/scroll-follow'
   import { FONT_FACES } from '/common/types/ui'
+  import { expandMessageWindow, findMessageWindowStart } from '/common/message-window'
   import type { AppSchema } from '/common/types'
   import CharacterAvatar from '/app/shared/CharacterAvatar.svelte'
 
@@ -95,6 +97,13 @@
     summary: GenerationSummary
     request?: GenerationRequestDebug
   } | null>(null)
+  let messageAction = $state<{ messageId: string; author: string } | null>(null)
+  let messageActionBusy = $state(false)
+  let visibleStart = $state(0)
+  let historyChatId = $state('')
+  let historyReady = $state(false)
+  let loadingEarlier = $state(false)
+  const visibleMessages = $derived(chats.messages.slice(visibleStart))
 
   /** `userId` marks the sender, not `characterId`: an impersonated message carries both. */
   const fromUser = (message: AppSchema.ChatMessage) => !!message.userId
@@ -255,9 +264,42 @@
     event.currentTarget instanceof HTMLTextAreaElement && event.currentTarget.form?.requestSubmit()
   }
 
-  const trackScrollPosition = () => {
-    if (messageList) wasAtBottom = isScrollAtBottom(messageList)
+  const loadEarlierMessages = async () => {
+    if (!messageList || loadingEarlier || visibleStart <= 0) return
+    const nextStart = expandMessageWindow(chats.messages, visibleStart)
+    if (nextStart === visibleStart) return
+
+    const previousHeight = messageList.scrollHeight
+    loadingEarlier = true
+    visibleStart = nextStart
+    await tick()
+    messageList.scrollTop += messageList.scrollHeight - previousHeight
+    loadingEarlier = false
   }
+
+  const trackScrollPosition = () => {
+    if (!messageList) return
+    wasAtBottom = isScrollAtBottom(messageList)
+    if (historyReady && messageList.scrollTop < 280) void loadEarlierMessages()
+  }
+
+  $effect(() => {
+    const chatId = detail.chat._id
+    const count = chats.messages.length
+    if (historyChatId !== chatId) {
+      historyChatId = chatId
+      historyReady = false
+      visibleStart = findMessageWindowStart(chats.messages)
+      tick().then(() => {
+        if (!messageList || historyChatId !== chatId) return
+        messageList.scrollTop = messageList.scrollHeight
+        wasAtBottom = true
+        historyReady = true
+      })
+      return
+    }
+    if (visibleStart > count) visibleStart = findMessageWindowStart(chats.messages)
+  })
 
   $effect(() => {
     detail.chat._id
@@ -309,6 +351,40 @@
   const selectPersona = (event: Event) =>
     personas.select((event.currentTarget as HTMLSelectElement).value)
 
+  const branchFromMessage = async (messageId: string) => {
+    if (messageActionBusy || chats.generating) return
+    messageActionBusy = true
+    try {
+      const chatId = await chats.branchFrom(messageId)
+      if (chatId) {
+        messageAction = null
+        router.go(routes.chat(chatId))
+      }
+    } finally {
+      messageActionBusy = false
+    }
+  }
+
+  const requestMessageDelete = (message: AppSchema.ChatMessage) => {
+    const index = chats.messages.findIndex((item) => item._id === message._id)
+    if (index === -1) return
+    if (index === chats.messages.length - 1) {
+      void chats.deleteMessage(message._id)
+      return
+    }
+    messageAction = { messageId: message._id, author: authorOf(message) }
+  }
+
+  const deleteSelectedMessage = async (scope: 'single' | 'tail') => {
+    if (!messageAction || messageActionBusy) return
+    messageActionBusy = true
+    try {
+      if (await chats.deleteMessage(messageAction.messageId, scope)) messageAction = null
+    } finally {
+      messageActionBusy = false
+    }
+  }
+
   const deleteOpenChat = async () => {
     if (
       !window.confirm(i18n.t('Delete "{name}"? This cannot be undone.', { name: detail.chat.name }))
@@ -334,7 +410,8 @@
 <svelte:window
   onkeydown={(event) => {
     if (event.key !== 'Escape') return
-    if (generationDebug) generationDebug = null
+    if (messageAction) messageAction = null
+    else if (generationDebug) generationDebug = null
     else if (expandedAsset) expandedAsset = null
     else if (mobileHeaderOpen) mobileHeaderOpen = false
   }}
@@ -647,12 +724,28 @@
     data-testid="message-list"
     onscroll={trackScrollPosition}
   >
-    {#each chats.messages as message (message._id)}
+    {#if visibleStart > 0}
+      <li class="mx-auto flex w-full justify-center py-1 {widthClass}">
+        <button
+          class="button-secondary h-8 px-3 text-xs"
+          type="button"
+          data-testid="load-earlier-messages"
+          disabled={loadingEarlier}
+          onclick={loadEarlierMessages}
+        >
+          {loadingEarlier
+            ? i18n.t('Loading earlier messages...')
+            : i18n.t('Load earlier messages ({count} hidden)', { count: visibleStart })}
+        </button>
+      </li>
+    {/if}
+    {#each visibleMessages as message (message._id)}
       {@const isUser = fromUser(message)}
       {@const character = isUser ? undefined : characterOf(message.characterId)}
       {@const generation = isUser ? undefined : readGenerationSummary(message)}
       {@const isLast = message._id === chats.messages.at(-1)?._id}
       <li
+        data-message-id={message._id}
         class:flex-row-reverse={isUser}
         class:hidden={chats.rerollingMessageId === message._id}
         class="mx-auto flex w-full {widthClass} items-start gap-3"
@@ -829,6 +922,17 @@
             <button
               class="icon-button h-7 w-7"
               type="button"
+              data-testid={`branch-message-${message._id}`}
+              aria-label={i18n.t('Branch from here')}
+              title={i18n.t('Branch from here')}
+              disabled={chats.generating || messageActionBusy}
+              onclick={() => branchFromMessage(message._id)}
+            >
+              <GitBranch size={14} />
+            </button>
+            <button
+              class="icon-button h-7 w-7"
+              type="button"
               aria-label={i18n.t('Edit message')}
               title={i18n.t('Edit message')}
               disabled={chats.generating || editingId === message._id}
@@ -839,10 +943,11 @@
             <button
               class="icon-button h-7 w-7 text-neutral-600 hover:text-red-300"
               type="button"
+              data-testid={`delete-message-${message._id}`}
               aria-label={i18n.t('Delete message')}
               title={i18n.t('Delete message')}
-              disabled={chats.generating}
-              onclick={() => chats.deleteMessage(message._id)}
+              disabled={chats.generating || messageActionBusy}
+              onclick={() => requestMessageDelete(message)}
             >
               <Trash2 size={14} />
             </button>
@@ -967,6 +1072,76 @@
       </div>
     </form>
   </div>
+
+  {#if messageAction}
+    <div
+      class="fixed inset-0 z-[110] flex items-center justify-center p-3 sm:p-6"
+      role="dialog"
+      aria-modal="true"
+      aria-label={i18n.t('Change conversation from this message?')}
+    >
+      <button
+        class="absolute inset-0 bg-black/75 backdrop-blur-sm"
+        type="button"
+        aria-label={i18n.t('Cancel')}
+        disabled={messageActionBusy}
+        onclick={() => (messageAction = null)}
+      />
+      <section
+        class="relative z-10 w-full max-w-lg rounded-xl border border-neutral-700 bg-[#0d1118] p-5 shadow-2xl"
+      >
+        <div class="mb-4 flex items-start gap-3">
+          <GitBranch size={20} class="mt-0.5 shrink-0 text-violet-300" />
+          <div>
+            <h2 class="text-base font-semibold text-neutral-100">
+              {i18n.t('Change conversation from this message?')}
+            </h2>
+            <p class="mt-1 text-sm leading-6 text-neutral-400">
+              {i18n.t(
+                'This is a middle message by {author}. Delete only it, remove everything after it, or keep the current chat and create a branch.',
+                { author: messageAction.author }
+              )}
+            </p>
+          </div>
+        </div>
+        <div class="grid gap-2 sm:grid-cols-2">
+          <button
+            class="button-secondary justify-center"
+            type="button"
+            disabled={messageActionBusy}
+            onclick={() => deleteSelectedMessage('single')}
+          >
+            {i18n.t('Delete this message only')}
+          </button>
+          <button
+            class="button-secondary justify-center border-red-800/70 text-red-300 hover:border-red-700"
+            type="button"
+            disabled={messageActionBusy}
+            onclick={() => deleteSelectedMessage('tail')}
+          >
+            {i18n.t('Delete from here')}
+          </button>
+          <button
+            class="button-primary justify-center sm:col-span-2"
+            type="button"
+            disabled={messageActionBusy}
+            onclick={() => branchFromMessage(messageAction!.messageId)}
+          >
+            <GitBranch size={15} />
+            {i18n.t('Branch from here')}
+          </button>
+          <button
+            class="button-secondary justify-center sm:col-span-2"
+            type="button"
+            disabled={messageActionBusy}
+            onclick={() => (messageAction = null)}
+          >
+            {i18n.t('Cancel')}
+          </button>
+        </div>
+      </section>
+    </div>
+  {/if}
 
   {#if generationDebug}
     <div
