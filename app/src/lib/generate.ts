@@ -1,5 +1,5 @@
 import type { AppSchema } from '/common/types'
-import { withAssetInstruction } from '/common/assets'
+import { withAssetInstruction, withAssetInstructionMessages } from '/common/assets'
 import { expandRisuHistoryRanges } from '/common/risu-import'
 import { hasUnresolvedRisuMacros, renderRisuPreset } from '/common/risu-toggles'
 import type { ChatDetailResponse, SendMessageBody, SendMessageResponse } from './contracts'
@@ -182,8 +182,8 @@ export async function sendMessage(
     chatId: chat._id,
     // Appended after assembly rather than through a placeholder: an asset the model was never
     // told about can never be shown, so this must not depend on the user editing a template.
-    prompt: withAssetInstruction(request.prompt, char.assets),
-    messages: request.messages,
+    prompt: withAssetInstruction(request.prompt, char.assets, char.name),
+    messages: withAssetInstructionMessages(request.messages, char.assets, char.name),
   }
   const reply = await stream(
     inferenceRequest.requestId,
@@ -281,8 +281,8 @@ export async function generateLastReply(
     chatId: chat._id,
     // Appended after assembly rather than through a placeholder: an asset the model was never
     // told about can never be shown, so this must not depend on the user editing a template.
-    prompt: withAssetInstruction(request.prompt, char.assets),
-    messages: request.messages,
+    prompt: withAssetInstruction(request.prompt, char.assets, char.name),
+    messages: withAssetInstructionMessages(request.messages, char.assets, char.name),
   }
   const reply = await stream(
     inferenceRequest.requestId,

@@ -101,6 +101,13 @@ test.describe('character assets', () => {
 
     expect(prompt).toContain('{{asset::name}}')
     expect(prompt).toContain('- smiling')
+
+    const request = stub.state.inferenceRequests.at(-1)
+    const structured =
+      request?.messages.map((message: { content: string }) => message.content).join('\n') ?? ''
+    expect(structured).toContain('{{asset::name}}')
+    expect(structured).toContain('- smiling')
+    expect(structured).toContain('Aria can show an image')
   })
 
   test('leave the prompt untouched when the character has none', async ({ app, stub }) => {
