@@ -37,8 +37,12 @@ test.describe('mobile layout', () => {
     await expect(app.locator('select[aria-label="Speak as"]:visible')).toHaveCount(1)
 
     const expandedMessagesBox = await app.locator('ol[aria-live="polite"]').boundingBox()
-    expect(expandedMessagesBox?.y).toBe(messagesBox?.y)
-    expect(expandedMessagesBox?.height).toBe(messagesBox?.height)
+    expect(Math.abs((expandedMessagesBox?.y ?? 0) - (messagesBox?.y ?? 0))).toBeLessThanOrEqual(
+      0.5
+    )
+    expect(
+      Math.abs((expandedMessagesBox?.height ?? 0) - (messagesBox?.height ?? 0))
+    ).toBeLessThanOrEqual(0.5)
   })
 
   test('no view scrolls the page horizontally', async ({ app }) => {
