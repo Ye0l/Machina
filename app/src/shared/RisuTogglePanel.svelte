@@ -357,7 +357,7 @@
 
 {#if panelOpen && route.name === 'chat' && activeConfig}
   <section
-    class="fixed inset-x-2 top-[calc(3.5rem+env(safe-area-inset-top))] z-40 flex max-h-[calc(100dvh-4rem-env(safe-area-inset-top)-env(safe-area-inset-bottom))] flex-col overflow-hidden rounded-xl border border-neutral-700 bg-[#10151d] shadow-2xl sm:inset-x-auto sm:right-5 sm:top-[4.5rem] sm:max-h-[calc(100dvh-5.25rem)] sm:w-[min(25rem,calc(100vw-2.5rem))]"
+    class="fixed inset-x-2 top-[calc(3.75rem+env(safe-area-inset-top))] z-40 flex max-h-[calc(100dvh-4rem-env(safe-area-inset-top)-env(safe-area-inset-bottom))] flex-col overflow-hidden rounded-xl border border-neutral-700 bg-[#10151d] shadow-2xl sm:inset-x-auto sm:right-5 sm:top-[4.5rem] sm:max-h-[calc(100dvh-5.25rem)] sm:w-[min(25rem,calc(100vw-2.5rem))]"
     aria-label={text('Prompt toggles', '프롬프트 토글')}
   >
     <header

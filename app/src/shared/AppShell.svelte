@@ -135,7 +135,7 @@
 
   <div class="flex min-w-0 flex-1 flex-col">
     <header
-      class="flex h-14 shrink-0 items-center gap-3 border-b border-neutral-800/80 bg-[#0d1118] px-3 md:hidden"
+      class="flex h-[calc(3.5rem+env(safe-area-inset-top))] shrink-0 items-center gap-3 border-b border-neutral-800/80 bg-[#0d1118] px-3 pt-[env(safe-area-inset-top)] md:hidden"
     >
       <button
         class="icon-button"

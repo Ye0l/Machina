@@ -1047,7 +1047,7 @@
   {/if}
 
   <div
-    class="shrink-0 border-t border-neutral-800/80 bg-[#0d1118] px-3 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:px-5"
+    class="shrink-0 border-t border-neutral-800/80 bg-[#0d1118] px-3 pb-[max(0.375rem,calc(env(safe-area-inset-bottom)-1rem))] pt-3 sm:px-5 sm:pb-3"
   >
     <form class="mx-auto flex w-full {widthClass} items-end gap-2" onsubmit={submit}>
       <!-- prettier-ignore -->
