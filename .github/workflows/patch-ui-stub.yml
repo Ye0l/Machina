@@ -1,0 +1,36 @@
+name: Apply UI stub persistence patch
+
+on:
+  push:
+    branches:
+      - feat/machina-themes-scroll-v2
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/machina-themes-scroll-v2
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Patch stub and remove temporary files
+        run: |
+          node scripts/patch-ui-stub.mjs
+          pnpm exec prettier --write app/tests/e2e/stub-server.ts
+          rm scripts/patch-ui-stub.mjs .github/workflows/patch-ui-stub.yml
+      - name: Commit patch
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add -A
+          git commit -m "test: persist display settings in the E2E stub"
+          git push origin HEAD:feat/machina-themes-scroll-v2
