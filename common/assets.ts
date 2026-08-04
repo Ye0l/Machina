@@ -27,24 +27,55 @@ export function findAsset(assets: AppSchema.CharacterAsset[] | undefined, name: 
  * automatically rather than through a placeholder: an asset the model was never told about is
  * an asset it can never show, so this must not depend on the user editing a template.
  */
-export function assetInstruction(assets: AppSchema.CharacterAsset[] | undefined): string {
+export function assetInstruction(
+  assets: AppSchema.CharacterAsset[] | undefined,
+  characterName = '{{char}}'
+): string {
   const names = (assets ?? []).map((asset) => asset.name.trim()).filter(Boolean)
   if (!names.length) return ''
 
   return [
-    `{{char}} can show an image by writing {{asset::name}} on its own line, using one of these names exactly:`,
+    `${characterName} can show an image by writing {{asset::name}} on its own line, using one of these names exactly:`,
     names.map((name) => `- ${name}`).join('\n'),
     'Only these names exist. Do not invent a name, describe the image in the tag, or write a URL.',
   ].join('\n')
 }
 
-/** Appends the instruction to an assembled prompt, nearest the reply where it carries most. */
+/** Appends the instruction to an assembled prompt, nearest the reply. */
 export function withAssetInstruction(
   prompt: string,
-  assets: AppSchema.CharacterAsset[] | undefined
+  assets: AppSchema.CharacterAsset[] | undefined,
+  characterName?: string
 ) {
-  const instruction = assetInstruction(assets)
+  const instruction = assetInstruction(assets, characterName)
   return instruction ? `${prompt}\n\n${instruction}` : prompt
+}
+
+export type AssetInstructionMessage = { role: string; content: string }
+
+/**
+ * Adds the same mandatory asset instruction to structured chat messages. Chat adapters consume
+ * these messages instead of the flat prompt, so updating only `prompt` silently drops the list.
+ * Merge into the first system message when possible; otherwise create one before the conversation.
+ */
+export function withAssetInstructionMessages<T extends AssetInstructionMessage>(
+  messages: T[],
+  assets: AppSchema.CharacterAsset[] | undefined,
+  characterName?: string
+): T[] {
+  const instruction = assetInstruction(assets, characterName)
+  if (!instruction) return messages
+
+  const systemIndex = messages.findIndex((message) => message.role === 'system')
+  if (systemIndex === -1) {
+    return [{ role: 'system', content: instruction } as T, ...messages]
+  }
+
+  return messages.map((message, index) =>
+    index === systemIndex
+      ? ({ ...message, content: `${message.content}\n\n${instruction}` } as T)
+      : message
+  )
 }
 
 /**
