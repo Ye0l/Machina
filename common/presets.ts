@@ -4,6 +4,7 @@ import { defaultPresets, presetDefaults } from './default-preset'
 import { deepClone } from './util'
 import { Sampler, SamplerState } from './types/presets'
 import { optionalArray } from './valid/types'
+import { mergeProviderSettings } from './provider-settings'
 
 export { defaultPresets }
 
@@ -124,11 +125,8 @@ export const presetValidator = {
   epsilonCutoff: 'number?',
   etaCutoff: 'number?',
   mirostatToggle: 'boolean?',
-  // reasoning: {
-  //   '?': '?',
-  //   start: 'string?',
-  //   end: 'string?',
-  // },
+  reasoning: 'any?',
+  providerSettings: 'any?',
   presetMode: ['simple', 'advanced', null],
 } as const
 
@@ -161,7 +159,7 @@ export function mapPresetsToAdapter(presets: Partial<AppSchema.GenSettings>, ada
     body[value] = presetValue
   }
 
-  return body
+  return mergeProviderSettings(body, presets.providerSettings)
 }
 
 export const serviceGenMap: { [key in ChatAdapter]?: GenMap } = {

@@ -128,7 +128,7 @@
         onclick={link(routes.settings())}
       >
         <Settings size={18} />
-        {i18n.t('AI settings')}
+        {i18n.t('Settings')}
       </a>
     </nav>
 

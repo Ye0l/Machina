@@ -15,6 +15,7 @@ import { streamGenerator } from '/common/requests/stream'
 import { getStoppingStrings, toImageJinjaTemplate } from '/common/requests/payloads'
 import { JsonField } from '/common/prompt'
 import { adjustMessageFormatting } from './util'
+import { mergeProviderSettings } from '/common/provider-settings'
 
 type CompletionContent<T = {}> = Array<
   {
@@ -216,6 +217,9 @@ export const handleOAI: ModelAdapter = async function* (opts) {
   if (!body.stop?.length) {
     delete body.stop
   }
+
+  // User-defined provider parameters intentionally win over generated defaults.
+  mergeProviderSettings(body, gen.providerSettings)
 
   const iter = body.stream
     ? streamGenerator({

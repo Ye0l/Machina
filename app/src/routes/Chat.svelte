@@ -12,6 +12,7 @@
     RotateCw,
     ScrollText,
     Send,
+    SlidersHorizontal,
     Settings2,
     Square,
     Trash2,
@@ -42,6 +43,8 @@
   import { isScrollAtBottom, shouldFollowScroll } from '/app/lib/scroll-follow'
   import { FONT_FACES } from '/common/types/ui'
   import { expandMessageWindow, findMessageWindowStart } from '/common/message-window'
+  import { getRisuToggleConfig, parseRisuToggleSyntax } from '/common/risu-toggles'
+  import { chatControls } from '/app/lib/chat-controls.svelte'
   import type { AppSchema } from '/common/types'
   import CharacterAvatar from '/app/shared/CharacterAvatar.svelte'
 
@@ -61,6 +64,11 @@
     session.presets.find((preset) => preset._id === detail.chat.genPreset)
   )
   const ui = $derived(uiSettings.settings)
+  const hasPromptToggles = $derived(
+    parseRisuToggleSyntax(getRisuToggleConfig(activePreset)?.source ?? '').some(
+      (definition) => 'key' in definition
+    )
+  )
   const showAvatars = $derived(ui.chatAvatarMode !== false && ui.avatarSize !== 'hide')
   const avatarPx = $derived(
     ui.avatarSize === 'custom'
@@ -194,7 +202,6 @@
   let showSummary = $state(false)
   let summaryTab = $state<SummaryCategory>('plot')
   let summaryDraft = $state('')
-  let mobileHeaderOpen = $state(false)
 
   const activeSummary = $derived(detail?.chat.summaries?.[summaryTab] ?? '')
   const hasAnySummary = $derived(
@@ -304,6 +311,7 @@
   $effect(() => {
     detail.chat._id
     wasAtBottom = true
+    chatControls.closeAll()
   })
 
   $effect(() => {
@@ -410,10 +418,12 @@
 <svelte:window
   onkeydown={(event) => {
     if (event.key !== 'Escape') return
-    if (messageAction) messageAction = null
+    if (chatControls.optionsOpen) chatControls.closeOptions()
+    else if (chatControls.promptOpen) chatControls.closePrompt()
+    else if (messageAction) messageAction = null
     else if (generationDebug) generationDebug = null
     else if (expandedAsset) expandedAsset = null
-    else if (mobileHeaderOpen) mobileHeaderOpen = false
+    else if (chatControls.optionsOpen) chatControls.optionsOpen = false
   }}
 />
 
@@ -423,20 +433,6 @@
   style:font-family={chatFont}
   style:font-size={chatFontSize}
 >
-  <button
-    class="absolute right-2 top-2 z-20 flex h-9 w-9 items-center justify-center rounded-xl border border-neutral-700/80 bg-[#0d1118]/90 text-neutral-200 shadow-lg backdrop-blur hover:bg-neutral-800 sm:hidden"
-    class:text-violet-300={mobileHeaderOpen}
-    type="button"
-    data-testid="mobile-chat-options"
-    aria-label={i18n.t('Chat options')}
-    title={i18n.t('Chat options')}
-    aria-expanded={mobileHeaderOpen}
-    aria-controls="mobile-chat-controls"
-    onclick={() => (mobileHeaderOpen = !mobileHeaderOpen)}
-  >
-    <Settings2 size={18} />
-  </button>
-
   <header
     data-testid="desktop-chat-header"
     class="hidden min-h-16 shrink-0 items-center gap-3 border-b border-neutral-800/80 px-5 py-2 sm:flex"
@@ -523,6 +519,32 @@
         <option value={opt.value}>{opt.label}</option>
       {/each}
     </select>
+    {#if hasPromptToggles}
+      <button
+        class="icon-button text-neutral-500 hover:text-neutral-200"
+        class:text-violet-400={chatControls.promptOpen}
+        type="button"
+        data-testid="desktop-prompt-toggles"
+        aria-label={i18n.t('Prompt toggles')}
+        title={i18n.t('Prompt toggles')}
+        aria-pressed={chatControls.promptOpen}
+        onclick={() => chatControls.togglePrompt()}
+      >
+        <SlidersHorizontal size={17} />
+      </button>
+    {/if}
+    <button
+      class="icon-button text-neutral-500 hover:text-neutral-200"
+      class:text-violet-400={chatControls.optionsOpen}
+      type="button"
+      data-testid="desktop-chat-options"
+      aria-label={i18n.t('Chat options')}
+      title={i18n.t('Chat options')}
+      aria-expanded={chatControls.optionsOpen}
+      onclick={() => chatControls.toggleOptions()}
+    >
+      <Settings2 size={17} />
+    </button>
     <button
       class="icon-button text-neutral-500 hover:text-neutral-200"
       class:text-violet-400={showSummary}
@@ -546,11 +568,11 @@
     </button>
   </header>
 
-  {#if mobileHeaderOpen}
+  {#if chatControls.optionsOpen}
     <div
-      id="mobile-chat-controls"
-      data-testid="mobile-chat-controls"
-      class="absolute right-2 top-12 z-30 grid w-[min(20rem,calc(100vw-1rem))] gap-2 rounded-xl border border-neutral-700/80 bg-[#0d1118]/95 p-2 shadow-2xl backdrop-blur sm:hidden"
+      id="chat-controls"
+      data-testid="chat-controls"
+      class="absolute right-2 top-2 z-30 grid w-[min(20rem,calc(100vw-1rem))] gap-2 rounded-xl border border-neutral-700/80 bg-[#0d1118]/95 p-2 shadow-2xl backdrop-blur sm:top-[4.5rem]"
     >
       <select
         class="field h-9 w-full max-w-none py-1 text-xs"
@@ -632,7 +654,7 @@
           aria-pressed={showSummary}
           onclick={() => {
             toggleSummary()
-            mobileHeaderOpen = false
+            chatControls.optionsOpen = false
           }}
         >
           <ScrollText size={17} />

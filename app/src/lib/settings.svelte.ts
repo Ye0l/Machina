@@ -211,6 +211,8 @@ export type PresetInput = {
   secondaryProviderId: string
   secondaryModel: string
   displayRegexRules: DisplayRegexRule[]
+  reasoning: NonNullable<AppSchema.GenSettings['reasoning']>
+  providerSettings: Record<string, any>
 }
 
 export type ConnectionTestResult = { success: boolean; url: string }
@@ -260,6 +262,29 @@ class SettingsStore {
       return true
     } catch (ex) {
       this.error = ex instanceof Error ? ex.message : 'Failed to save provider'
+      return false
+    } finally {
+      this.providerSaving = false
+    }
+  }
+
+  async duplicateProvider(provider: AppSchema.Provider, name: string): Promise<boolean> {
+    this.providerSaving = true
+    this.error = ''
+    try {
+      const user = await api.post<AppSchema.User>('/user/provider', {
+        _id: '',
+        name: name.trim(),
+        provider: provider.provider,
+        url: provider.url,
+        key: '',
+        subFormat: provider.subFormat,
+        format: provider.format,
+      })
+      session.user = user
+      return true
+    } catch (ex) {
+      this.error = ex instanceof Error ? ex.message : 'Failed to duplicate provider'
       return false
     } finally {
       this.providerSaving = false
@@ -334,6 +359,8 @@ class SettingsStore {
           { temporary: existing?.temporary },
           input.displayRegexRules
         ).temporary,
+        reasoning: input.reasoning,
+        providerSettings: input.providerSettings,
       }
 
       if (existing) {
@@ -388,6 +415,30 @@ class SettingsStore {
       return true
     } catch (ex) {
       this.error = ex instanceof Error ? ex.message : 'Failed to save preset'
+      return false
+    } finally {
+      this.presetSaving = false
+    }
+  }
+
+  async duplicatePreset(preset: AppSchema.UserGenPreset, name: string): Promise<boolean> {
+    this.presetSaving = true
+    this.error = ''
+    try {
+      const body: Record<string, any> = structuredClone(preset)
+      delete body._id
+      delete body.userId
+      delete body.kind
+      delete body.updatedAt
+      delete body.thirdPartyKey
+      delete body.thirdPartyKeySet
+      body.name = name.trim()
+
+      const created = await api.post<AppSchema.UserGenPreset>('/user/presets', body)
+      session.presets = [...session.presets, created]
+      return true
+    } catch (ex) {
+      this.error = ex instanceof Error ? ex.message : 'Failed to duplicate preset'
       return false
     } finally {
       this.presetSaving = false

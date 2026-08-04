@@ -408,6 +408,47 @@ const deleteCharacter = handle(async ({ userId, params }) => {
   return { success: true }
 })
 
+const duplicateCharacter = handle(async ({ userId, params, body }) => {
+  assertValid({ name: 'string?' }, body)
+  const source = await store.characters.getCharacter(userId!, params.id)
+  if (!source) throw errors.NotFound
+
+  const created = await store.characters.createCharacter(userId!, {
+    name: body.name?.trim() || `${source.name} (copy)`,
+    appearance: source.appearance,
+    avatar: source.avatar,
+    persona: source.persona,
+    sampleChat: source.sampleChat,
+    greeting: source.greeting,
+    scenario: source.scenario,
+    description: source.description,
+    culture: source.culture,
+    tags: [...(source.tags ?? [])],
+    favorite: false,
+    voice: source.voice,
+    alternateGreetings: [...(source.alternateGreetings ?? [])],
+    characterBook: source.characterBook,
+    extensions: source.extensions,
+    systemPrompt: source.systemPrompt,
+    postHistoryInstructions: source.postHistoryInstructions,
+    insert: source.insert,
+    creator: source.creator,
+    characterVersion: source.characterVersion,
+    sprite: source.sprite,
+    visualType: source.visualType,
+    voiceDisabled: source.voiceDisabled,
+    imageSettings: source.imageSettings,
+    json: source.json,
+  })
+
+  const copied = await store.characters.partialUpdateCharacter(created._id, userId!, {
+    folder: source.folder,
+    assets: (source.assets ?? []).map((asset) => ({ ...asset })),
+    prefill: source.prefill,
+  })
+  return copied ?? created
+})
+
 const editCharacterFavorite = handle(async (req) => {
   const id = req.params.id
   const favorite = req.body.favorite === true
@@ -442,6 +483,7 @@ router.delete('/:id', deleteCharacter)
 router.post('/bulk-update', bulkUpdate)
 
 router.post('/', createCharacter)
+router.post('/:id/duplicate', duplicateCharacter)
 router.post('/:id/update', editPartCharacter)
 router.post('/:id', editFullCharacter)
 router.get('/:id', getCharacter)

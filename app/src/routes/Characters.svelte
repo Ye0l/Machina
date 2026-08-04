@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { MessageCircle, Pencil, Plus, Search, Upload, Users } from '@lucide/svelte'
+  import { Copy, MessageCircle, Pencil, Plus, Search, Upload, Users } from '@lucide/svelte'
   import { chats } from '/app/lib/chats.svelte'
   import { i18n } from '/app/lib/i18n.svelte'
   import { isRouterClick, router, routes } from '/app/lib/router.svelte'
@@ -48,6 +48,14 @@
   const openCharacter = async (character: CharacterSummary) => {
     const chatId = await chats.resolveChatFor(character)
     if (chatId) router.go(routes.chat(chatId))
+  }
+
+  const duplicateCharacter = async (character: CharacterSummary) => {
+    const copy = await chats.duplicateCharacter(
+      character._id,
+      i18n.t('{name} (copy)', { name: character.name })
+    )
+    if (copy) router.go(routes.character(copy._id, 'edit'))
   }
   const filteredCharacters = $derived(
     chats.characters.filter((character) => {
@@ -189,6 +197,15 @@
               {/if}
             </div>
             <div class="flex shrink-0 items-center gap-1">
+              <button
+                class="icon-button"
+                type="button"
+                aria-label={i18n.t('Duplicate {name}', { name: character.name })}
+                title={i18n.t('Duplicate')}
+                onclick={() => duplicateCharacter(character)}
+              >
+                <Copy size={17} />
+              </button>
               <a
                 class="icon-button"
                 href={routes.character(character._id, 'edit')}
