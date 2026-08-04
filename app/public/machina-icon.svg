@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Machina">
+  <rect width="512" height="512" rx="112" fill="#10151d"/>
+  <path d="M128 352V160h58l70 96 70-96h58v192h-64V258l-64 84-64-84v94z" fill="#c4b5fd"/>
+  <circle cx="256" cy="256" r="210" fill="none" stroke="#8b5cf6" stroke-width="18" opacity=".55"/>
+</svg>
