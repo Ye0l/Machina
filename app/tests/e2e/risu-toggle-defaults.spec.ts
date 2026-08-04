@@ -23,8 +23,14 @@ test('saves the current chat toggle values as preset defaults', async ({ app, st
 
   await app.goto('/chat/chat-1')
   await app.getByRole('button', { name: 'Prompt toggles' }).click()
-  await app.getByLabel('Mode').selectOption('1')
-  await app.getByRole('button', { name: 'Use as defaults' }).click()
+
+  const panel = app.getByRole('region', { name: 'Prompt toggles' })
+  await expect(panel).toBeVisible()
+  await panel.getByLabel('Mode').selectOption('1')
+
+  const saveDefaults = panel.getByRole('button', { name: 'Use as defaults' })
+  await saveDefaults.scrollIntoViewIfNeeded()
+  await saveDefaults.click()
 
   await expect.poll(() => stub.state.presetUpdates.length).toBe(1)
   expect(stub.state.presetUpdates[0].body.temporary.risuPromptToggles.defaults).toEqual({
