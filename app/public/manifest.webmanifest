@@ -1,0 +1,22 @@
+{
+  "name": "Machina",
+  "short_name": "Machina",
+  "description": "Machina AI Roleplay Chat",
+  "id": "/",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "display_override": ["window-controls-overlay", "standalone", "minimal-ui"],
+  "orientation": "any",
+  "background_color": "#090d13",
+  "theme_color": "#10151d",
+  "categories": ["entertainment", "productivity"],
+  "icons": [
+    {
+      "src": "/machina-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
