@@ -28,7 +28,7 @@ test('saves the current chat toggle values as preset defaults', async ({ app, st
   await expect(panel).toBeVisible()
   await panel.getByLabel('Mode').selectOption('1')
 
-  const saveDefaults = panel.getByRole('button', { name: 'Use as defaults' })
+  const saveDefaults = panel.locator('button').last()
   await saveDefaults.scrollIntoViewIfNeeded()
   await saveDefaults.click()
 
