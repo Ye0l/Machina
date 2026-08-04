@@ -36,7 +36,7 @@ replaceAll(
 replaceOnce(
   'app/tests/e2e/assets.spec.ts',
   "    expect(prompt).toContain('{{asset::name}}')\n    expect(prompt).toContain('- smiling')\n  })",
-  "    expect(prompt).toContain('{{asset::name}}')\n    expect(prompt).toContain('- smiling')\n\n    const request = stub.state.inferenceRequests.at(-1)\n    const structured = request?.messages.map((message) => message.content).join('\\n') ?? ''\n    expect(structured).toContain('{{asset::name}}')\n    expect(structured).toContain('- smiling')\n    expect(structured).toContain('Aria can show an image')\n  })",
+  "    expect(prompt).toContain('{{asset::name}}')\n    expect(prompt).toContain('- smiling')\n\n    const request = stub.state.inferenceRequests.at(-1)\n    const structured =\n      request?.messages\n        .map((message: { content: string }) => message.content)\n        .join('\\n') ?? ''\n    expect(structured).toContain('{{asset::name}}')\n    expect(structured).toContain('- smiling')\n    expect(structured).toContain('Aria can show an image')\n  })",
   'E2E structured request assertion'
 )
 
