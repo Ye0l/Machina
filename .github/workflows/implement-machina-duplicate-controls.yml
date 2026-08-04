@@ -28,10 +28,12 @@ jobs:
 
       - name: Apply feature patches
         run: |
+          python .github/scripts/fix-header-patch-marker.py
           python .github/scripts/patch-header-controls-v2.py
           python .github/scripts/patch-duplicate-entities-v2.py
           python .github/scripts/patch-preset-settings-v2.py
           python .github/scripts/patch-provider-payloads-i18n-v2.py
+          rm -f .github/scripts/fix-header-patch-marker.py
           rm -f .github/scripts/patch-header-controls-v2.py
           rm -f .github/scripts/patch-duplicate-entities-v2.py
           rm -f .github/scripts/patch-preset-settings-v2.py
