@@ -1,5 +1,6 @@
 from pathlib import Path
 
+# Align the AppShell import marker with the current file.
 p = Path('.github/scripts/patch-header-controls-v2.py')
 s = p.read_text()
 old = '''s = replace_once(
@@ -18,4 +19,13 @@ new = '''s = replace_once(
 '''
 if old not in s:
     raise SystemExit('header patch marker block not found')
+p.write_text(s.replace(old, new, 1))
+
+# Keep the Svelte textarea placeholder on one source line.
+p = Path('.github/scripts/patch-preset-settings-v2.py')
+s = p.read_text()
+old = r'''                    placeholder={'{\n  "top_p": 0.9,\n  "seed": 42\n}'}'''
+new = '''                    placeholder='{"top_p": 0.9, "seed": 42}' '''.rstrip()
+if old not in s:
+    raise SystemExit('custom parameter placeholder marker not found')
 p.write_text(s.replace(old, new, 1))
