@@ -1,0 +1,44 @@
+name: Apply duplicate and header controls
+
+on:
+  push:
+    branches:
+      - feat/duplicate-entities-header-controls
+    paths:
+      - .github/workflows/apply-duplicate-header-controls.yml
+
+permissions:
+  contents: write
+
+jobs:
+  implement:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/duplicate-entities-header-controls
+          fetch-depth: 0
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.34.5
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: |
+          python .github/scripts/patch-header-controls.py
+          python .github/scripts/patch-duplicate-settings.py
+          python .github/scripts/patch-duplicate-library.py
+          rm -f .github/scripts/patch-header-controls.py .github/scripts/patch-duplicate-settings.py .github/scripts/patch-duplicate-library.py
+          rm -f .github/workflows/apply-duplicate-header-controls.yml
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm exec prettier --write app/src/shared/AppShell.svelte app/src/routes/Chat.svelte app/src/shared/RisuTogglePanel.svelte app/src/routes/Settings.svelte app/src/routes/Personas.svelte app/src/routes/Characters.svelte app/src/shared/Sidebar.svelte app/src/lib/i18n.svelte.ts package.json
+      - run: pnpm run typecheck
+      - run: pnpm run test:unit
+      - name: Commit implementation
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add -A
+          git commit -m "feat: duplicate entities and move chat controls into headers"
+          git push origin HEAD:feat/duplicate-entities-header-controls
