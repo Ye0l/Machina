@@ -26,7 +26,7 @@ test('can hide partial streaming text while generation continues', async ({ app,
       updatedAt: new Date().toISOString(),
     },
   ]
-  stub.state.inferenceDelayMs = 400
+  stub.state.inferenceDelayMs = 1_000
   stub.state.inferenceResponse = 'Completed without visible partial output.'
 
   await app.goto('/settings/display')
