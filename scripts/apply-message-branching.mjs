@@ -666,3 +666,4 @@ pkg.version = '1.0.37'
 write(pkgPath, `${JSON.stringify(pkg, null, 2)}\n`)
 
 console.log('Message branching, tail deletion, dynamic history, and theme audit patch applied.')
+// Triggered after the workflow was committed.
