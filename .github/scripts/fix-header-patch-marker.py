@@ -29,3 +29,11 @@ new = r'''                    placeholder=\"top_p: 0.9, seed: 42\"'''
 if old not in s:
     raise SystemExit('custom parameter placeholder marker not found')
 p.write_text(s.replace(old, new, 1))
+
+# Reuse the existing Medium translation rather than creating a duplicate object key.
+p = Path('.github/scripts/patch-provider-payloads-i18n-v2.py')
+s = p.read_text()
+needle = "  Medium: '중간',\n"
+if needle not in s:
+    raise SystemExit('Medium translation marker not found')
+p.write_text(s.replace(needle, '', 1))
