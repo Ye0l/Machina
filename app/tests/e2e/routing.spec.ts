@@ -80,7 +80,7 @@ test.describe('navigation', () => {
   test('sidebar entries are real anchors', async ({ app }) => {
     await app.goto('/')
     await waitForLibrary(app)
-    await expect(app.locator('a:has-text("AI settings")')).toHaveAttribute('href', '/settings')
+    await expect(app.getByRole('link', { name: 'Settings' })).toHaveAttribute('href', '/settings')
   })
 
   test('the desktop sidebar collapses, persists, and expands again', async ({ app }) => {
@@ -89,19 +89,19 @@ test.describe('navigation', () => {
 
     await app.getByRole('button', { name: 'Collapse sidebar' }).click()
     await expect(app.getByRole('button', { name: 'Expand sidebar' })).toBeVisible()
-    await expect(app.locator('a:has-text("AI settings"):visible')).toHaveCount(0)
+    await expect(app.getByRole('link', { name: 'Settings' })).toHaveCount(0)
 
     await app.reload()
     await expect(app.getByRole('button', { name: 'Expand sidebar' })).toBeVisible()
     await app.getByRole('button', { name: 'Expand sidebar' }).click()
-    await expect(app.locator('a:has-text("AI settings"):visible')).toBeVisible()
+    await expect(app.getByRole('link', { name: 'Settings' })).toBeVisible()
   })
 
   test('back returns to the previous chat and re-renders it', async ({ app }) => {
     await app.goto('/chat/chat-1')
     await expect(app.getByText('Greetings from Aria.')).toBeVisible()
 
-    await app.click('a:has-text("AI settings")')
+    await app.getByRole('link', { name: 'Settings' }).click()
     await expect(app).toHaveURL(/\/settings$/)
 
     await app.goBack()
