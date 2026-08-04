@@ -1,6 +1,6 @@
 import { Router } from 'express'
 import { apiKeyUsage, loggedIn } from '../auth'
-import { createChat, importChat } from './create'
+import { branchChat, createChat, importChat } from './create'
 import {
   restartChat,
   updateChat,
@@ -42,6 +42,7 @@ router.post('/:id/image', generateAppImage)
 router.post('/:id/voice', textToSpeech)
 router.get('/', getAllChats)
 router.post('/:id/restart', restartChat)
+router.post('/:id/branch', branchChat)
 router.get('/invites', getInvites)
 router.get('/:id/messages', getMessages)
 router.get('/:id', getChatDetail)

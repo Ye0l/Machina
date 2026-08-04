@@ -1,5 +1,6 @@
 import type {
   CharacterSummary,
+  BranchChatResponse,
   ChatDetailResponse,
   ChatSummary,
   DeleteChatResponse,
@@ -617,30 +618,69 @@ class Chats {
     }
   }
 
-  /**
-   * Deletes a message and relinks survivors (`DELETE /chat/:chatId/messages-v2`). `:id` =
-   * CHAT id. The server returns the re-parented survivors + new leaf; applied locally
-   * rather than re-fetching the whole chat.
-   */
-  async deleteMessage(messageId: string) {
+  /** Creates a separate chat containing the path from the root through `messageId`. */
+  async branchFrom(messageId: string) {
     const detail = this.detail
-    if (!detail) return
+    if (!detail || this.generating) return
+    this.error = ''
+    try {
+      const result = await api.post<BranchChatResponse>(`/chat/${detail.chat._id}/branch`, {
+        messageId,
+      })
+      this.chats = [result.chat, ...this.chats.filter((chat) => chat._id !== result.chat._id)]
+      return result.chat._id
+    } catch (ex) {
+      this.error = ex instanceof Error ? ex.message : 'Failed to branch chat'
+    }
+  }
+
+  /** Deletes one message or the selected message and every later visible turn. */
+  async deleteMessage(messageId: string, scope: 'single' | 'tail' = 'single') {
+    const detail = this.detail
+    if (!detail) return false
+    const index = this.messages.findIndex((message) => message._id === messageId)
+    if (index === -1) return false
+
+    const ids =
+      scope === 'tail' ? this.messages.slice(index).map((message) => message._id) : [messageId]
+    const deleted = new Set(ids)
     const leafId = detail.chat.treeLeafId ?? this.messages.at(-1)?._id ?? ''
     this.error = ''
     try {
       const res = await api.del<DeleteMessagesResponse>(`/chat/${detail.chat._id}/messages-v2`, {
-        ids: [messageId],
+        ids,
         leafId,
       })
-      const links = new Map(res.messages.map((m) => [m._id, m.parent]))
-      this.messages = this.messages
-        .filter((m) => m._id !== messageId)
-        .map((m) => (links.has(m._id) ? { ...m, parent: links.get(m._id) } : m))
-      if (res.chat.treeLeafId !== undefined) {
-        this.detail = { ...detail, chat: { ...detail.chat, treeLeafId: res.chat.treeLeafId } }
+      const links = new Map(res.messages.map((message) => [message._id, message.parent]))
+      const remaining = this.messages
+        .filter((message) => !deleted.has(message._id))
+        .map((message) =>
+          links.has(message._id) ? { ...message, parent: links.get(message._id) } : message
+        )
+      this.setMessages(remaining)
+
+      const positions = { ...this.variantPositions }
+      const requests = { ...this.generationRequests }
+      for (const id of ids) {
+        delete positions[id]
+        delete requests[id]
       }
+      this.variantPositions = positions
+      this.generationRequests = requests
+
+      if (this.detail) {
+        this.detail = {
+          ...this.detail,
+          chat: {
+            ...this.detail.chat,
+            treeLeafId: res.chat.treeLeafId ?? remaining.at(-1)?._id ?? '',
+          },
+        }
+      }
+      return true
     } catch (ex) {
       this.error = ex instanceof Error ? ex.message : 'Failed to delete message'
+      return false
     }
   }
 

@@ -253,6 +253,30 @@ export async function getChatMessages(chat: AppSchema.Chat) {
   return messages
 }
 
+/** Clones one resolved conversation path into a new chat with fresh ids and parents. */
+export async function cloneMessagesToChat(messages: AppSchema.ChatMessage[], chatId: string) {
+  const idMap = new Map(messages.map((message) => [message._id, v4()]))
+  const startedAt = Date.now()
+  const cloned: AppSchema.ChatMessage[] = messages.map((message, index) => {
+    const timestamp = new Date(startedAt + index).toISOString()
+    const copy: AppSchema.ChatMessage = {
+      ...message,
+      _id: idMap.get(message._id)!,
+      chatId,
+      parent: message.parent ? idMap.get(message.parent) : undefined,
+      createdAt: timestamp,
+      updatedAt: timestamp,
+    }
+    delete copy.first
+    delete copy.reasoning
+    delete copy.deleted
+    return copy
+  })
+
+  if (cloned.length) await db('chat-message').insertMany(cloned)
+  return { messages: cloned, idMap }
+}
+
 /**
  *
  * @param chatId
