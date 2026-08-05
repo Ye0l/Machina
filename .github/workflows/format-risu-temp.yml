@@ -33,12 +33,12 @@ jobs:
           git rm -r web
           rm -f .github/scripts/apply-readme-risu-legacy-cleanup.py
           rm -f .github/workflows/apply-readme-risu-legacy-cleanup.yml
-          rm -f .github/cleanup-trigger .github/cleanup-trigger-2
+          rm -f .github/cleanup-trigger .github/cleanup-trigger-2 .github/cleanup-trigger-3 .github/cleanup-trigger-4
       - name: Refresh lockfile and format
         run: |
-          pnpm install --lockfile-only
+          pnpm install --no-frozen-lockfile
           pnpm exec prettier --write README.md package.json tsconfig.json app/src/shared/AppShell.svelte app/src/shared/RisuImportButton.svelte app/src/routes/Settings.svelte
-      - name: Install and verify
+      - name: Verify
         run: |
           pnpm install --frozen-lockfile
           pnpm run check
