@@ -54,6 +54,7 @@ import {
   deleteFeatherlessKey,
   saveProvider,
   deleteProvider,
+  duplicateProvider,
   removeProviderKey,
   upsertImageProvider,
 } from './settings'
@@ -69,6 +70,7 @@ router.post('/login', login)
 router.post('/reset-password', resetPassword)
 router.post('/register', register)
 router.post('/provider', loggedIn, saveProvider)
+router.post('/provider/:id/duplicate', loggedIn, duplicateProvider)
 router.delete('/provider-key', loggedIn, removeProviderKey)
 router.delete('/provider', loggedIn, deleteProvider)
 router.post('/services/novel', novelLogin)

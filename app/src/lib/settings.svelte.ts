@@ -272,14 +272,8 @@ class SettingsStore {
     this.providerSaving = true
     this.error = ''
     try {
-      const user = await api.post<AppSchema.User>('/user/provider', {
-        _id: '',
+      const user = await api.post<AppSchema.User>(`/user/provider/${provider._id}/duplicate`, {
         name: name.trim(),
-        provider: provider.provider,
-        url: provider.url,
-        key: '',
-        subFormat: provider.subFormat,
-        format: provider.format,
       })
       session.user = user
       return true
