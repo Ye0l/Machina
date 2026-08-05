@@ -16,12 +16,12 @@
     <link rel="icon" href="/machina-icon.svg" type="image/svg+xml" />
     <link rel="apple-touch-icon" href="/machina-icon.svg" />
     <script>
-      ;(() => {
+      (() => {
         const standalone =
           window.matchMedia('(display-mode: standalone)').matches ||
-          window.navigator.standalone === true
-        if (standalone) document.documentElement.classList.add('standalone')
-      })()
+          window.navigator.standalone === true;
+        if (standalone) document.documentElement.classList.add('standalone');
+      })();
     </script>
     <style>
       html,
