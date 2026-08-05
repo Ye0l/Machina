@@ -18,6 +18,33 @@ test.describe('mobile layout', () => {
     await expect(app.getByRole('link', { name: 'Settings' })).toHaveCount(0)
   })
 
+  test('the installed-app drawer fills the complete viewport', async ({ app }) => {
+    await app.goto('/')
+    await app.waitForSelector('h2:text-is("Aria")')
+    await app.evaluate(() => document.documentElement.classList.add('standalone'))
+
+    await app.click('button[aria-label="Open menu"]')
+    const drawer = app.locator('aside.fixed.inset-y-0')
+    await expect(drawer).toBeVisible()
+
+    const result = await drawer.evaluate((element) => {
+      const box = element.getBoundingClientRect()
+      const bottomElement = document.elementFromPoint(10, window.innerHeight - 1)
+      return {
+        top: box.top,
+        bottom: box.bottom,
+        rootHeight: document.getElementById('root')?.getBoundingClientRect().height ?? 0,
+        viewportHeight: window.innerHeight,
+        drawerAtBottom: Boolean(bottomElement?.closest('aside.fixed.inset-y-0')),
+      }
+    })
+
+    expect(Math.abs(result.top)).toBeLessThanOrEqual(1)
+    expect(Math.abs(result.bottom - result.viewportHeight)).toBeLessThanOrEqual(1)
+    expect(Math.abs(result.rootHeight - result.viewportHeight)).toBeLessThanOrEqual(1)
+    expect(result.drawerAtBottom).toBe(true)
+  })
+
   // Chat controls must not consume vertical space until the user explicitly asks for them.
   test('does not reserve space for a mobile chat title header', async ({ app }) => {
     await app.goto('/chat/chat-1')
