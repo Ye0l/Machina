@@ -15,13 +15,60 @@
     <link rel="manifest" href="/manifest.webmanifest" />
     <link rel="icon" href="/machina-icon.svg" type="image/svg+xml" />
     <link rel="apple-touch-icon" href="/machina-icon.svg" />
+    <script>
+      ;(() => {
+        const standalone =
+          window.matchMedia('(display-mode: standalone)').matches ||
+          window.navigator.standalone === true
+        if (standalone) document.documentElement.classList.add('standalone')
+      })()
+    </script>
     <style>
+      html,
+      body,
+      #root {
+        width: 100%;
+        height: 100dvh;
+        min-height: 100dvh;
+      }
+
       html,
       body {
         overflow: hidden;
         overscroll-behavior: none;
         touch-action: pan-x pan-y;
         -webkit-text-size-adjust: 100%;
+      }
+
+      /*
+       * Installed iOS web apps with viewport-fit=cover can resolve %, svh and dvh to the
+       * usable viewport minus the top safe area. In standalone mode 100vh is the one unit
+       * that still spans the physical screen, so use it for the app root and fixed overlays.
+       */
+      html.standalone,
+      html.standalone body,
+      html.standalone #root {
+        height: 100vh;
+        min-height: 100vh;
+        max-height: 100vh;
+      }
+
+      html.standalone button.fixed.inset-0,
+      html.standalone aside.fixed.inset-y-0 {
+        top: 0 !important;
+        bottom: auto !important;
+        height: 100vh !important;
+      }
+
+      /* Keep drawer controls clear of the Dynamic Island and home indicator while its
+         background still fills the complete screen. */
+      html.standalone aside.fixed.inset-y-0 > div > div:first-child {
+        height: calc(4rem + env(safe-area-inset-top)) !important;
+        padding-top: env(safe-area-inset-top) !important;
+      }
+
+      html.standalone aside.fixed.inset-y-0 > div > div:last-child {
+        padding-bottom: calc(0.75rem + env(safe-area-inset-bottom)) !important;
       }
 
       @media (max-width: 767px) {
