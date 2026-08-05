@@ -30,10 +30,11 @@ jobs:
           path.write_text(re.sub(r'/\*.*?\*/', '', path.read_text(), flags=re.S), encoding='utf-8')
           PY
           python .github/scripts/apply-readme-risu-legacy-cleanup.py
+          sed -i '/^[[:space:]]*Upload,$/d' app/src/routes/Settings.svelte
           git rm -r web
           rm -f .github/scripts/apply-readme-risu-legacy-cleanup.py
           rm -f .github/workflows/apply-readme-risu-legacy-cleanup.yml
-          rm -f .github/cleanup-trigger .github/cleanup-trigger-2 .github/cleanup-trigger-3 .github/cleanup-trigger-4
+          rm -f .github/cleanup-trigger .github/cleanup-trigger-2 .github/cleanup-trigger-3 .github/cleanup-trigger-4 .github/cleanup-trigger-5
       - name: Refresh lockfile and format
         run: |
           pnpm install --no-frozen-lockfile
