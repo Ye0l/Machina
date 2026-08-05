@@ -425,16 +425,10 @@ class SettingsStore {
     this.presetSaving = true
     this.error = ''
     try {
-      const body: Record<string, any> = structuredClone(preset)
-      delete body._id
-      delete body.userId
-      delete body.kind
-      delete body.updatedAt
-      delete body.thirdPartyKey
-      delete body.thirdPartyKeySet
-      body.name = name.trim()
-
-      const created = await api.post<AppSchema.UserGenPreset>('/user/presets', body)
+      const created = await api.post<AppSchema.UserGenPreset>(
+        `/user/presets/${preset._id}/duplicate`,
+        { name: name.trim() }
+      )
       session.presets = [...session.presets, created]
       return true
     } catch (ex) {

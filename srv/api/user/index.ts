@@ -17,6 +17,7 @@ import {
 } from './auth'
 import {
   createUserPreset,
+  duplicateUserPreset,
   getUserPresets,
   updateUserPreset,
   deleteUserPreset,
@@ -110,6 +111,7 @@ router.delete('/profile/avatar', loggedIn, removeProfileAvatar)
 router.post('/preset-models', getThirdPartyPresetModels)
 router.post('/preset-test', testConnectionUrl)
 router.post('/presets', loggedIn, createUserPreset)
+router.post('/presets/:id/duplicate', loggedIn, duplicateUserPreset)
 router.post('/presets/:id', loggedIn, updateUserPreset)
 router.post('/templates', loggedIn, createTemplate)
 router.post('/templates/:id', loggedIn, updateTemplate)

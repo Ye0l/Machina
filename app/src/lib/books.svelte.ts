@@ -16,6 +16,10 @@ export type BookDraft = {
   description: string
   folder: string
   entries: AppSchema.MemoryEntry[]
+  scanDepth?: number
+  tokenBudget?: number
+  recursiveScanning?: boolean
+  extensions?: Record<string, any>
 }
 
 class Books {
@@ -68,6 +72,10 @@ class Books {
       description: book.description ?? '',
       folder: book.folder ?? '',
       entries: structuredClone(book.entries ?? []),
+      scanDepth: book.scanDepth,
+      tokenBudget: book.tokenBudget,
+      recursiveScanning: book.recursiveScanning,
+      extensions: structuredClone(book.extensions ?? {}),
     })
   }
 
