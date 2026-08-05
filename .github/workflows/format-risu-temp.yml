@@ -1,4 +1,4 @@
-name: Apply Machina cleanup
+name: Apply Machina fixes
 
 on:
   pull_request:
@@ -21,27 +21,17 @@ jobs:
         with:
           node-version: 22
           cache: pnpm
-      - name: Apply source changes
+      - name: Apply fixes
         run: |
-          python - <<'PY'
-          from pathlib import Path
-          import re
-          path = Path('tsconfig.json')
-          path.write_text(re.sub(r'/\*.*?\*/', '', path.read_text(), flags=re.S), encoding='utf-8')
-          PY
-          python .github/scripts/apply-readme-risu-legacy-cleanup.py
-          sed -i '/^[[:space:]]*Upload,$/d' app/src/routes/Settings.svelte
-          git rm -r web
-          rm -f .github/scripts/apply-readme-risu-legacy-cleanup.py
-          rm -f .github/workflows/apply-readme-risu-legacy-cleanup.yml
-          rm -f .github/cleanup-trigger .github/cleanup-trigger-2 .github/cleanup-trigger-3 .github/cleanup-trigger-4 .github/cleanup-trigger-5
-      - name: Refresh lockfile and format
-        run: |
-          pnpm install --no-frozen-lockfile
-          pnpm exec prettier --write README.md package.json tsconfig.json app/src/shared/AppShell.svelte app/src/shared/RisuImportButton.svelte app/src/routes/Settings.svelte
-      - name: Verify
+          python .github/scripts/fix-collapsed-sidebar-duplicates.py
+          rm .github/scripts/fix-collapsed-sidebar-duplicates.py
+          rm -f .github/fix-trigger
+      - name: Install and format
         run: |
           pnpm install --frozen-lockfile
+          pnpm exec prettier --write app/src/shared/AppShell.svelte app/src/lib/settings.svelte.ts app/src/lib/books.svelte.ts srv/api/user/presets.ts srv/api/user/index.ts
+      - name: Verify
+        run: |
           pnpm run check
           pnpm run build
       - name: Commit implementation
@@ -49,5 +39,5 @@ jobs:
           git config user.name github-actions[bot]
           git config user.email 41898282+github-actions[bot]@users.noreply.github.com
           git add -A
-          git commit -m "docs: describe Machina and remove legacy frontend"
+          git commit -m "fix: keep collapsed navigation and clone presets reliably"
           git push origin HEAD:chore/readme-risu-ui-remove-legacy
