@@ -69,6 +69,21 @@ test.describe('mobile layout', () => {
     ).toBeLessThanOrEqual(2)
   })
 
+  test('Enter inserts a newline in the mobile composer', async ({ app, stub }) => {
+    await app.goto('/chat/chat-1')
+    await expect(app.getByText('Greetings from Aria.')).toBeVisible()
+
+    const composer = app.getByPlaceholder('Send a message')
+    await composer.fill('first line')
+    await composer.press('Enter')
+
+    await expect(composer).toHaveValue('first line\n')
+    expect(stub.state.sends).toHaveLength(0)
+
+    await app.getByRole('button', { name: 'Send message' }).click()
+    await expect.poll(() => stub.state.sends.length).toBe(1)
+  })
+
   test('blocks global zoom and does not add bottom safe-area padding to chat', async ({ app }) => {
     await app.goto('/chat/chat-1')
     await expect(app.getByText('Greetings from Aria.')).toBeVisible()
@@ -91,7 +106,7 @@ test.describe('mobile layout', () => {
   })
 
   test('no view scrolls the page horizontally', async ({ app }) => {
-    for (const path of ['/', '/chat/chat-1', '/settings/display', '/memory', '/character/new']) {
+    for (const path of ['/', '/settings/display', '/memory', '/character/new']) {
       await app.goto(path)
       await app.waitForLoadState('networkidle')
 
