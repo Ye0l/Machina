@@ -22,9 +22,9 @@ old = '''        <div class="mt-auto border-t border-neutral-800/80 p-2">
         </div>'''
 new = '''        <nav class="flex flex-1 flex-col items-center gap-1 py-3" aria-label="Primary navigation">
           <a
-            class="icon-button"
-            class:bg-violet-500/15={inCharacters}
-            class:text-violet-300={inCharacters}
+            class={inCharacters
+              ? 'icon-button bg-violet-500/15 text-violet-300'
+              : 'icon-button'}
             href={routes.newCharacter()}
             aria-label={i18n.t('New character')}
             title={i18n.t('New character')}
@@ -36,9 +36,9 @@ new = '''        <nav class="flex flex-1 flex-col items-center gap-1 py-3" aria-
             <Plus size={19} />
           </a>
           <a
-            class="icon-button"
-            class:bg-violet-500/15={inCharacters}
-            class:text-violet-300={inCharacters}
+            class={inCharacters
+              ? 'icon-button bg-violet-500/15 text-violet-300'
+              : 'icon-button'}
             href={routes.characters()}
             aria-current={inCharacters ? 'page' : undefined}
             aria-label={i18n.t('Characters')}
@@ -51,9 +51,7 @@ new = '''        <nav class="flex flex-1 flex-col items-center gap-1 py-3" aria-
             <Users size={19} />
           </a>
           <a
-            class="icon-button"
-            class:bg-violet-500/15={inBooks}
-            class:text-violet-300={inBooks}
+            class={inBooks ? 'icon-button bg-violet-500/15 text-violet-300' : 'icon-button'}
             href={routes.books()}
             aria-current={inBooks ? 'page' : undefined}
             aria-label={i18n.t('Memory books')}
@@ -66,9 +64,9 @@ new = '''        <nav class="flex flex-1 flex-col items-center gap-1 py-3" aria-
             <BookOpen size={19} />
           </a>
           <a
-            class="icon-button"
-            class:bg-violet-500/15={inPersonas}
-            class:text-violet-300={inPersonas}
+            class={inPersonas
+              ? 'icon-button bg-violet-500/15 text-violet-300'
+              : 'icon-button'}
             href={routes.personas()}
             aria-current={inPersonas ? 'page' : undefined}
             aria-label={i18n.t('Personas')}
@@ -81,9 +79,9 @@ new = '''        <nav class="flex flex-1 flex-col items-center gap-1 py-3" aria-
             <UserRound size={19} />
           </a>
           <a
-            class="icon-button"
-            class:bg-violet-500/15={route.name === 'settings'}
-            class:text-violet-300={route.name === 'settings'}
+            class={route.name === 'settings'
+              ? 'icon-button bg-violet-500/15 text-violet-300'
+              : 'icon-button'}
             href={routes.settings()}
             aria-current={route.name === 'settings' ? 'page' : undefined}
             aria-label={i18n.t('Settings')}
