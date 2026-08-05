@@ -176,7 +176,7 @@ s = s.replace(
 )
 path.write_text(s, encoding='utf-8')
 
-# Memory book duplication now preserves book-level V2 options supported by the create endpoint.
+# Memory book duplication preserves the book-level V2 fields present in the schema.
 path = root / 'app/src/lib/books.svelte.ts'
 s = path.read_text(encoding='utf-8')
 s = s.replace(
@@ -194,8 +194,7 @@ s = s.replace(
   scanDepth?: number
   tokenBudget?: number
   recursiveScanning?: boolean
-  caseSensitive?: boolean
-  matchWholeWords?: boolean
+  extensions?: Record<string, any>
 }'''
 )
 s = s.replace(
@@ -205,8 +204,7 @@ s = s.replace(
       scanDepth: book.scanDepth,
       tokenBudget: book.tokenBudget,
       recursiveScanning: book.recursiveScanning,
-      caseSensitive: book.caseSensitive,
-      matchWholeWords: book.matchWholeWords,
+      extensions: structuredClone(book.extensions ?? {}),
     })'''
 )
 path.write_text(s, encoding='utf-8')
