@@ -89,10 +89,12 @@ test.describe('navigation', () => {
 
     await app.getByRole('button', { name: 'Collapse sidebar' }).click()
     await expect(app.getByRole('button', { name: 'Expand sidebar' })).toBeVisible()
-    await expect(app.getByRole('link', { name: 'Settings' })).toHaveCount(0)
+    await expect(app.getByRole('link', { name: 'Settings' })).toBeVisible()
+    await expect(app.getByRole('link', { name: 'Settings' })).toHaveAttribute('href', '/settings')
 
     await app.reload()
     await expect(app.getByRole('button', { name: 'Expand sidebar' })).toBeVisible()
+    await expect(app.getByRole('link', { name: 'Settings' })).toBeVisible()
     await app.getByRole('button', { name: 'Expand sidebar' }).click()
     await expect(app.getByRole('link', { name: 'Settings' })).toBeVisible()
   })
