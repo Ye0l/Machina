@@ -23,11 +23,17 @@ jobs:
           cache: pnpm
       - name: Apply source changes
         run: |
+          python - <<'PY'
+          from pathlib import Path
+          import re
+          path = Path('tsconfig.json')
+          path.write_text(re.sub(r'/\*.*?\*/', '', path.read_text(), flags=re.S), encoding='utf-8')
+          PY
           python .github/scripts/apply-readme-risu-legacy-cleanup.py
           git rm -r web
           rm -f .github/scripts/apply-readme-risu-legacy-cleanup.py
           rm -f .github/workflows/apply-readme-risu-legacy-cleanup.yml
-          rm -f .github/cleanup-trigger
+          rm -f .github/cleanup-trigger .github/cleanup-trigger-2
       - name: Refresh lockfile and format
         run: |
           pnpm install --lockfile-only
