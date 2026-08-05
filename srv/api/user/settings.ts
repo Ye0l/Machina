@@ -363,6 +363,29 @@ export const upsertImageProvider = handle(async (req) => {
   return next
 })
 
+export const duplicateProvider = handle(async ({ userId, params, body }) => {
+  assertValid({ name: 'string' }, body)
+  const user = await getUser(userId!)
+  if (!user) throw errors.Forbidden
+
+  const source = user.providers?.find((provider) => provider._id === params.id)
+  if (!source) throw new StatusError('Provider not found', 404)
+
+  const name = body.name.trim()
+  if (!name) throw new StatusError('A provider requires a name', 400)
+
+  const providers = [
+    ...(user.providers ?? []),
+    {
+      ...source,
+      _id: v4(),
+      name,
+    },
+  ]
+  await store.users.updateUser(userId!, { providers })
+  return toSafeUser({ ...user, providers })
+})
+
 export const saveProvider = handle(async ({ userId, body }) => {
   assertStrict(
     {

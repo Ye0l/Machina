@@ -272,14 +272,8 @@ class SettingsStore {
     this.providerSaving = true
     this.error = ''
     try {
-      const user = await api.post<AppSchema.User>('/user/provider', {
-        _id: '',
+      const user = await api.post<AppSchema.User>(`/user/provider/${provider._id}/duplicate`, {
         name: name.trim(),
-        provider: provider.provider,
-        url: provider.url,
-        key: '',
-        subFormat: provider.subFormat,
-        format: provider.format,
       })
       session.user = user
       return true
@@ -425,16 +419,10 @@ class SettingsStore {
     this.presetSaving = true
     this.error = ''
     try {
-      const body: Record<string, any> = structuredClone(preset)
-      delete body._id
-      delete body.userId
-      delete body.kind
-      delete body.updatedAt
-      delete body.thirdPartyKey
-      delete body.thirdPartyKeySet
-      body.name = name.trim()
-
-      const created = await api.post<AppSchema.UserGenPreset>('/user/presets', body)
+      const created = await api.post<AppSchema.UserGenPreset>(
+        `/user/presets/${preset._id}/duplicate`,
+        { name: name.trim() }
+      )
       session.presets = [...session.presets, created]
       return true
     } catch (ex) {

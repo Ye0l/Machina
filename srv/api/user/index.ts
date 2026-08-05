@@ -17,6 +17,7 @@ import {
 } from './auth'
 import {
   createUserPreset,
+  duplicateUserPreset,
   getUserPresets,
   updateUserPreset,
   deleteUserPreset,
@@ -53,6 +54,7 @@ import {
   deleteFeatherlessKey,
   saveProvider,
   deleteProvider,
+  duplicateProvider,
   removeProviderKey,
   upsertImageProvider,
 } from './settings'
@@ -68,6 +70,7 @@ router.post('/login', login)
 router.post('/reset-password', resetPassword)
 router.post('/register', register)
 router.post('/provider', loggedIn, saveProvider)
+router.post('/provider/:id/duplicate', loggedIn, duplicateProvider)
 router.delete('/provider-key', loggedIn, removeProviderKey)
 router.delete('/provider', loggedIn, deleteProvider)
 router.post('/services/novel', novelLogin)
@@ -110,6 +113,7 @@ router.delete('/profile/avatar', loggedIn, removeProfileAvatar)
 router.post('/preset-models', getThirdPartyPresetModels)
 router.post('/preset-test', testConnectionUrl)
 router.post('/presets', loggedIn, createUserPreset)
+router.post('/presets/:id/duplicate', loggedIn, duplicateUserPreset)
 router.post('/presets/:id', loggedIn, updateUserPreset)
 router.post('/templates', loggedIn, createTemplate)
 router.post('/templates/:id', loggedIn, updateTemplate)

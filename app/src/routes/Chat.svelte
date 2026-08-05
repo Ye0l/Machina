@@ -308,8 +308,11 @@
     if (visibleStart > count) visibleStart = findMessageWindowStart(chats.messages)
   })
 
+  let controlsChatId = ''
   $effect(() => {
-    detail.chat._id
+    const chatId = detail.chat._id
+    if (controlsChatId === chatId) return
+    controlsChatId = chatId
     wasAtBottom = true
     chatControls.closeAll()
   })

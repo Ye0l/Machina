@@ -5,7 +5,6 @@
   import type { AppSchema } from '/common/types'
   import { api } from '/app/lib/api'
   import { i18n } from '/app/lib/i18n.svelte'
-  import { router } from '/app/lib/router.svelte'
   import { serviceForProvider } from '/app/lib/settings.svelte'
   import { session } from '/app/lib/session.svelte'
 
@@ -13,8 +12,6 @@
   let importing = $state(false)
   let message = $state('')
 
-  const route = $derived(router.route)
-  const visible = $derived(route.name === 'settings' && route.tab === 'presets')
   const providers = $derived(session.user?.providers ?? [])
 
   async function chooseFile(event: Event) {
@@ -64,33 +61,25 @@
   }
 </script>
 
-{#if visible}
-  <div
-    class="fixed bottom-5 left-5 z-30 flex max-w-[min(28rem,calc(100vw-2rem))] flex-col items-start gap-2"
+<div class="flex flex-col items-end gap-2">
+  <input
+    bind:this={input}
+    class="hidden"
+    type="file"
+    accept=".risup,.risupreset,application/octet-stream"
+    onchange={chooseFile}
+  />
+  <button
+    class="button-secondary"
+    type="button"
+    disabled={!providers.length || importing}
+    title={!providers.length ? i18n.t('Add a provider before importing a preset.') : undefined}
+    onclick={() => input?.click()}
   >
-    {#if message}
-      <p
-        class="rounded-lg border border-neutral-700 bg-[#10151d]/95 px-3 py-2 text-xs text-neutral-200 shadow-xl backdrop-blur"
-        aria-live="polite"
-      >
-        {message}
-      </p>
-    {/if}
-    <input
-      bind:this={input}
-      class="hidden"
-      type="file"
-      accept=".risup,.risupreset,application/octet-stream"
-      onchange={chooseFile}
-    />
-    <button
-      class="button-secondary shadow-xl"
-      type="button"
-      disabled={!providers.length || importing}
-      onclick={() => input?.click()}
-    >
-      <Upload size={17} />
-      {importing ? i18n.t('Importing...') : i18n.t('Import RisuAI preset')}
-    </button>
-  </div>
-{/if}
+    <Upload size={17} />
+    {importing ? i18n.t('Importing...') : i18n.t('Import RisuAI preset')}
+  </button>
+  {#if message}
+    <p class="max-w-sm text-right text-xs text-neutral-400" aria-live="polite">{message}</p>
+  {/if}
+</div>

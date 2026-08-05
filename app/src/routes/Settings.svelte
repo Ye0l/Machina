@@ -78,6 +78,7 @@
     type DisplayRegexRule,
   } from '/common/display-regex'
   import type { SettingsTab } from '/app/lib/router.svelte'
+  import RisuImportButton from '/app/shared/RisuImportButton.svelte'
 
   // The visible tab is owned by the route (`/settings/:tab`) so it survives a reload and
   // can be linked to directly.
@@ -2332,6 +2333,25 @@
         </form>
       {:else}
         <!-- Preset list -->
+        <div
+          class="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-neutral-800/80 bg-neutral-900/40 p-3"
+        >
+          <div>
+            <h2 class="text-sm font-semibold text-neutral-200">{i18n.t('Generation presets')}</h2>
+            <p class="mt-0.5 text-xs text-neutral-500">
+              {i18n.t('Create a preset or import one exported from RisuAI.')}
+            </p>
+          </div>
+          <div class="flex flex-wrap items-center gap-2">
+            <RisuImportButton />
+            {#if providers.length}
+              <button class="button-primary" type="button" onclick={startAddPreset}>
+                <Plus size={17} />
+                {i18n.t('New preset')}
+              </button>
+            {/if}
+          </div>
+        </div>
         {#if !presets.length}
           <div class="flex flex-col items-center justify-center gap-3 py-16 text-center">
             <span
@@ -2345,12 +2365,6 @@
                 'A preset ties a provider to a model and sampling defaults, and is what a chat generates with.'
               )}
             </p>
-            {#if providers.length}
-              <button class="button-primary mt-1" type="button" onclick={startAddPreset}>
-                <Plus size={17} />
-                {i18n.t('New preset')}
-              </button>
-            {/if}
           </div>
         {:else}
           <ul class="view-enter space-y-2">

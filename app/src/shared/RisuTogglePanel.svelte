@@ -68,12 +68,10 @@
   })
 
   $effect(() => {
-    // Close panels that no longer have a reason to be visible after navigation or preset changes.
+    // Navigation closes the panel. Chat detail updates can briefly recalculate the active preset,
+    // so a transient missing config must not close a panel the user just opened.
     if (!settingsMode && route.name !== 'chat') {
       setupOpen = false
-      chatControls.closePrompt()
-    }
-    if (route.name === 'chat' && (!activeConfig || !interactiveDefinitions.length)) {
       chatControls.closePrompt()
     }
   })

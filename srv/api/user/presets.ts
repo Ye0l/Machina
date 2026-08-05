@@ -170,6 +170,26 @@ export const createUserPreset = handle(async ({ userId, body, authed }) => {
   return newPreset
 })
 
+export const duplicateUserPreset = handle(async ({ params, body, userId }) => {
+  assertValid({ name: 'string' }, body)
+  const source = await store.presets.getUserPresetInternal(params.id)
+  if (!source || source.userId !== userId) {
+    throw new StatusError('Preset not found', 404)
+  }
+
+  const copy: Record<string, any> = deepClone(source)
+  delete copy._id
+  delete copy.userId
+  delete copy.kind
+  delete copy.createdAt
+  delete copy.updatedAt
+  delete copy.thirdPartyKey
+  delete copy.thirdPartyKeySet
+  copy.name = body.name.trim()
+
+  return store.presets.createUserPreset(userId!, copy as AppSchema.UserGenPreset)
+})
+
 export const updateUserPreset = handle(async ({ params, body, userId }) => {
   if (!body.thirdPartyFormat?.trim()) {
     delete body.thirdPartyFormat

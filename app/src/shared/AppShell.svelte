@@ -1,5 +1,16 @@
 <script lang="ts">
-  import { Menu, PanelLeftOpen, Settings2, SlidersHorizontal } from '@lucide/svelte'
+  import {
+    BookOpen,
+    LogOut,
+    Menu,
+    PanelLeftOpen,
+    Plus,
+    Settings as SettingsIcon,
+    Settings2,
+    SlidersHorizontal,
+    UserRound,
+    Users,
+  } from '@lucide/svelte'
   import { fade, fly } from 'svelte/transition'
   import { chats } from '/app/lib/chats.svelte'
   import { books } from '/app/lib/books.svelte'
@@ -21,7 +32,6 @@
   import Settings from '/app/routes/Settings.svelte'
   import Chat from '/app/routes/Chat.svelte'
   import Sidebar from './Sidebar.svelte'
-  import RisuImportButton from './RisuImportButton.svelte'
   import RisuTogglePanel from './RisuTogglePanel.svelte'
 
   let {
@@ -56,6 +66,11 @@
       localStorage.getItem('agnai-sidebar-collapsed')) === '1'
   )
   const route = $derived(router.route)
+  const inCharacters = $derived(
+    route.name === 'characters' || route.name === 'character' || route.name === 'character-new'
+  )
+  const inBooks = $derived(route.name === 'books' || route.name === 'book')
+  const inPersonas = $derived(route.name === 'personas' || route.name === 'persona')
   /** Transition key; an editor is a state of its section, not a section of its own. */
   const current = $derived(
     route.name === 'character' || route.name === 'character-new'
@@ -115,7 +130,84 @@
             <PanelLeftOpen size={19} />
           </button>
         </div>
-        <div class="mt-auto border-t border-neutral-800/80 p-2">
+        <nav class="flex flex-1 flex-col items-center gap-1 py-3" aria-label="Primary navigation">
+          <a
+            class={inCharacters ? 'icon-button bg-violet-500/15 text-violet-300' : 'icon-button'}
+            href={routes.newCharacter()}
+            aria-label={i18n.t('New character')}
+            title={i18n.t('New character')}
+            onclick={(event) => {
+              event.preventDefault()
+              navigate(routes.newCharacter())
+            }}
+          >
+            <Plus size={19} />
+          </a>
+          <a
+            class={inCharacters ? 'icon-button bg-violet-500/15 text-violet-300' : 'icon-button'}
+            href={routes.characters()}
+            aria-current={inCharacters ? 'page' : undefined}
+            aria-label={i18n.t('Characters')}
+            title={i18n.t('Characters')}
+            onclick={(event) => {
+              event.preventDefault()
+              navigate(routes.characters())
+            }}
+          >
+            <Users size={19} />
+          </a>
+          <a
+            class={inBooks ? 'icon-button bg-violet-500/15 text-violet-300' : 'icon-button'}
+            href={routes.books()}
+            aria-current={inBooks ? 'page' : undefined}
+            aria-label={i18n.t('Memory books')}
+            title={i18n.t('Memory books')}
+            onclick={(event) => {
+              event.preventDefault()
+              navigate(routes.books())
+            }}
+          >
+            <BookOpen size={19} />
+          </a>
+          <a
+            class={inPersonas ? 'icon-button bg-violet-500/15 text-violet-300' : 'icon-button'}
+            href={routes.personas()}
+            aria-current={inPersonas ? 'page' : undefined}
+            aria-label={i18n.t('Personas')}
+            title={i18n.t('Personas')}
+            onclick={(event) => {
+              event.preventDefault()
+              navigate(routes.personas())
+            }}
+          >
+            <UserRound size={19} />
+          </a>
+          <a
+            class={route.name === 'settings'
+              ? 'icon-button bg-violet-500/15 text-violet-300'
+              : 'icon-button'}
+            href={routes.settings()}
+            aria-current={route.name === 'settings' ? 'page' : undefined}
+            aria-label={i18n.t('Settings')}
+            title={i18n.t('Settings')}
+            onclick={(event) => {
+              event.preventDefault()
+              navigate(routes.settings())
+            }}
+          >
+            <SettingsIcon size={19} />
+          </a>
+        </nav>
+        <div class="border-t border-neutral-800/80 p-2">
+          <button
+            class="icon-button mx-auto mb-2"
+            type="button"
+            aria-label={i18n.t('Sign out')}
+            title={i18n.t('Sign out')}
+            onclick={onLogout}
+          >
+            <LogOut size={18} />
+          </button>
           <span
             class="block rounded-md bg-violet-500/15 px-1 py-1.5 text-center font-mono text-[9px] font-semibold text-violet-200"
             data-testid="build-version"
@@ -250,7 +342,6 @@
   </div>
 </div>
 
-<RisuImportButton />
 <RisuTogglePanel />
 
 {#if drawerOpen}
