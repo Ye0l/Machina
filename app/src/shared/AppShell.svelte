@@ -21,7 +21,6 @@
   import Settings from '/app/routes/Settings.svelte'
   import Chat from '/app/routes/Chat.svelte'
   import Sidebar from './Sidebar.svelte'
-  import RisuImportButton from './RisuImportButton.svelte'
   import RisuTogglePanel from './RisuTogglePanel.svelte'
 
   let {
@@ -250,7 +249,6 @@
   </div>
 </div>
 
-<RisuImportButton />
 <RisuTogglePanel />
 
 {#if drawerOpen}
