@@ -1,15 +1,15 @@
 name: Apply Machina README and legacy cleanup
 
 on:
-  push:
-    branches: [chore/readme-risu-ui-remove-legacy]
+  pull_request:
+    branches: [dev]
 
 permissions:
   contents: write
 
 jobs:
   apply:
-    if: github.actor != 'github-actions[bot]'
+    if: github.head_ref == 'chore/readme-risu-ui-remove-legacy' && github.actor != 'github-actions[bot]'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -29,6 +29,7 @@ jobs:
           git rm -r web
           rm .github/scripts/apply-readme-risu-legacy-cleanup.py
           rm .github/workflows/apply-readme-risu-legacy-cleanup.yml
+          rm -f .github/cleanup-trigger
 
       - name: Refresh lockfile
         run: pnpm install --lockfile-only
