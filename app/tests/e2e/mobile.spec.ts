@@ -91,7 +91,7 @@ test.describe('mobile layout', () => {
   })
 
   test('no view scrolls the page horizontally', async ({ app }) => {
-    for (const path of ['/', '/settings/display', '/memory', '/character/new']) {
+    for (const path of ['/', '/chat/chat-1', '/settings/display', '/memory', '/character/new']) {
       await app.goto(path)
       await app.waitForLoadState('networkidle')
 

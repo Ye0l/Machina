@@ -254,6 +254,19 @@ button {
   border-top: 1px solid theme('colors.neutral.700');
 }
 
+/* Keep the edge-to-edge PWA shell while protecting controls from rounded corners and landscape notches. */
+.chat-composer-shell {
+  padding-left: max(0.75rem, env(safe-area-inset-left));
+  padding-right: max(0.75rem, env(safe-area-inset-right));
+}
+
+@media (min-width: 640px) {
+  .chat-composer-shell {
+    padding-left: max(1.25rem, env(safe-area-inset-left));
+    padding-right: max(1.25rem, env(safe-area-inset-right));
+  }
+}
+
 /* Machina semantic overrides for the few legacy arbitrary-color utilities. */
 .bg-\[\#0d1118\] {
   background-color: rgb(var(--surface-panel)) !important;
